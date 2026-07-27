@@ -718,7 +718,7 @@ function storageImageUrl(key?: string | null): string | null {
         .split("/")
         .map((segment) => encodeURIComponent(segment))
         .join("/")}`
-    : "/logo.png";
+    : "/savage-library-logo.svg";
 }
 
 async function replaceResourceRelations(

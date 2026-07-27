@@ -15,10 +15,11 @@ const typeLabels: Record<ResourceSummary["resourceType"], string> = {
 export function ResourceCard({ resource }: { resource: ResourceSummary }) {
   return (
     <article className="resource-card">
+      <span className="resource-card-accent" aria-hidden="true" />
       <div className="resource-card-top">
         <div className="resource-thumb" aria-hidden="true">
           <Image
-            src={resource.thumbnailUrl ?? "/logo.png"}
+            src={resource.thumbnailUrl ?? "/savage-library-logo.svg"}
             alt=""
             width={52}
             height={52}
@@ -78,7 +79,7 @@ export function ResourceCard({ resource }: { resource: ResourceSummary }) {
           className="button button-secondary button-small"
           href={ROUTES.resource(resource.slug)}
         >
-          View details
+          Open entry
         </Link>
       </div>
     </article>

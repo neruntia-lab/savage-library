@@ -7,7 +7,7 @@ import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const origin = await requestOrigin();
-  const socialImage = `${origin}/og.png`;
+  const socialImage = `${origin}/og-fantasy.png`;
   return {
     metadataBase: new URL(origin),
     title: {
@@ -33,7 +33,14 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: SITE_CONFIG.name,
       title: SITE_CONFIG.name,
       description: SITE_CONFIG.tagline,
-      images: [{ url: socialImage, width: 1731, height: 909 }],
+      images: [
+        {
+          url: socialImage,
+          width: 1734,
+          height: 907,
+          alt: "Savage Library — The adventurer's digital archive",
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
