@@ -1,5 +1,4 @@
 import { and, eq, sql } from "drizzle-orm";
-import { env } from "cloudflare:workers";
 import { getDb } from "../../db";
 import { ensureDatabaseSchema } from "../../db/bootstrap";
 import {
@@ -9,6 +8,7 @@ import {
   resourceVersions,
 } from "../../db/schema";
 import type { FileKind } from "../domain/resource";
+import { getFileBucketBinding } from "../platform/bindings";
 import type { AuthorizedUser } from "../services/auth";
 
 export async function storeResourceFile(input: {
@@ -19,7 +19,7 @@ export async function storeResourceFile(input: {
   uploadedBy: AuthorizedUser;
 }): Promise<{ id: string; storageKey: string }> {
   await ensureDatabaseSchema();
-  const bucket = env.FILES as R2Bucket | undefined;
+  const bucket = getFileBucketBinding();
   if (!bucket) throw new Error("File storage is unavailable.");
   const db = getDb();
   const resourceRows = await db
@@ -151,7 +151,7 @@ export async function recordDownload(input: {
 }
 
 export async function readStoredFile(storageKey: string): Promise<R2ObjectBody | null> {
-  const bucket = env.FILES as R2Bucket | undefined;
+  const bucket = getFileBucketBinding();
   if (!bucket) return null;
   return bucket.get(storageKey);
 }

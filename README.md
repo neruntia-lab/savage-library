@@ -111,18 +111,25 @@ as authorization.
 
 ## Deployment
 
-1. Set the production `ADMIN_EMAILS` and canonical site URL through hosted
-   runtime configuration.
-2. Run `npm run test:build`.
-3. Publish the validated source with Sites.
-4. Confirm the generated D1 migration was applied and the `DB` and `FILES`
-   bindings are attached.
-5. Verify public catalog access, account sign-in, an admin write, an upload, and
-   a download before announcing the release.
+The default build targets Vercel's native Next.js runtime.
 
-Sites deployments use the Cloudflare Worker-compatible output in `dist/`.
-Deployment archives must include `.openai/hosting.json` and generated Drizzle
-migrations.
+1. Import this repository into Vercel and select the `development` branch.
+2. Keep the framework preset on **Next.js**, the root directory on the
+   repository root, and the output directory on its framework default.
+3. Set `NEXT_PUBLIC_SITE_URL` to the production origin and configure
+   `ADMIN_EMAILS` only when the authenticated admin workflow is available.
+4. Run `npm run test:build`, then deploy.
+5. Verify `/`, `/library`, a resource detail route, `/sitemap.xml`, and
+   `/robots.txt`.
+
+The public catalog uses bundled seed data when no persistent database is
+configured, so it remains available on a fresh Vercel project. Database-backed
+accounts, admin writes, uploads, and download tracking require a compatible
+database and object-storage adapter.
+
+The legacy Cloudflare Worker build remains available as
+`npm run build:cloudflare` for environments that provide the expected
+Cloudflare bindings.
 
 ## Content policy
 

@@ -6,9 +6,11 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vinext dev",
-    "build": "vinext build",
-    "start": "vinext start",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "dev:cloudflare": "vinext dev",
+    "build:cloudflare": "vinext build",
     "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts",
     "test:flows": "tsx --test tests/http-flows.test.ts",
     "test:build": "npm run build && npm test && npm run test:flows",

@@ -1,5 +1,5 @@
-import { env } from "cloudflare:workers";
 import { ensureDatabaseSchema } from "../../db/bootstrap";
+import { getDatabaseBinding } from "../platform/bindings";
 
 export async function enforceRateLimit(input: {
   scope: "search" | "download" | "account" | "admin";
@@ -10,7 +10,7 @@ export async function enforceRateLimit(input: {
   | { allowed: true; remaining: number; resetAt: number }
   | { allowed: false; response: Response }
 > {
-  const database = env.DB as D1Database | undefined;
+  const database = getDatabaseBinding();
   if (!database) {
     return {
       allowed: true,
