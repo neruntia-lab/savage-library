@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1785133421844,
+      "tag": "0000_perfect_dakota_north",
+      "breakpoints": true
+    }
+  ]
+}
