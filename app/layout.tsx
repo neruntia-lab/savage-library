@@ -1,20 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import { SiteFooter } from "../components/layout/SiteFooter";
 import { SiteHeader } from "../components/layout/SiteHeader";
 import { SITE_CONFIG } from "../lib/config/site";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export async function generateMetadata(): Promise<Metadata> {
   const origin = await requestOrigin();
@@ -65,7 +54,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body>
         <a className="skip-link" href="#main-content">
           Skip to content
         </a>

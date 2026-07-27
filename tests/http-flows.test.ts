@@ -12,11 +12,11 @@ before(async () => {
   server = spawn(
     process.execPath,
     [
-      path.join(process.cwd(), "node_modules/vinext/dist/cli.js"),
-      "dev",
+      path.join(process.cwd(), "node_modules/next/dist/bin/next"),
+      "start",
       "-p",
       String(port),
-      "--host",
+      "--hostname",
       "127.0.0.1",
     ],
     {

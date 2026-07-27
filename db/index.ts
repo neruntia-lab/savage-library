@@ -1,13 +1,14 @@
-import { env } from "cloudflare:workers";
 import { drizzle } from "drizzle-orm/d1";
+import { getDatabaseBinding } from "../lib/platform/bindings";
 import * as schema from "./schema";
 
 export function getDb() {
-  if (!env.DB) {
+  const database = getDatabaseBinding();
+  if (!database) {
     throw new Error(
-      "Cloudflare D1 binding `DB` is unavailable. Set the `d1` field in .openai/hosting.json to `DB` or let your control plane inject the real binding values before using the database."
+      "A database binding is unavailable. Public catalog reads will use bundled seed data until persistent storage is configured."
     );
   }
 
-  return drizzle(env.DB, { schema });
+  return drizzle(database, { schema });
 }
