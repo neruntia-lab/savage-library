@@ -1,0 +1,31 @@
+# Deployment and release checklist
+
+## Before release
+
+- `ADMIN_EMAILS` contains only current administrators.
+- `NEXT_PUBLIC_SITE_URL` matches the final HTTPS origin.
+- New schema migrations have been generated and inspected.
+- `npm run test:build` passes.
+- Resource attribution and license fields are complete.
+- Uploaded files have the expected MIME type, extension, and size.
+
+## Smoke test
+
+1. Open the home page and search for a known resource.
+2. Apply filters, change sort order, and reload the copied URL.
+3. Open a resource, copy its manifest, and check any compatibility warning.
+4. Sign in, save a resource, and confirm it appears under `/account`.
+5. Sign in as an administrator and create a draft.
+6. Add a version, dependency, changelog entry, and valid small upload.
+7. Publish the draft, download its file, and confirm the download count changes.
+8. Confirm `/sitemap.xml`, `/robots.txt`, and the social preview metadata.
+
+## Rollback
+
+Deploy a previously saved Sites version. Do not reverse a production migration
+by deleting tables or columns. Use a forward migration that restores
+compatibility, then deploy the matching application version.
+
+R2 objects are not deleted automatically during a normal application rollback.
+Keep file metadata and object retention policies aligned before performing
+manual cleanup.
