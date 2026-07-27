@@ -158,7 +158,7 @@ export function CatalogFilters({
           className="button button-quiet"
           href={
             fixedCategory
-              ? `${ROUTES.library}?category=${fixedCategory}`
+              ? ROUTES.category(fixedCategory)
               : ROUTES.library
           }
         >

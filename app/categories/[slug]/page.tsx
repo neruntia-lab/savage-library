@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CatalogFilters } from "../../../components/library/CatalogFilters";
+import { Pagination } from "../../../components/library/Pagination";
 import { ResourceGrid } from "../../../components/resources/ResourceGrid";
 import { CATEGORY_LINKS } from "../../../lib/config/site";
 import {
@@ -59,6 +60,12 @@ export default async function CategoryPage({
           {catalog.total === 1 ? "resource" : "resources"}
         </div>
         <ResourceGrid resources={catalog.items} />
+        <Pagination
+          page={catalog.page}
+          pageCount={catalog.pageCount}
+          searchParams={query}
+          basePath={`/categories/${encodeURIComponent(slug)}`}
+        />
       </div>
     </section>
   );

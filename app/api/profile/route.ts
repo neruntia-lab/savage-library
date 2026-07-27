@@ -1,9 +1,17 @@
 import { updateProfile } from "../../../lib/repositories/account-repository";
 import { requireApiUser } from "../../../lib/services/auth";
+import { enforceRateLimit } from "../../../lib/services/rate-limit";
 
 export async function PUT(request: Request) {
   const auth = await requireApiUser();
   if (!auth.ok) return auth.response;
+  const limit = await enforceRateLimit({
+    scope: "account",
+    identifier: auth.user.id,
+    limit: 30,
+    windowSeconds: 60,
+  });
+  if (!limit.allowed) return limit.response;
 
   const payload = (await request.json().catch(() => null)) as {
     displayName?: unknown;

@@ -4,10 +4,12 @@ export function Pagination({
   page,
   pageCount,
   searchParams,
+  basePath = "/library",
 }: {
   page: number;
   pageCount: number;
   searchParams: Record<string, string | string[] | undefined>;
+  basePath?: string;
 }) {
   if (pageCount <= 1) return null;
 
@@ -16,7 +18,7 @@ export function Pagination({
       {page > 1 ? (
         <Link
           className="button button-secondary button-small"
-          href={pageHref(searchParams, page - 1)}
+          href={pageHref(basePath, searchParams, page - 1)}
           rel="prev"
         >
           ← Previous
@@ -30,7 +32,7 @@ export function Pagination({
       {page < pageCount ? (
         <Link
           className="button button-secondary button-small"
-          href={pageHref(searchParams, page + 1)}
+          href={pageHref(basePath, searchParams, page + 1)}
           rel="next"
         >
           Next →
@@ -43,6 +45,7 @@ export function Pagination({
 }
 
 function pageHref(
+  basePath: string,
   searchParams: Record<string, string | string[] | undefined>,
   page: number,
 ): string {
@@ -55,5 +58,5 @@ function pageHref(
     }
   }
   params.set("page", String(page));
-  return `/library?${params.toString()}`;
+  return `${basePath}?${params.toString()}`;
 }

@@ -1,9 +1,9 @@
 import {
-  deleteResource,
   getAdminResource,
   setResourcePublication,
   updateResource,
 } from "../../../../lib/repositories/resource-repository";
+import { deleteResourceAndFiles } from "../../../../lib/services/resource-admin";
 import { requireApiAdmin } from "../../../../lib/services/auth";
 import { validateResourceInput } from "../../../../lib/validation/resource";
 
@@ -83,7 +83,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   const { id } = await context.params;
 
   try {
-    const deleted = await deleteResource(id);
+    const deleted = await deleteResourceAndFiles(id);
     return deleted
       ? new Response(null, { status: 204 })
       : Response.json({ error: "Resource not found." }, { status: 404 });

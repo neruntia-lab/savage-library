@@ -9,8 +9,9 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "tsx --test tests/*.test.ts",
-    "test:build": "npm run build && npm test",
+    "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts",
+    "test:flows": "tsx --test tests/http-flows.test.ts",
+    "test:build": "npm run build && npm test && npm run test:flows",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },

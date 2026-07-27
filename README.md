@@ -73,7 +73,8 @@ wiring.
 npm run dev          # local development
 npm run build        # production Worker build
 npm test             # business-logic and validation tests
-npm run test:build   # build followed by tests
+npm run test:flows   # launch the app and verify key public user flows
+npm run test:build   # build followed by all automated tests
 npm run lint         # ESLint
 npm run db:generate  # generate a migration after schema changes
 ```

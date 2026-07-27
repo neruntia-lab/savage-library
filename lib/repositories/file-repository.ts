@@ -21,6 +21,19 @@ export async function storeResourceFile(input: {
   await ensureDatabaseSchema();
   const bucket = env.FILES as R2Bucket | undefined;
   if (!bucket) throw new Error("File storage is unavailable.");
+  const db = getDb();
+  const resourceRows = await db
+    .select({
+      id: resources.id,
+      coverKey: resources.coverKey,
+      thumbnailKey: resources.thumbnailKey,
+    })
+    .from(resourceVersions)
+    .innerJoin(resources, eq(resourceVersions.resourceId, resources.id))
+    .where(eq(resourceVersions.id, input.resourceVersionId))
+    .limit(1);
+  const resource = resourceRows[0];
+  if (!resource) throw new Error("Resource version not found.");
 
   const id = crypto.randomUUID();
   const safeName = input.file.name
@@ -40,7 +53,7 @@ export async function storeResourceFile(input: {
     },
   });
 
-  await getDb().insert(files).values({
+  const insertFile = db.insert(files).values({
     id,
     resourceVersionId: input.resourceVersionId,
     kind: input.kind,
@@ -50,6 +63,45 @@ export async function storeResourceFile(input: {
     extension: input.extension,
     sizeBytes: input.file.size,
   });
+
+  try {
+    if (input.kind === "cover") {
+      await db.batch([
+        insertFile,
+        db
+          .update(resources)
+          .set({ coverKey: storageKey, updatedAt: new Date().toISOString() })
+          .where(eq(resources.id, resource.id)),
+      ]);
+    } else if (input.kind === "thumbnail") {
+      await db.batch([
+        insertFile,
+        db
+          .update(resources)
+          .set({
+            thumbnailKey: storageKey,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(resources.id, resource.id)),
+      ]);
+    } else {
+      await insertFile;
+    }
+  } catch (error) {
+    await bucket.delete(storageKey);
+    throw error;
+  }
+
+  const replacedKey =
+    input.kind === "cover"
+      ? resource.coverKey
+      : input.kind === "thumbnail"
+        ? resource.thumbnailKey
+        : null;
+  if (replacedKey && replacedKey !== storageKey) {
+    await bucket.delete(replacedKey);
+    await db.delete(files).where(eq(files.storageKey, replacedKey));
+  }
 
   return { id, storageKey };
 }
@@ -105,5 +157,19 @@ export async function readStoredFile(storageKey: string): Promise<R2ObjectBody |
 }
 
 export async function readImage(storageKey: string): Promise<R2ObjectBody | null> {
+  await ensureDatabaseSchema();
+  const rows = await getDb()
+    .select({ kind: files.kind, mimeType: files.mimeType })
+    .from(files)
+    .where(eq(files.storageKey, storageKey))
+    .limit(1);
+  const metadata = rows[0];
+  if (
+    !metadata ||
+    !["cover", "thumbnail"].includes(metadata.kind) ||
+    !metadata.mimeType.startsWith("image/")
+  ) {
+    return null;
+  }
   return readStoredFile(storageKey);
 }

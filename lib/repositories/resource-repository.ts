@@ -101,6 +101,7 @@ export async function getResourceBySlug(
             and(
               eq(resourceVersions.resourceId, row.resource.id),
               eq(resourceVersions.isCurrent, true),
+              inArray(files.kind, ["pdf", "module"]),
             ),
           ),
         db
@@ -496,6 +497,19 @@ export async function deleteResource(id: string): Promise<boolean> {
   return Boolean(result.meta.changes);
 }
 
+export async function getResourceStorageKeys(id: string): Promise<string[]> {
+  await ensureDatabaseSchema();
+  const rows = await getDb()
+    .select({ storageKey: files.storageKey })
+    .from(files)
+    .innerJoin(
+      resourceVersions,
+      eq(files.resourceVersionId, resourceVersions.id),
+    )
+    .where(eq(resourceVersions.resourceId, id));
+  return Array.from(new Set(rows.map(({ storageKey }) => storageKey)));
+}
+
 async function listCatalogFromDatabase(
   filters: CatalogFilters,
 ): Promise<CatalogResult> {
@@ -505,6 +519,11 @@ async function listCatalogFromDatabase(
 
   if (query) {
     const pattern = `%${query.slice(0, 120)}%`;
+    const taggedSearch = db
+      .select({ id: resourceTags.resourceId })
+      .from(resourceTags)
+      .innerJoin(tags, eq(resourceTags.tagId, tags.id))
+      .where(or(like(tags.name, pattern), like(tags.slug, pattern)));
     conditions.push(
       or(
         like(resources.title, pattern),
@@ -513,6 +532,7 @@ async function listCatalogFromDatabase(
         like(authors.name, pattern),
         like(categories.name, pattern),
         like(gameSystems.name, pattern),
+        inArray(resources.id, taggedSearch),
       )!,
     );
   }
@@ -693,7 +713,12 @@ function catalogOrder(sort: CatalogFilters["sort"]) {
 }
 
 function storageImageUrl(key?: string | null): string | null {
-  return key ? `/api/assets/${encodeURIComponent(key)}` : "/logo.png";
+  return key
+    ? `/api/assets/${key
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/")}`
+    : "/logo.png";
 }
 
 async function replaceResourceRelations(

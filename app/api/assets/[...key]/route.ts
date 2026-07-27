@@ -1,11 +1,13 @@
 import { readImage } from "../../../../lib/repositories/file-repository";
 
-type RouteContext = { params: Promise<{ key: string }> };
+type RouteContext = { params: Promise<{ key: string[] }> };
 
 export async function GET(_request: Request, context: RouteContext) {
   const { key } = await context.params;
   try {
-    const image = await readImage(decodeURIComponent(key));
+    const image = await readImage(
+      key.map((segment) => decodeURIComponent(segment)).join("/"),
+    );
     if (!image) return new Response(null, { status: 404 });
     const headers = new Headers();
     image.writeHttpMetadata(headers);
