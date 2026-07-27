@@ -363,3 +363,14 @@ export const rateLimits = pgTable(
   },
   (table) => [index("rate_limits_expiry_idx").on(table.expiresAt)],
 );
+
+export const siteSettings = pgTable("site_settings", {
+  id: text("id").primaryKey(),
+  heroImageUrl: text("hero_image_url"),
+  heroImagePathname: text("hero_image_pathname"),
+  heroImageOriginalName: text("hero_image_original_name"),
+  heroImageMimeType: text("hero_image_mime_type"),
+  heroImageSizeBytes: integer("hero_image_size_bytes"),
+  updatedBy: text("updated_by"),
+  ...timestamps,
+});

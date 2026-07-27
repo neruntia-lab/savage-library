@@ -3,16 +3,20 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { CatalogFacets } from "../../lib/domain/resource";
+import type { SiteAppearance } from "../../lib/domain/site-appearance";
 import { AdminResourceList } from "./AdminResourceList";
+import { AppearanceSettings } from "./AppearanceSettings";
 import { TaxonomyManager } from "./TaxonomyManager";
 import type { AdminResource } from "./types";
 
 export function AdminDashboard({
   initialResources,
   facets,
+  initialAppearance,
 }: {
   initialResources: AdminResource[];
   facets: CatalogFacets;
+  initialAppearance: SiteAppearance;
 }) {
   const [resources, setResources] = useState(initialResources);
   const [status, setStatus] = useState("");
@@ -21,7 +25,7 @@ export function AdminDashboard({
     "all" | "published" | "draft" | "patreon"
   >("all");
   const [activePanel, setActivePanel] = useState<
-    "resources" | "metadata" | "settings"
+    "resources" | "metadata" | "appearance" | "patreon"
   >("resources");
 
   const visibleResources = useMemo(() => {
@@ -127,8 +131,14 @@ export function AdminDashboard({
             Taxonomy
           </TabButton>
           <TabButton
-            active={activePanel === "settings"}
-            onClick={() => setActivePanel("settings")}
+            active={activePanel === "appearance"}
+            onClick={() => setActivePanel("appearance")}
+          >
+            Appearance
+          </TabButton>
+          <TabButton
+            active={activePanel === "patreon"}
+            onClick={() => setActivePanel("patreon")}
           >
             Patreon
           </TabButton>
@@ -184,6 +194,11 @@ export function AdminDashboard({
         </>
       ) : activePanel === "metadata" ? (
         <TaxonomyManager facets={facets} onStatus={setStatus} />
+      ) : activePanel === "appearance" ? (
+        <AppearanceSettings
+          initialAppearance={initialAppearance}
+          onStatus={setStatus}
+        />
       ) : (
         <PatreonSettings onStatus={setStatus} />
       )}

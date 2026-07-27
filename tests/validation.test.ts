@@ -5,6 +5,11 @@ import {
   validateResourceInput,
 } from "../lib/validation/resource";
 import { MAX_UPLOAD_BYTES, validateUpload } from "../lib/validation/upload";
+import {
+  HERO_IMAGE_MAX_BYTES,
+  validateHeroDimensions,
+  validateHeroFileMetadata,
+} from "../lib/validation/hero-image";
 
 const validResource = {
   title: "Test Module",
@@ -82,4 +87,37 @@ test("upload validation requires matching extension, MIME type, and size", () =>
     size: MAX_UPLOAD_BYTES + 1,
   } as File;
   assert.equal(validateUpload(oversized, "pdf").valid, false);
+});
+
+test("hero image validation accepts a suitable wide WebP", () => {
+  assert.deepEqual(
+    validateHeroFileMetadata({
+      name: "archive.webp",
+      type: "image/webp",
+      size: 500_000,
+    }),
+    { valid: true },
+  );
+  assert.deepEqual(validateHeroDimensions(1877, 838), { valid: true });
+});
+
+test("hero image validation rejects unsafe files and crops", () => {
+  assert.equal(
+    validateHeroFileMetadata({
+      name: "archive.svg",
+      type: "image/svg+xml",
+      size: 100,
+    }).valid,
+    false,
+  );
+  assert.equal(
+    validateHeroFileMetadata({
+      name: "huge.png",
+      type: "image/png",
+      size: HERO_IMAGE_MAX_BYTES + 1,
+    }).valid,
+    false,
+  );
+  assert.equal(validateHeroDimensions(900, 900).valid, false);
+  assert.equal(validateHeroDimensions(4000, 600).valid, false);
 });

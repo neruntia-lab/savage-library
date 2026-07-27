@@ -6,6 +6,7 @@ import {
   getCatalogFacets,
   listAdminResources,
 } from "../../lib/repositories/resource-repository";
+import { getSiteAppearance } from "../../lib/repositories/site-settings-repository";
 import { requireAdminPage } from "../../lib/services/auth";
 
 export const dynamic = "force-dynamic";
@@ -19,9 +20,10 @@ export default async function AdminPage() {
   const user = await requireAdminPage();
   if (!user) redirect("/admin/login");
 
-  const [resources, facets] = await Promise.all([
+  const [resources, facets, appearance] = await Promise.all([
     listAdminResources(),
     getCatalogFacets(),
+    getSiteAppearance(),
   ]);
 
   return (
@@ -43,7 +45,11 @@ export default async function AdminPage() {
             Sign out
           </Link>
         </div>
-        <AdminDashboard initialResources={resources} facets={facets} />
+        <AdminDashboard
+          initialResources={resources}
+          facets={facets}
+          initialAppearance={appearance}
+        />
       </div>
     </section>
   );

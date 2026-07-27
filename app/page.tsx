@@ -1,76 +1,40 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ResourceGrid } from "../components/resources/ResourceGrid";
-import { CATEGORY_LINKS, ROUTES, SITE_CONFIG } from "../lib/config/site";
+import { CATEGORY_LINKS, ROUTES } from "../lib/config/site";
 import { getFeaturedResources } from "../lib/repositories/resource-repository";
+import { getSiteAppearance } from "../lib/repositories/site-settings-repository";
 
 export const revalidate = 300;
 
 export default async function HomePage() {
-  const featured = await getFeaturedResources(3);
+  const [featured, appearance] = await Promise.all([
+    getFeaturedResources(3),
+    getSiteAppearance(),
+  ]);
 
   return (
     <>
-      <section className="hero section">
-        <div className="hero-grid-lines" aria-hidden="true" />
-        <div className="container hero-grid">
-          <div className="hero-copy">
-            <p className="eyebrow">
-              <span aria-hidden="true">◆</span>
-              The adventurer&apos;s digital archive
-            </p>
-            <h1>
-              Forge your legend.
-              <span> Find the right resource.</span>
-            </h1>
-            <p className="hero-description">{SITE_CONFIG.tagline}</p>
-            <form className="hero-search" action={ROUTES.library} method="get">
-              <label className="sr-only" htmlFor="home-search">
-                Search the library
-              </label>
-              <input
-                id="home-search"
-                name="q"
-                type="search"
-                placeholder="Search modules, classes, authors, or tags"
-                autoComplete="off"
-              />
-              <button className="button button-primary" type="submit">
-                Search the archive
-              </button>
-            </form>
-            <div className="hero-trust" aria-label="Library highlights">
-              <span>
-                <strong>Curated</strong>
-                <small>Quality-first resources</small>
-              </span>
-              <span>
-                <strong>Compatible</strong>
-                <small>Clear Foundry support</small>
-              </span>
-              <span>
-                <strong>Authorized</strong>
-                <small>Creator-respecting releases</small>
-              </span>
-            </div>
-          </div>
-          <aside className="hero-mark" aria-label="Savage Library">
-            <div className="sigil-frame" aria-hidden="true">
-              <span className="sigil-orbit sigil-orbit-one" />
-              <span className="sigil-orbit sigil-orbit-two" />
-              <Image
-                src="/savage-library-logo.svg"
-                alt=""
-                width={145}
-                height={196}
-                priority
-              />
-            </div>
-            <div>
-              <span>Curated for Foundry VTT</span>
-              <strong>Enter the archive</strong>
-            </div>
-          </aside>
+      <section
+        className="hero hero-image"
+        style={{ backgroundImage: `url("${appearance.heroImageUrl}")` }}
+        aria-label="Search the Savage Library"
+      >
+        <div className="container hero-search-wrap">
+          <form className="hero-search" action={ROUTES.library} method="get">
+            <label className="sr-only" htmlFor="home-search">
+              Search the library
+            </label>
+            <input
+              id="home-search"
+              name="q"
+              type="search"
+              placeholder="Search modules, classes, authors, or tags"
+              autoComplete="off"
+            />
+            <button className="button button-primary" type="submit">
+              Search the archive
+            </button>
+          </form>
         </div>
       </section>
 
