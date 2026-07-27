@@ -1,5 +1,6 @@
-import { ensureDatabaseSchema } from "../../db/bootstrap";
-import { getDatabaseBinding } from "../platform/bindings";
+import { sql } from "drizzle-orm";
+import { getDb, isDatabaseConfigured } from "../../db";
+import { rateLimits } from "../../db/schema";
 
 export async function enforceRateLimit(input: {
   scope: "search" | "download" | "account" | "admin";
@@ -10,36 +11,37 @@ export async function enforceRateLimit(input: {
   | { allowed: true; remaining: number; resetAt: number }
   | { allowed: false; response: Response }
 > {
-  const database = getDatabaseBinding();
-  if (!database) {
-    return {
-      allowed: true,
-      remaining: input.limit,
-      resetAt: Date.now() + input.windowSeconds * 1_000,
-    };
-  }
-
   const now = Date.now();
   const expiresAt = now + input.windowSeconds * 1_000;
+  if (!isDatabaseConfigured()) {
+    return { allowed: true, remaining: input.limit, resetAt: expiresAt };
+  }
+
   const key = `${input.scope}:${await shortHash(input.identifier)}`;
-
   try {
-    await ensureDatabaseSchema();
-    const row = await database
-      .prepare(
-        `INSERT INTO rate_limits (key, count, window_started_at, expires_at)
-         VALUES (?, 1, ?, ?)
-         ON CONFLICT(key) DO UPDATE SET
-           count = CASE WHEN rate_limits.expires_at <= ? THEN 1 ELSE rate_limits.count + 1 END,
-           window_started_at = CASE WHEN rate_limits.expires_at <= ? THEN ? ELSE rate_limits.window_started_at END,
-           expires_at = CASE WHEN rate_limits.expires_at <= ? THEN ? ELSE rate_limits.expires_at END
-         RETURNING count, expires_at`,
-      )
-      .bind(key, now, expiresAt, now, now, now, now, expiresAt)
-      .first<{ count: number; expires_at: number }>();
+    const rows = await getDb()
+      .insert(rateLimits)
+      .values({
+        key,
+        count: 1,
+        windowStartedAt: now,
+        expiresAt,
+      })
+      .onConflictDoUpdate({
+        target: rateLimits.key,
+        set: {
+          count: sql`CASE WHEN ${rateLimits.expiresAt} <= ${now} THEN 1 ELSE ${rateLimits.count} + 1 END`,
+          windowStartedAt: sql`CASE WHEN ${rateLimits.expiresAt} <= ${now} THEN ${now} ELSE ${rateLimits.windowStartedAt} END`,
+          expiresAt: sql`CASE WHEN ${rateLimits.expiresAt} <= ${now} THEN ${expiresAt} ELSE ${rateLimits.expiresAt} END`,
+        },
+      })
+      .returning({
+        count: rateLimits.count,
+        expiresAt: rateLimits.expiresAt,
+      });
 
-    const count = row?.count ?? 1;
-    const resetAt = row?.expires_at ?? expiresAt;
+    const count = rows[0]?.count ?? 1;
+    const resetAt = rows[0]?.expiresAt ?? expiresAt;
     if (count > input.limit) {
       const retryAfter = Math.max(1, Math.ceil((resetAt - now) / 1_000));
       return {
@@ -60,11 +62,7 @@ export async function enforceRateLimit(input: {
       resetAt,
     };
   } catch {
-    return {
-      allowed: true,
-      remaining: input.limit,
-      resetAt: expiresAt,
-    };
+    return { allowed: true, remaining: input.limit, resetAt: expiresAt };
   }
 }
 

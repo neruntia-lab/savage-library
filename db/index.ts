@@ -1,14 +1,21 @@
-import { drizzle } from "drizzle-orm/d1";
-import { getDatabaseBinding } from "../lib/platform/bindings";
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
 
+let database: ReturnType<typeof drizzle<typeof schema>> | undefined;
+
+export function isDatabaseConfigured(): boolean {
+  return Boolean(process.env.DATABASE_URL);
+}
+
 export function getDb() {
-  const database = getDatabaseBinding();
-  if (!database) {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
     throw new Error(
-      "A database binding is unavailable. Public catalog reads will use bundled seed data until persistent storage is configured."
+      "DATABASE_URL is not configured. Public catalog reads use bundled examples until Neon is connected.",
     );
   }
 
-  return drizzle(database, { schema });
+  database ??= drizzle(neon(url), { schema });
+  return database;
 }

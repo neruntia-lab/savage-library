@@ -49,8 +49,13 @@ export async function updateTaxonomyEntry(input: {
   switch (input.type) {
     case "author":
       return Boolean(
-        (await db.update(authors).set(values).where(eq(authors.id, input.id)))
-          .meta.changes,
+        (
+          await db
+            .update(authors)
+            .set(values)
+            .where(eq(authors.id, input.id))
+            .returning({ id: authors.id })
+        )[0],
       );
     case "category":
       return Boolean(
@@ -59,7 +64,8 @@ export async function updateTaxonomyEntry(input: {
             .update(categories)
             .set(values)
             .where(eq(categories.id, input.id))
-        ).meta.changes,
+            .returning({ id: categories.id })
+        )[0],
       );
     case "system":
       return Boolean(
@@ -68,12 +74,18 @@ export async function updateTaxonomyEntry(input: {
             .update(gameSystems)
             .set(values)
             .where(eq(gameSystems.id, input.id))
-        ).meta.changes,
+            .returning({ id: gameSystems.id })
+        )[0],
       );
     case "tag":
       return Boolean(
-        (await db.update(tags).set(values).where(eq(tags.id, input.id))).meta
-          .changes,
+        (
+          await db
+            .update(tags)
+            .set(values)
+            .where(eq(tags.id, input.id))
+            .returning({ id: tags.id })
+        )[0],
       );
   }
 }
@@ -87,20 +99,39 @@ export async function deleteTaxonomyEntry(
   switch (type) {
     case "author":
       return Boolean(
-        (await db.delete(authors).where(eq(authors.id, id))).meta.changes,
+        (
+          await db
+            .delete(authors)
+            .where(eq(authors.id, id))
+            .returning({ id: authors.id })
+        )[0],
       );
     case "category":
       return Boolean(
-        (await db.delete(categories).where(eq(categories.id, id))).meta.changes,
+        (
+          await db
+            .delete(categories)
+            .where(eq(categories.id, id))
+            .returning({ id: categories.id })
+        )[0],
       );
     case "system":
       return Boolean(
-        (await db.delete(gameSystems).where(eq(gameSystems.id, id))).meta
-          .changes,
+        (
+          await db
+            .delete(gameSystems)
+            .where(eq(gameSystems.id, id))
+            .returning({ id: gameSystems.id })
+        )[0],
       );
     case "tag":
       return Boolean(
-        (await db.delete(tags).where(eq(tags.id, id))).meta.changes,
+        (
+          await db
+            .delete(tags)
+            .where(eq(tags.id, id))
+            .returning({ id: tags.id })
+        )[0],
       );
   }
 }

@@ -1,140 +1,151 @@
 # Savage Library
 
-Savage Library is a production-oriented digital library for authorized tabletop
-role-playing game resources: Foundry VTT modules, classes, subclasses, PDFs,
-manifests, installation notes, and release history.
+Savage Library is a bilingual digital library for Foundry VTT modules, PDFs,
+classes, subclasses, manifests, installation notes, and release history.
 
-The public experience is intentionally compact: search first, URL-backed
-filters, concise resource cards, and details only when a field has content.
+The public catalog is optimized for discovery. The protected administration
+workspace lets a small trusted team create drafts, maintain English and Spanish
+translations, upload release files, synchronize Patreon tiers, preview entries,
+and publish without editing source files.
 
-## Stack
+## Production stack
 
-- TypeScript, React, and Next.js-compatible routing through Vinext
-- Cloudflare Workers runtime
-- Cloudflare D1 relational database with Drizzle ORM
-- Cloudflare R2 object storage
-- Dispatch-owned Sign in with ChatGPT for optional account identity
-- Server-side email allowlist for administrator authorization
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for route, boundary, and data
-model details.
-
-## Requirements
-
-- Node.js 22.13 or newer
-- npm
-- A Sites-capable Codex workspace for managed deployment
+- Next.js 16, React 19, and TypeScript
+- Neon Postgres with Drizzle ORM
+- Vercel Blob with separate public-media and private-content stores
+- Auth.js sessions
+- Patreon API v2 OAuth and live membership entitlement checks
+- Vercel deployments, with `main` for production and `development` for preview
 
 ## Local setup
 
-```bash
+Requirements:
+
+- Node.js 22.13 or newer
+- npm
+- A Neon database
+- A Patreon API v2 OAuth client
+- Public and private Vercel Blob stores
+
+Install dependencies and create local environment values:
+
+```powershell
 npm ci
-copy .env.example .env.local
+Copy-Item .env.example .env.local
+```
+
+Generate a secure authentication secret and a strong shared administrator
+password. Set the password temporarily in `ADMIN_PASSWORD_TO_HASH`, run the hash
+command, and copy only its output into `ADMIN_PASSWORD_HASH`.
+
+```powershell
+npm run auth:hash-admin-password
+```
+
+Apply the schema and optionally import the five bundled entries as draft
+examples:
+
+```powershell
+npm run db:migrate
+npm run db:seed
 npm run dev
 ```
 
-Open `http://localhost:3000`.
-
-The D1 schema and example catalog data initialize on the first request. The
-public site remains usable with built-in seed data if a local storage binding is
-temporarily unavailable.
-
-On Windows PowerShell, set the admin list in `.env.local`:
-
-```dotenv
-ADMIN_EMAILS=owner@example.com
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-```
-
-Account and admin identity headers are supplied by the hosted sign-in
-dispatcher. Public catalog pages work without authentication.
+Open `http://localhost:3000`. Public pages continue to use bundled read-only
+examples when `DATABASE_URL` is absent, but administration and uploads require
+the configured services.
 
 ## Environment variables
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `ADMIN_EMAILS` | Production admin use | Comma-separated, case-insensitive administrator allowlist |
-| `NEXT_PUBLIC_SITE_URL` | Recommended | Canonical origin used by sitemap and metadata fallbacks |
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_SITE_URL` | Canonical public origin |
+| `NEXTAUTH_URL` | Auth.js callback origin |
+| `AUTH_SECRET` | Session encryption/signing secret |
+| `ADMIN_PASSWORD_HASH` | Scrypt hash for the shared administrator password |
+| `DATABASE_URL` | Neon pooled Postgres connection string |
+| `PATREON_CLIENT_ID` | Patreon API v2 OAuth client ID |
+| `PATREON_CLIENT_SECRET` | Patreon OAuth client secret |
+| `PATREON_CAMPAIGN_ID` | Savage Library campaign ID |
+| `PATREON_CAMPAIGN_URL` | Public membership page |
+| `PATREON_CREATOR_ACCESS_TOKEN` | Creator token used to synchronize campaign tiers |
+| `PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN` | Public Blob store for covers and thumbnails |
+| `PRIVATE_CONTENT_BLOB_READ_WRITE_TOKEN` | Private Blob store for downloadable content |
 
-Do not place secrets in source control. `.env*` files are ignored except for
-the documented `.env.example`.
+Register this callback URL in the Patreon developer portal:
 
-The logical storage bindings live in `.openai/hosting.json`:
+```text
+https://YOUR-DOMAIN/api/auth/callback/patreon
+```
 
-- `DB`: D1 catalog, accounts, saves, downloads, and rate-limit counters
-- `FILES`: R2 PDFs, module packages, images, and manifests
+Use the stable `development` branch URL for preview credentials and the
+production domain for production credentials.
 
-The hosting platform owns the physical databases, buckets, and deployment
-wiring.
+## Administration
+
+Visit `/admin/login` and enter the shared administrator password.
+
+The dashboard supports:
+
+- searchable drafts and published resources
+- English and Spanish content with independent publication states
+- public or Patreon-tier-protected downloads per resource
+- version and Foundry compatibility history
+- repeatable dependency fields and searchable tag choices
+- direct cover, thumbnail, ZIP, PDF, and JSON uploads up to 250 MB
+- background autosave, explicit save, draft preview, and publication
+- Patreon tier synchronization
+
+English and Spanish files are attached independently to the current release.
+Changing the current version creates a new release while older releases remain
+in the database.
+
+## Patreon download authorization
+
+Resource descriptions and release information remain public. For a protected
+download, the application:
+
+1. requires Patreon OAuth;
+2. requests the visitor's current membership and entitled tiers from Patreon;
+3. verifies a selected tier for the Savage Library campaign;
+4. records the download; and
+5. returns a short-lived signed URL for the private Blob.
+
+Authorization fails closed if Patreon cannot verify the membership. Private Blob
+URLs are never exposed through catalog responses.
 
 ## Commands
 
-```bash
-npm run dev          # local development
-npm run build        # production Worker build
-npm test             # business-logic and validation tests
-npm run test:flows   # launch the app and verify key public user flows
-npm run test:build   # build followed by all automated tests
-npm run lint         # ESLint
-npm run db:generate  # generate a migration after schema changes
+```powershell
+npm run dev
+npm run build
+npm run lint
+npm test
+npm run test:flows
+npm run test:build
+npm run db:generate
+npm run db:migrate
+npm run db:seed
+npm run auth:hash-admin-password
 ```
 
-Whenever `db/schema.ts` changes, run `npm run db:generate`, inspect the new SQL
-under `drizzle/`, and commit both the schema and migration.
-
-## Content management
-
-The `/admin` dashboard requires sign-in and an email listed in `ADMIN_EMAILS`.
-It supports:
-
-- create, edit, publish, unpublish, feature, and delete resources
-- version and Foundry compatibility metadata
-- dependencies and changelog entries
-- validated PDF, ZIP, JSON, and image uploads
-- categories, systems, authors, and tags
-- per-resource and aggregate download counts
-
-Uploads must match both the allowed extension and MIME type and cannot exceed
-50 MB. Downloads are served through a rate-limited application route, so
-restricted files can require identity and every successful transfer can be
-recorded.
-
-## Authentication and authorization
-
-Public browsing does not require an account. `/account` and its mutation APIs
-use dispatch-owned Sign in with ChatGPT. The dispatcher owns the sign-in,
-callback, sign-out, cookie, and authentication rate-limiting flow.
-
-Authentication does not grant admin access. Every admin page and API request
-also checks the server-side email allowlist. Client controls are never treated
-as authorization.
+After changing `db/schema.ts`, generate and inspect a new migration under
+`drizzle/`.
 
 ## Deployment
 
-The default build targets Vercel's native Next.js runtime.
+1. Connect Neon and both Blob stores to the Vercel project.
+2. Add environment values separately for Preview and Production.
+3. Apply migrations to the intended database.
+4. Push to `development` and verify the Vercel preview.
+5. Test admin login, Patreon tier synchronization, public downloads, protected
+   downloads, translations, uploads, preview, and publishing.
+6. Promote to `main` only after the preview is approved.
 
-1. Import this repository into Vercel and use `main` as the production branch.
-   The `development` branch is reserved for preview deployments.
-2. Keep the framework preset on **Next.js**, the root directory on the
-   repository root, and the output directory on its framework default.
-3. Set `NEXT_PUBLIC_SITE_URL` to the production origin and configure
-   `ADMIN_EMAILS` only when the authenticated admin workflow is available.
-4. Run `npm run test:build`, then deploy.
-5. Verify `/`, `/library`, a resource detail route, `/sitemap.xml`, and
-   `/robots.txt`.
-
-The public catalog uses bundled seed data when no persistent database is
-configured, so it remains available on a fresh Vercel project. Database-backed
-accounts, admin writes, uploads, and download tracking require a compatible
-database and object-storage adapter.
-
-The legacy Cloudflare Worker build remains available as
-`npm run build:cloudflare` for environments that provide the expected
-Cloudflare bindings.
+`Logo`, `Macros`, and `Mods` are intentionally excluded from source control.
+Only the optimized logo asset under `public/` is deployed.
 
 ## Content policy
 
-Only upload or distribute material the site owner is authorized to publish.
-Every public resource should include author attribution, license information,
-and a compatibility status. User-entered descriptions are stored and rendered
-as plain text; arbitrary HTML is not accepted.
+Only publish material Savage Library is authorized to distribute. Descriptions
+and instructions are stored as plain text; arbitrary HTML is not accepted.

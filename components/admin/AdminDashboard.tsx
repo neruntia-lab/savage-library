@@ -1,16 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import type { CatalogFacets } from "../../lib/domain/resource";
-import type { ResourceInput } from "../../lib/validation/resource";
 import { AdminResourceList } from "./AdminResourceList";
-import { ResourceEditor } from "./ResourceEditor";
 import { TaxonomyManager } from "./TaxonomyManager";
-import {
-  EMPTY_RESOURCE,
-  type AdminResource,
-  type EditingResource,
-} from "./types";
+import type { AdminResource } from "./types";
 
 export function AdminDashboard({
   initialResources,
@@ -20,15 +15,38 @@ export function AdminDashboard({
   facets: CatalogFacets;
 }) {
   const [resources, setResources] = useState(initialResources);
-  const [editing, setEditing] = useState<EditingResource | null>(null);
-  const [formKey, setFormKey] = useState(0);
   const [status, setStatus] = useState("");
-  const [activePanel, setActivePanel] = useState<"resources" | "metadata">(
-    "resources",
-  );
+  const [query, setQuery] = useState("");
+  const [visibility, setVisibility] = useState<
+    "all" | "published" | "draft" | "patreon"
+  >("all");
+  const [activePanel, setActivePanel] = useState<
+    "resources" | "metadata" | "settings"
+  >("resources");
 
-  const publishedCount = resources.filter(
-    (resource) => resource.isPublished,
+  const visibleResources = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return resources.filter((resource) => {
+      if (
+        normalized &&
+        !`${resource.title} ${resource.slug} ${resource.resourceType}`
+          .toLowerCase()
+          .includes(normalized)
+      ) {
+        return false;
+      }
+      if (visibility === "published" && !resource.isPublished) return false;
+      if (visibility === "draft" && resource.isPublished) return false;
+      if (visibility === "patreon" && resource.accessMode !== "patreon") {
+        return false;
+      }
+      return true;
+    });
+  }, [query, resources, visibility]);
+
+  const publishedCount = resources.filter((resource) => resource.isPublished).length;
+  const protectedCount = resources.filter(
+    (resource) => resource.accessMode === "patreon",
   ).length;
   const totalDownloads = resources.reduce(
     (total, resource) => total + resource.downloadCount,
@@ -42,57 +60,10 @@ export function AdminDashboard({
     setResources(body.resources);
   }
 
-  async function submitResource(formData: FormData) {
-    setStatus("Saving resource…");
-    const dependencies = parseDependencies(formData.get("dependencies"));
-    if (!dependencies.ok) {
-      setStatus(dependencies.message);
-      return;
-    }
-
-    const payload = resourcePayload(formData, dependencies.value);
-    const response = await fetch(
-      editing ? `/api/resources/${editing.id}` : "/api/resources",
-      {
-        method: editing ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-    );
-    const body = (await response.json()) as {
-      error?: string;
-      errors?: Record<string, string>;
-    };
-    if (!response.ok) {
-      setStatus(
-        body.error ??
-          Object.values(body.errors ?? {})[0] ??
-          "The resource could not be saved.",
-      );
-      return;
-    }
-
-    setStatus(editing ? "Resource updated." : "Resource created.");
-    setEditing(null);
-    setFormKey((value) => value + 1);
-    await refreshResources();
-  }
-
-  async function editResource(id: string) {
-    setStatus("Loading resource…");
-    const response = await fetch(`/api/resources/${id}`);
-    if (!response.ok) {
-      setStatus("The resource could not be loaded.");
-      return;
-    }
-    const body = (await response.json()) as { resource: EditingResource };
-    setEditing(body.resource);
-    setFormKey((value) => value + 1);
-    setStatus(`Editing ${body.resource.title}.`);
-    document.getElementById("resource-editor")?.scrollIntoView();
-  }
-
   async function togglePublication(resource: AdminResource) {
+    setStatus(
+      resource.isPublished ? "Returning entry to draft…" : "Publishing entry…",
+    );
     const response = await fetch(`/api/resources/${resource.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -101,66 +72,70 @@ export function AdminDashboard({
     setStatus(
       response.ok
         ? resource.isPublished
-          ? "Resource unpublished."
-          : "Resource published."
+          ? "Entry returned to drafts."
+          : "Entry published."
         : "Publication status could not be changed.",
     );
     if (response.ok) await refreshResources();
   }
 
   async function deleteResource(resource: AdminResource) {
-    if (
-      !window.confirm(
-        `Delete “${resource.title}” and all of its versions and files?`,
-      )
-    ) {
-      return;
-    }
+    const confirmed = window.prompt(
+      `Type ${resource.title} to permanently delete this entry and its files.`,
+    );
+    if (confirmed !== resource.title) return;
+
+    setStatus(`Deleting ${resource.title}…`);
     const response = await fetch(`/api/resources/${resource.id}`, {
       method: "DELETE",
     });
     setStatus(
-      response.ok ? "Resource deleted." : "The resource could not be deleted.",
+      response.ok ? "Entry permanently deleted." : "The entry could not be deleted.",
     );
-    if (response.ok) await refreshResources();
-  }
-
-  async function uploadFile(formData: FormData) {
-    setStatus("Uploading file…");
-    const response = await fetch("/api/uploads", {
-      method: "POST",
-      body: formData,
-    });
-    const body = (await response.json()) as { error?: string };
-    setStatus(response.ok ? "File uploaded." : body.error ?? "Upload failed.");
     if (response.ok) await refreshResources();
   }
 
   return (
     <>
       <div className="admin-stats" aria-label="Library statistics">
-        <Stat label="Resources" value={resources.length} />
-        <Stat label="Published" value={publishedCount} />
-        <Stat label="Downloads" value={totalDownloads.toLocaleString()} />
+        <Stat label="Resources" value={resources.length} detail="all entries" />
+        <Stat label="Published" value={publishedCount} detail="visible now" />
         <Stat
-          label="Drafts"
-          value={Math.max(0, resources.length - publishedCount)}
+          label="Patreon"
+          value={protectedCount}
+          detail="protected entries"
+        />
+        <Stat
+          label="Downloads"
+          value={totalDownloads.toLocaleString()}
+          detail="recorded transfers"
         />
       </div>
 
-      <div className="admin-tabs" role="tablist" aria-label="Admin sections">
-        <TabButton
-          active={activePanel === "resources"}
-          onClick={() => setActivePanel("resources")}
-        >
-          Resources
-        </TabButton>
-        <TabButton
-          active={activePanel === "metadata"}
-          onClick={() => setActivePanel("metadata")}
-        >
-          Categories and metadata
-        </TabButton>
+      <div className="admin-command-bar">
+        <div className="admin-tabs" role="tablist" aria-label="Admin sections">
+          <TabButton
+            active={activePanel === "resources"}
+            onClick={() => setActivePanel("resources")}
+          >
+            Content
+          </TabButton>
+          <TabButton
+            active={activePanel === "metadata"}
+            onClick={() => setActivePanel("metadata")}
+          >
+            Taxonomy
+          </TabButton>
+          <TabButton
+            active={activePanel === "settings"}
+            onClick={() => setActivePanel("settings")}
+          >
+            Patreon
+          </TabButton>
+        </div>
+        <Link className="button button-primary" href="/admin/resources/new">
+          + Add content
+        </Link>
       </div>
 
       <p className="admin-live-status" aria-live="polite">
@@ -168,93 +143,114 @@ export function AdminDashboard({
       </p>
 
       {activePanel === "resources" ? (
-        <div className="admin-layout">
+        <>
+          <div className="admin-filter-bar">
+            <label className="admin-search">
+              <span className="sr-only">Search content</span>
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search title, slug, or type…"
+              />
+            </label>
+            <label>
+              <span className="sr-only">Filter by publication</span>
+              <select
+                value={visibility}
+                onChange={(event) =>
+                  setVisibility(
+                    event.target.value as
+                      | "all"
+                      | "published"
+                      | "draft"
+                      | "patreon",
+                  )
+                }
+              >
+                <option value="all">All content</option>
+                <option value="published">Published</option>
+                <option value="draft">Drafts</option>
+                <option value="patreon">Patreon-only</option>
+              </select>
+            </label>
+            <span>{visibleResources.length} shown</span>
+          </div>
           <AdminResourceList
-            resources={resources}
-            onEdit={editResource}
+            resources={visibleResources}
             onPublicationToggle={togglePublication}
             onDelete={deleteResource}
-            onUpload={uploadFile}
           />
-          <ResourceEditor
-            key={formKey}
-            value={editing ?? EMPTY_RESOURCE}
-            editing={Boolean(editing)}
-            facets={facets}
-            onSubmit={submitResource}
-            onCancel={() => {
-              setEditing(null);
-              setFormKey((value) => value + 1);
-              setStatus("Editor cleared.");
-            }}
-          />
-        </div>
-      ) : (
+        </>
+      ) : activePanel === "metadata" ? (
         <TaxonomyManager facets={facets} onStatus={setStatus} />
+      ) : (
+        <PatreonSettings onStatus={setStatus} />
       )}
     </>
   );
 }
 
-function resourcePayload(
-  formData: FormData,
-  dependencies: ResourceInput["dependencies"],
-) {
-  const value = (name: string) => formData.get(name);
-  return {
-    title: value("title"),
-    slug: value("slug"),
-    shortDescription: value("shortDescription"),
-    description: value("description"),
-    resourceType: value("resourceType"),
-    categoryId: value("categoryId"),
-    authorId: value("authorId"),
-    gameSystemId: value("gameSystemId"),
-    className: value("className"),
-    subclassName: value("subclassName"),
-    currentVersion: value("currentVersion"),
-    foundryMinimum: value("foundryMinimum"),
-    foundryVerified: value("foundryVerified"),
-    foundryMaximum: value("foundryMaximum"),
-    compatibilityStatus: value("compatibilityStatus"),
-    compatibilityNotes: value("compatibilityNotes"),
-    pricing: value("pricing"),
-    priceLabel: value("priceLabel"),
-    manifestUrl: value("manifestUrl"),
-    projectUrl: value("projectUrl"),
-    licenseName: value("licenseName"),
-    installationInstructions: value("installationInstructions"),
-    tagIds: formData.getAll("tagIds"),
-    dependencies,
-    changelogSummary: value("changelogSummary"),
-    changelogDetails: value("changelogDetails"),
-    isFeatured: value("isFeatured") === "on",
-    isPublished: value("isPublished") === "on",
-  };
-}
+function PatreonSettings({
+  onStatus,
+}: {
+  onStatus: (message: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
 
-function parseDependencies(
-  value: FormDataEntryValue | null,
-):
-  | { ok: true; value: ResourceInput["dependencies"] }
-  | { ok: false; message: string } {
-  const source = String(value ?? "").trim();
-  if (!source) return { ok: true, value: [] };
-  try {
-    const parsed = JSON.parse(source);
-    return Array.isArray(parsed)
-      ? { ok: true, value: parsed as ResourceInput["dependencies"] }
-      : { ok: false, message: "Dependencies must be a JSON array." };
-  } catch {
-    return { ok: false, message: "Dependencies must be valid JSON." };
+  async function sync() {
+    setBusy(true);
+    onStatus("Synchronizing Patreon tiers…");
+    const response = await fetch("/api/admin/patreon/tiers", { method: "POST" });
+    const body = (await response.json().catch(() => ({}))) as {
+      count?: number;
+      error?: string;
+    };
+    onStatus(
+      response.ok
+        ? `${body.count ?? 0} Patreon tiers synchronized.`
+        : body.error ?? "Patreon could not be synchronized.",
+    );
+    setBusy(false);
   }
+
+  return (
+    <section className="admin-panel patreon-settings">
+      <div>
+        <p className="eyebrow">Membership connection</p>
+        <h2>Patreon access</h2>
+        <p>
+          Refresh the available campaign tiers before assigning them to protected
+          resources. Membership is checked live whenever a protected file is
+          downloaded.
+        </p>
+      </div>
+      <button
+        type="button"
+        className="button button-primary"
+        onClick={sync}
+        disabled={busy}
+      >
+        {busy ? "Synchronizing…" : "Synchronize tiers"}
+      </button>
+    </section>
+  );
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
+function Stat({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string | number;
+  detail: string;
+}) {
   return (
     <div>
       <span>{label}</span>
       <strong>{value}</strong>
+      <small>{detail}</small>
     </div>
   );
 }

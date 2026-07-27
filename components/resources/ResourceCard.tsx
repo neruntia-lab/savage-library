@@ -38,6 +38,10 @@ export function ResourceCard({ resource }: { resource: ResourceSummary }) {
         <CompatibilityBadge status={resource.compatibilityStatus} />
       </div>
 
+      {resource.accessMode === "patreon" ? (
+        <span className="resource-access-label">Patreon member download</span>
+      ) : null}
+
       <p className="resource-description">{resource.shortDescription}</p>
 
       <dl className="resource-facts">

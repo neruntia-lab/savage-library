@@ -31,7 +31,7 @@ export function SiteHeader() {
           <Link href={ROUTES.category("classes")}>Classes</Link>
           <Link href={ROUTES.category("subclasses")}>Subclasses</Link>
           <Link className="nav-account" href={ROUTES.account}>
-            Account
+            Patreon access
           </Link>
         </nav>
       </div>

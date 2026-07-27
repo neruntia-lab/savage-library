@@ -1,45 +1,89 @@
+import Image from "next/image";
+import Link from "next/link";
 import type { AdminResource } from "./types";
 
 export function AdminResourceList({
   resources,
-  onEdit,
   onPublicationToggle,
   onDelete,
-  onUpload,
 }: {
   resources: AdminResource[];
-  onEdit: (id: string) => Promise<void>;
   onPublicationToggle: (resource: AdminResource) => Promise<void>;
   onDelete: (resource: AdminResource) => Promise<void>;
-  onUpload: (formData: FormData) => Promise<void>;
 }) {
+  if (!resources.length) {
+    return (
+      <section className="admin-panel admin-empty">
+        <p className="eyebrow">No matching entries</p>
+        <h2>The shelves are clear.</h2>
+        <p>Adjust the filters or create a new resource.</p>
+      </section>
+    );
+  }
+
   return (
-    <section className="admin-panel" aria-labelledby="resource-list-title">
-      <div className="admin-panel-heading">
-        <h2 id="resource-list-title">Library content</h2>
-        <span>{resources.length} records</span>
+    <section className="admin-panel admin-content-panel" aria-label="Library content">
+      <div className="admin-table-header" aria-hidden="true">
+        <span>Resource</span>
+        <span>Release</span>
+        <span>Access</span>
+        <span>Status</span>
+        <span>Actions</span>
       </div>
       <div className="admin-resource-list">
         {resources.map((resource) => (
           <article key={resource.id}>
+            <div className="admin-resource-identity">
+              <div className="admin-resource-thumb">
+                <Image
+                  src={resource.thumbnailUrl ?? "/savage-library-logo.svg"}
+                  alt=""
+                  width={48}
+                  height={58}
+                />
+              </div>
+              <div>
+                <span>{resource.resourceType}</span>
+                <h3>{resource.title}</h3>
+                <small>/{resource.slug}</small>
+              </div>
+            </div>
             <div>
-              <span>
-                {resource.resourceType} · v{resource.currentVersion}
-              </span>
-              <h3>{resource.title}</h3>
+              <strong>v{resource.currentVersion}</strong>
               <small>
-                {resource.downloadCount.toLocaleString()} downloads ·{" "}
-                {resource.isPublished ? "Published" : "Draft"}
+                {new Date(resource.updatedAt).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
               </small>
             </div>
+            <div>
+              <span
+                className={`admin-status-pill ${
+                  resource.accessMode === "patreon" ? "patreon" : ""
+                }`}
+              >
+                {resource.accessMode === "patreon" ? "Patreon" : "Public"}
+              </span>
+            </div>
+            <div>
+              <span
+                className={`admin-status-pill ${
+                  resource.isPublished ? "published" : "draft"
+                }`}
+              >
+                {resource.isPublished ? "Published" : "Draft"}
+              </span>
+              <small>{resource.downloadCount.toLocaleString()} downloads</small>
+            </div>
             <div className="admin-row-actions">
-              <button
+              <Link
                 className="button button-secondary button-small"
-                type="button"
-                onClick={() => onEdit(resource.id)}
+                href={`/admin/resources/${resource.id}`}
               >
                 Edit
-              </button>
+              </Link>
               <button
                 className="button button-secondary button-small"
                 type="button"
@@ -48,39 +92,14 @@ export function AdminResourceList({
                 {resource.isPublished ? "Unpublish" : "Publish"}
               </button>
               <button
-                className="button button-danger button-small"
+                className="admin-more-button"
                 type="button"
+                aria-label={`Delete ${resource.title}`}
                 onClick={() => onDelete(resource)}
               >
-                Delete
+                ×
               </button>
             </div>
-            <form className="upload-row" action={onUpload}>
-              <input
-                type="hidden"
-                name="resourceVersionId"
-                value={resource.resourceVersionId}
-              />
-              <label>
-                <span className="sr-only">File kind</span>
-                <select name="kind" defaultValue="module">
-                  <option value="module">Module ZIP</option>
-                  <option value="pdf">PDF</option>
-                  <option value="cover">Cover</option>
-                  <option value="thumbnail">Thumbnail</option>
-                  <option value="manifest">Manifest</option>
-                </select>
-              </label>
-              <input
-                type="file"
-                name="file"
-                aria-label={`Upload file for ${resource.title}`}
-                required
-              />
-              <button className="button button-secondary button-small">
-                Upload
-              </button>
-            </form>
           </article>
         ))}
       </div>

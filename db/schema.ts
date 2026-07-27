@@ -1,19 +1,20 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
+  pgTable,
   primaryKey,
-  sqliteTable,
   text,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 
 const timestamps = {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 };
 
-export const authors = sqliteTable(
+export const authors = pgTable(
   "authors",
   {
     id: text("id").primaryKey(),
@@ -25,7 +26,7 @@ export const authors = sqliteTable(
   (table) => [uniqueIndex("authors_slug_unique").on(table.slug)],
 );
 
-export const categories = sqliteTable(
+export const categories = pgTable(
   "categories",
   {
     id: text("id").primaryKey(),
@@ -37,7 +38,7 @@ export const categories = sqliteTable(
   (table) => [uniqueIndex("categories_slug_unique").on(table.slug)],
 );
 
-export const gameSystems = sqliteTable(
+export const gameSystems = pgTable(
   "game_systems",
   {
     id: text("id").primaryKey(),
@@ -48,7 +49,7 @@ export const gameSystems = sqliteTable(
   (table) => [uniqueIndex("game_systems_slug_unique").on(table.slug)],
 );
 
-export const tags = sqliteTable(
+export const tags = pgTable(
   "tags",
   {
     id: text("id").primaryKey(),
@@ -59,14 +60,12 @@ export const tags = sqliteTable(
   (table) => [uniqueIndex("tags_slug_unique").on(table.slug)],
 );
 
-export const foundryVersions = sqliteTable(
+export const foundryVersions = pgTable(
   "foundry_versions",
   {
     id: text("id").primaryKey(),
     version: text("version").notNull(),
-    isSupported: integer("is_supported", { mode: "boolean" })
-      .notNull()
-      .default(true),
+    isSupported: boolean("is_supported").notNull().default(true),
     ...timestamps,
   },
   (table) => [
@@ -74,7 +73,7 @@ export const foundryVersions = sqliteTable(
   ],
 );
 
-export const resources = sqliteTable(
+export const resources = pgTable(
   "resources",
   {
     id: text("id").primaryKey(),
@@ -109,12 +108,11 @@ export const resources = sqliteTable(
     licenseUrl: text("license_url"),
     manifestUrl: text("manifest_url"),
     projectUrl: text("project_url"),
-    isFeatured: integer("is_featured", { mode: "boolean" })
-      .notNull()
-      .default(false),
-    isPublished: integer("is_published", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    defaultLocale: text("default_locale").notNull().default("en"),
+    accessMode: text("access_mode").notNull().default("public"),
+    revision: integer("revision").notNull().default(1),
+    isFeatured: boolean("is_featured").notNull().default(false),
+    isPublished: boolean("is_published").notNull().default(false),
     downloadCount: integer("download_count").notNull().default(0),
     popularityScore: integer("popularity_score").notNull().default(0),
     publishedAt: text("published_at"),
@@ -128,10 +126,41 @@ export const resources = sqliteTable(
       table.gameSystemId,
     ),
     index("resources_recency_idx").on(table.publishedAt, table.updatedAt),
+    index("resources_access_idx").on(table.accessMode, table.isPublished),
   ],
 );
 
-export const resourceVersions = sqliteTable(
+export const resourceTranslations = pgTable(
+  "resource_translations",
+  {
+    id: text("id").primaryKey(),
+    resourceId: text("resource_id")
+      .notNull()
+      .references(() => resources.id, { onDelete: "cascade" }),
+    locale: text("locale").notNull(),
+    title: text("title").notNull(),
+    shortDescription: text("short_description").notNull(),
+    description: text("description").notNull().default(""),
+    compatibilityNotes: text("compatibility_notes"),
+    installationInstructions: text("installation_instructions"),
+    priceLabel: text("price_label"),
+    isPublished: boolean("is_published").notNull().default(false),
+    revision: integer("revision").notNull().default(1),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("resource_translation_locale_unique").on(
+      table.resourceId,
+      table.locale,
+    ),
+    index("resource_translation_public_idx").on(
+      table.locale,
+      table.isPublished,
+    ),
+  ],
+);
+
+export const resourceVersions = pgTable(
   "resource_versions",
   {
     id: text("id").primaryKey(),
@@ -142,9 +171,7 @@ export const resourceVersions = sqliteTable(
     foundryMinimum: text("foundry_minimum"),
     foundryVerified: text("foundry_verified"),
     foundryMaximum: text("foundry_maximum"),
-    isCurrent: integer("is_current", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    isCurrent: boolean("is_current").notNull().default(false),
     releasedAt: text("released_at").notNull(),
     ...timestamps,
   },
@@ -153,11 +180,34 @@ export const resourceVersions = sqliteTable(
       table.resourceId,
       table.version,
     ),
+    uniqueIndex("resource_version_current_unique")
+      .on(table.resourceId)
+      .where(sql`${table.isCurrent} = true`),
     index("resource_versions_resource_idx").on(table.resourceId),
   ],
 );
 
-export const files = sqliteTable(
+export const releaseTranslations = pgTable(
+  "release_translations",
+  {
+    id: text("id").primaryKey(),
+    resourceVersionId: text("resource_version_id")
+      .notNull()
+      .references(() => resourceVersions.id, { onDelete: "cascade" }),
+    locale: text("locale").notNull(),
+    summary: text("summary").notNull().default(""),
+    details: text("details").notNull().default(""),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("release_translation_locale_unique").on(
+      table.resourceVersionId,
+      table.locale,
+    ),
+  ],
+);
+
+export const files = pgTable(
   "files",
   {
     id: text("id").primaryKey(),
@@ -165,24 +215,30 @@ export const files = sqliteTable(
       .notNull()
       .references(() => resourceVersions.id, { onDelete: "cascade" }),
     kind: text("kind").notNull(),
+    locale: text("locale").notNull().default("en"),
     storageKey: text("storage_key").notNull(),
+    storageUrl: text("storage_url"),
     originalName: text("original_name").notNull(),
     mimeType: text("mime_type").notNull(),
     extension: text("extension").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     checksum: text("checksum"),
-    isRestricted: integer("is_restricted", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    uploadedBy: text("uploaded_by"),
+    isRestricted: boolean("is_restricted").notNull().default(false),
     ...timestamps,
   },
   (table) => [
     uniqueIndex("files_storage_key_unique").on(table.storageKey),
+    uniqueIndex("files_release_kind_locale_unique").on(
+      table.resourceVersionId,
+      table.kind,
+      table.locale,
+    ),
     index("files_resource_version_idx").on(table.resourceVersionId),
   ],
 );
 
-export const resourceTags = sqliteTable(
+export const resourceTags = pgTable(
   "resource_tags",
   {
     resourceId: text("resource_id")
@@ -198,7 +254,7 @@ export const resourceTags = sqliteTable(
   ],
 );
 
-export const resourceFoundryVersions = sqliteTable(
+export const resourceFoundryVersions = pgTable(
   "resource_foundry_versions",
   {
     resourceId: text("resource_id")
@@ -213,7 +269,7 @@ export const resourceFoundryVersions = sqliteTable(
   ],
 );
 
-export const dependencies = sqliteTable(
+export const dependencies = pgTable(
   "dependencies",
   {
     id: text("id").primaryKey(),
@@ -223,15 +279,13 @@ export const dependencies = sqliteTable(
     name: text("name").notNull(),
     versionRange: text("version_range"),
     url: text("url"),
-    isRequired: integer("is_required", { mode: "boolean" })
-      .notNull()
-      .default(true),
+    isRequired: boolean("is_required").notNull().default(true),
     ...timestamps,
   },
   (table) => [index("dependencies_resource_idx").on(table.resourceId)],
 );
 
-export const changelogEntries = sqliteTable(
+export const changelogEntries = pgTable(
   "changelog_entries",
   {
     id: text("id").primaryKey(),
@@ -248,36 +302,38 @@ export const changelogEntries = sqliteTable(
   ],
 );
 
-export const users = sqliteTable(
-  "users",
+export const patreonTiers = pgTable(
+  "patreon_tiers",
   {
     id: text("id").primaryKey(),
-    email: text("email").notNull(),
-    displayName: text("display_name"),
-    role: text("role").notNull().default("user"),
+    campaignId: text("campaign_id").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    amountCents: integer("amount_cents").notNull().default(0),
+    url: text("url"),
+    isPublished: boolean("is_published").notNull().default(true),
     ...timestamps,
   },
-  (table) => [uniqueIndex("users_email_unique").on(table.email)],
+  (table) => [index("patreon_tiers_campaign_idx").on(table.campaignId)],
 );
 
-export const savedResources = sqliteTable(
-  "saved_resources",
+export const resourcePatreonTiers = pgTable(
+  "resource_patreon_tiers",
   {
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
     resourceId: text("resource_id")
       .notNull()
       .references(() => resources.id, { onDelete: "cascade" }),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    tierId: text("tier_id")
+      .notNull()
+      .references(() => patreonTiers.id, { onDelete: "cascade" }),
   },
   (table) => [
-    primaryKey({ columns: [table.userId, table.resourceId] }),
-    index("saved_resources_user_idx").on(table.userId),
+    primaryKey({ columns: [table.resourceId, table.tierId] }),
+    index("resource_patreon_tier_idx").on(table.tierId),
   ],
 );
 
-export const downloads = sqliteTable(
+export const downloads = pgTable(
   "downloads",
   {
     id: text("id").primaryKey(),
@@ -287,9 +343,6 @@ export const downloads = sqliteTable(
     fileId: text("file_id")
       .notNull()
       .references(() => files.id, { onDelete: "restrict" }),
-    userId: text("user_id").references(() => users.id, {
-      onDelete: "set null",
-    }),
     visitorHash: text("visitor_hash"),
     downloadedAt: text("downloaded_at")
       .notNull()
@@ -297,11 +350,10 @@ export const downloads = sqliteTable(
   },
   (table) => [
     index("downloads_resource_idx").on(table.resourceId),
-    index("downloads_user_idx").on(table.userId, table.downloadedAt),
   ],
 );
 
-export const rateLimits = sqliteTable(
+export const rateLimits = pgTable(
   "rate_limits",
   {
     key: text("key").primaryKey(),

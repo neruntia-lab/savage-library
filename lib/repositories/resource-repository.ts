@@ -19,7 +19,10 @@ import {
   dependencies,
   files,
   gameSystems,
+  patreonTiers,
+  resourcePatreonTiers,
   resourceTags,
+  resourceTranslations,
   resources,
   resourceVersions,
   tags,
@@ -34,8 +37,6 @@ import type {
 } from "../domain/resource";
 import { filterCatalog } from "../services/catalog";
 import type { ResourceInput } from "../validation/resource";
-
-let seedPromise: Promise<void> | undefined;
 
 export async function listCatalog(
   filters: CatalogFilters,
@@ -62,6 +63,7 @@ export async function getFeaturedResources(
 
 export async function getResourceBySlug(
   slug: string,
+  requestedLocale?: "en" | "es",
 ): Promise<ResourceDetails | null> {
   try {
     await ensureSeedData();
@@ -83,7 +85,32 @@ export async function getResourceBySlug(
     const row = rows[0];
     if (!row) return null;
 
-    const [tagRows, fileRows, dependencyRows, changelogRows] =
+    const translationRows = await db
+      .select()
+      .from(resourceTranslations)
+      .where(
+        and(
+          eq(resourceTranslations.resourceId, row.resource.id),
+          eq(resourceTranslations.isPublished, true),
+        ),
+      );
+    const defaultLocale =
+      row.resource.defaultLocale === "es" ? ("es" as const) : ("en" as const);
+    const activeTranslation =
+      translationRows.find(
+        (translation) => translation.locale === requestedLocale,
+      ) ??
+      translationRows.find(
+        (translation) => translation.locale === defaultLocale,
+      );
+    const activeLocale =
+      activeTranslation?.locale === "es"
+        ? ("es" as const)
+        : activeTranslation?.locale === "en"
+          ? ("en" as const)
+          : defaultLocale;
+
+    const [tagRows, fileRows, dependencyRows, changelogRows, tierRows] =
       await Promise.all([
         db
           .select({ tag: tags })
@@ -102,6 +129,7 @@ export async function getResourceBySlug(
               eq(resourceVersions.resourceId, row.resource.id),
               eq(resourceVersions.isCurrent, true),
               inArray(files.kind, ["pdf", "module"]),
+              eq(files.locale, activeLocale),
             ),
           ),
         db
@@ -120,6 +148,20 @@ export async function getResourceBySlug(
           )
           .where(eq(resourceVersions.resourceId, row.resource.id))
           .orderBy(desc(changelogEntries.publishedAt)),
+        db
+          .select({
+            id: patreonTiers.id,
+            title: patreonTiers.title,
+            amountCents: patreonTiers.amountCents,
+            url: patreonTiers.url,
+          })
+          .from(resourcePatreonTiers)
+          .innerJoin(
+            patreonTiers,
+            eq(resourcePatreonTiers.tierId, patreonTiers.id),
+          )
+          .where(eq(resourcePatreonTiers.resourceId, row.resource.id))
+          .orderBy(asc(patreonTiers.amountCents)),
       ]);
 
     const related = await listCatalogFromDatabase({
@@ -131,10 +173,17 @@ export async function getResourceBySlug(
 
     return {
       ...mapSummary(row, tagRows.map((entry) => entry.tag)),
-      description: row.resource.description,
-      compatibilityNotes: row.resource.compatibilityNotes,
+      title: activeTranslation?.title || row.resource.title,
+      shortDescription:
+        activeTranslation?.shortDescription || row.resource.shortDescription,
+      description: activeTranslation?.description || row.resource.description,
+      compatibilityNotes:
+        activeTranslation?.compatibilityNotes ??
+        row.resource.compatibilityNotes,
       coverUrl: storageImageUrl(row.resource.coverKey),
-      installationInstructions: row.resource.installationInstructions,
+      installationInstructions:
+        activeTranslation?.installationInstructions ??
+        row.resource.installationInstructions,
       licenseName: row.resource.licenseName,
       licenseUrl: row.resource.licenseUrl,
       manifestUrl: row.resource.manifestUrl,
@@ -164,6 +213,17 @@ export async function getResourceBySlug(
       relatedResources: related.items
         .filter((item) => item.id !== row.resource.id)
         .slice(0, 3),
+      accessMode:
+        row.resource.accessMode === "patreon" ? "patreon" : "public",
+      defaultLocale,
+      activeLocale,
+      availableLocales: translationRows
+        .map((translation) => translation.locale)
+        .filter(
+          (locale): locale is "en" | "es" =>
+            locale === "en" || locale === "es",
+        ),
+      allowedPatreonTiers: tierRows,
     };
   } catch {
     return SEED_RESOURCES.find((resource) => resource.slug === slug) ?? null;
@@ -234,6 +294,10 @@ export async function listAdminResources(): Promise<
     downloadCount: number;
     updatedAt: string;
     resourceVersionId: string;
+    accessMode: "public" | "patreon";
+    defaultLocale: "en" | "es";
+    thumbnailUrl: string | null;
+    revision: number;
   }>
 > {
   try {
@@ -250,6 +314,10 @@ export async function listAdminResources(): Promise<
         downloadCount: resources.downloadCount,
         updatedAt: resources.updatedAt,
         resourceVersionId: resourceVersions.id,
+        accessMode: resources.accessMode,
+        defaultLocale: resources.defaultLocale,
+        thumbnailKey: resources.thumbnailKey,
+        revision: resources.revision,
       })
       .from(resources)
       .innerJoin(
@@ -259,7 +327,15 @@ export async function listAdminResources(): Promise<
           eq(resourceVersions.isCurrent, true),
         ),
       )
-      .orderBy(desc(resources.updatedAt));
+      .orderBy(desc(resources.updatedAt))
+      .then((rows) =>
+        rows.map(({ thumbnailKey, ...row }) => ({
+          ...row,
+          accessMode: row.accessMode as "public" | "patreon",
+          defaultLocale: row.defaultLocale as "en" | "es",
+          thumbnailUrl: storageImageUrl(thumbnailKey),
+        })),
+      );
   } catch {
     return SEED_RESOURCES.map((resource) => ({
       id: resource.id,
@@ -272,13 +348,36 @@ export async function listAdminResources(): Promise<
       downloadCount: resource.downloadCount,
       updatedAt: resource.updatedAt,
       resourceVersionId: `version-${resource.id}-${resource.currentVersion}`,
+      accessMode: "public" as const,
+      defaultLocale: "en" as const,
+      thumbnailUrl: resource.thumbnailUrl ?? null,
+      revision: 1,
     }));
   }
 }
 
 export async function getAdminResource(
   id: string,
-): Promise<(ResourceInput & { id: string }) | null> {
+): Promise<
+  | (ResourceInput & {
+      id: string;
+      resourceVersionId: string;
+      files: Array<{
+        id: string;
+        kind: string;
+        locale: "en" | "es";
+        originalName: string;
+        sizeBytes: number;
+      }>;
+      releases: Array<{
+        id: string;
+        version: string;
+        isCurrent: boolean;
+        releasedAt: string;
+      }>;
+    })
+  | null
+> {
   await ensureSeedData();
   const db = getDb();
   const rows = await db
@@ -289,7 +388,7 @@ export async function getAdminResource(
   const resource = rows[0];
   if (!resource) return null;
 
-  const [tagRows, dependencyRows] = await Promise.all([
+  const [tagRows, dependencyRows, translationRows, tierRows, versionRows, fileRows] = await Promise.all([
     db
       .select({ tagId: resourceTags.tagId })
       .from(resourceTags)
@@ -298,10 +397,77 @@ export async function getAdminResource(
       .select()
       .from(dependencies)
       .where(eq(dependencies.resourceId, id)),
+    db
+      .select()
+      .from(resourceTranslations)
+      .where(eq(resourceTranslations.resourceId, id)),
+    db
+      .select({ tierId: resourcePatreonTiers.tierId })
+      .from(resourcePatreonTiers)
+      .where(eq(resourcePatreonTiers.resourceId, id)),
+    db
+      .select({
+        id: resourceVersions.id,
+        version: resourceVersions.version,
+        isCurrent: resourceVersions.isCurrent,
+        releasedAt: resourceVersions.releasedAt,
+      })
+      .from(resourceVersions)
+      .where(eq(resourceVersions.resourceId, id))
+      .orderBy(desc(resourceVersions.releasedAt)),
+    db
+      .select({
+        id: files.id,
+        kind: files.kind,
+        locale: files.locale,
+        originalName: files.originalName,
+        sizeBytes: files.sizeBytes,
+      })
+      .from(files)
+      .innerJoin(
+        resourceVersions,
+        eq(files.resourceVersionId, resourceVersions.id),
+      )
+      .where(
+        and(
+          eq(resourceVersions.resourceId, id),
+          eq(resourceVersions.isCurrent, true),
+        ),
+      ),
   ]);
+  const translation = (locale: "en" | "es") => {
+    const row = translationRows.find((entry) => entry.locale === locale);
+    return {
+      title: row?.title ?? (locale === "en" ? resource.title : ""),
+      shortDescription:
+        row?.shortDescription ??
+        (locale === "en" ? resource.shortDescription : ""),
+      description:
+        row?.description ?? (locale === "en" ? resource.description : ""),
+      compatibilityNotes:
+        row?.compatibilityNotes ??
+        (locale === "en" ? resource.compatibilityNotes ?? undefined : undefined),
+      installationInstructions:
+        row?.installationInstructions ??
+        (locale === "en"
+          ? resource.installationInstructions ?? undefined
+          : undefined),
+      priceLabel:
+        row?.priceLabel ??
+        (locale === "en" ? resource.priceLabel ?? undefined : undefined),
+      isPublished: row?.isPublished ?? (locale === "en" && resource.isPublished),
+    };
+  };
 
   return {
     id: resource.id,
+    resourceVersionId:
+      versionRows.find((version) => version.isCurrent)?.id ?? "",
+    files: fileRows.map((file) => ({
+      ...file,
+      locale: file.locale === "es" ? ("es" as const) : ("en" as const),
+    })),
+    releases: versionRows,
     title: resource.title,
     slug: resource.slug,
     shortDescription: resource.shortDescription,
@@ -332,6 +498,13 @@ export async function getAdminResource(
       url: dependency.url ?? undefined,
       isRequired: dependency.isRequired,
     })),
+    defaultLocale: resource.defaultLocale as "en" | "es",
+    accessMode: resource.accessMode as "public" | "patreon",
+    patreonTierIds: tierRows.map(({ tierId }) => tierId),
+    translations: {
+      en: translation("en"),
+      es: translation("es"),
+    },
     isFeatured: resource.isFeatured,
     isPublished: resource.isPublished,
   };
@@ -365,6 +538,8 @@ export async function createResource(input: ResourceInput): Promise<string> {
     priceLabel: input.priceLabel,
     manifestUrl: input.manifestUrl,
     projectUrl: input.projectUrl,
+    defaultLocale: input.defaultLocale,
+    accessMode: input.accessMode,
     licenseName: input.licenseName,
     installationInstructions: input.installationInstructions,
     isFeatured: input.isFeatured,
@@ -374,8 +549,9 @@ export async function createResource(input: ResourceInput): Promise<string> {
     updatedAt: now,
   });
 
+  const versionId = crypto.randomUUID();
   await db.insert(resourceVersions).values({
-    id: crypto.randomUUID(),
+    id: versionId,
     resourceId: id,
     version: input.currentVersion,
     foundryMinimum: input.foundryMinimum,
@@ -388,6 +564,8 @@ export async function createResource(input: ResourceInput): Promise<string> {
   });
 
   await replaceResourceRelations(db, id, input, now, input.currentVersion);
+  await replaceResourceTranslations(db, id, input, now);
+  await replacePatreonTiers(db, id, input.patreonTierIds);
   return id;
 }
 
@@ -425,24 +603,51 @@ export async function updateResource(
       priceLabel: input.priceLabel,
       manifestUrl: input.manifestUrl,
       projectUrl: input.projectUrl,
+      defaultLocale: input.defaultLocale,
+      accessMode: input.accessMode,
       licenseName: input.licenseName,
       installationInstructions: input.installationInstructions,
       isFeatured: input.isFeatured,
       isPublished: input.isPublished,
-      publishedAt: input.isPublished ? new Date().toISOString() : null,
+      publishedAt: input.isPublished
+        ? sql`COALESCE(${resources.publishedAt}, CURRENT_TIMESTAMP)`
+        : resources.publishedAt,
+      revision: sql`${resources.revision} + 1`,
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(resources.id, id));
+    .where(eq(resources.id, id))
+    .returning({ id: resources.id });
+  if (!result[0]) return false;
 
   const now = new Date().toISOString();
   if (existing[0]?.currentVersion !== input.currentVersion) {
+    const targetVersion = await db
+      .select({ id: resourceVersions.id })
+      .from(resourceVersions)
+      .where(
+        and(
+          eq(resourceVersions.resourceId, id),
+          eq(resourceVersions.version, input.currentVersion),
+        ),
+      )
+      .limit(1);
     await db
       .update(resourceVersions)
       .set({ isCurrent: false, updatedAt: now })
       .where(eq(resourceVersions.resourceId, id));
-    await db
-      .insert(resourceVersions)
-      .values({
+    if (targetVersion[0]) {
+      await db
+        .update(resourceVersions)
+        .set({
+          foundryMinimum: input.foundryMinimum,
+          foundryVerified: input.foundryVerified,
+          foundryMaximum: input.foundryMaximum,
+          isCurrent: true,
+          updatedAt: now,
+        })
+        .where(eq(resourceVersions.id, targetVersion[0].id));
+    } else {
+      await db.insert(resourceVersions).values({
         id: crypto.randomUUID(),
         resourceId: id,
         version: input.currentVersion,
@@ -453,8 +658,8 @@ export async function updateResource(
         releasedAt: now,
         createdAt: now,
         updatedAt: now,
-      })
-      .onConflictDoNothing();
+      });
+    }
   } else {
     await db
       .update(resourceVersions)
@@ -472,7 +677,9 @@ export async function updateResource(
       );
   }
   await replaceResourceRelations(db, id, input, now, input.currentVersion);
-  return Boolean(result.meta.changes);
+  await replaceResourceTranslations(db, id, input, now);
+  await replacePatreonTiers(db, id, input.patreonTierIds);
+  return true;
 }
 
 export async function setResourcePublication(
@@ -483,31 +690,37 @@ export async function setResourcePublication(
     .update(resources)
     .set({
       isPublished,
-      publishedAt: isPublished ? new Date().toISOString() : null,
+      publishedAt: isPublished
+        ? sql`COALESCE(${resources.publishedAt}, CURRENT_TIMESTAMP)`
+        : resources.publishedAt,
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(resources.id, id));
-  return Boolean(result.meta.changes);
+    .where(eq(resources.id, id))
+    .returning({ id: resources.id });
+  return Boolean(result[0]);
 }
 
 export async function deleteResource(id: string): Promise<boolean> {
   const result = await getDb()
     .delete(resources)
-    .where(eq(resources.id, id));
-  return Boolean(result.meta.changes);
+    .where(eq(resources.id, id))
+    .returning({ id: resources.id });
+  return Boolean(result[0]);
 }
 
 export async function getResourceStorageKeys(id: string): Promise<string[]> {
   await ensureDatabaseSchema();
   const rows = await getDb()
-    .select({ storageKey: files.storageKey })
+    .select({ storageKey: files.storageKey, storageUrl: files.storageUrl })
     .from(files)
     .innerJoin(
       resourceVersions,
       eq(files.resourceVersionId, resourceVersions.id),
     )
     .where(eq(resourceVersions.resourceId, id));
-  return Array.from(new Set(rows.map(({ storageKey }) => storageKey)));
+  return Array.from(
+    new Set(rows.map(({ storageKey, storageUrl }) => storageUrl ?? storageKey)),
+  );
 }
 
 async function listCatalogFromDatabase(
@@ -693,6 +906,10 @@ function mapSummary(
     popularityScore: row.resource.popularityScore,
     publishedAt: row.resource.publishedAt ?? row.resource.createdAt,
     updatedAt: row.resource.updatedAt,
+    accessMode:
+      row.resource.accessMode === "patreon" ? "patreon" : "public",
+    defaultLocale:
+      row.resource.defaultLocale === "es" ? "es" : "en",
   };
 }
 
@@ -713,6 +930,7 @@ function catalogOrder(sort: CatalogFilters["sort"]) {
 }
 
 function storageImageUrl(key?: string | null): string | null {
+  if (key?.startsWith("http://") || key?.startsWith("https://")) return key;
   return key
     ? `/api/assets/${key
         .split("/")
@@ -764,29 +982,116 @@ async function replaceResourceRelations(
       )
       .limit(1);
     if (versionRows[0]) {
-      await db.insert(changelogEntries).values({
-        id: crypto.randomUUID(),
-        resourceVersionId: versionRows[0].id,
-        summary: input.changelogSummary,
-        details: input.changelogDetails ?? "",
-        publishedAt: now,
-        createdAt: now,
-        updatedAt: now,
-      });
+      const existingRows = await db
+        .select({ id: changelogEntries.id })
+        .from(changelogEntries)
+        .where(
+          and(
+            eq(changelogEntries.resourceVersionId, versionRows[0].id),
+            eq(changelogEntries.summary, input.changelogSummary),
+          ),
+        )
+        .limit(1);
+
+      if (existingRows[0]) {
+        await db
+          .update(changelogEntries)
+          .set({
+            details: input.changelogDetails ?? "",
+            updatedAt: now,
+          })
+          .where(eq(changelogEntries.id, existingRows[0].id));
+      } else {
+        await db.insert(changelogEntries).values({
+          id: crypto.randomUUID(),
+          resourceVersionId: versionRows[0].id,
+          summary: input.changelogSummary,
+          details: input.changelogDetails ?? "",
+          publishedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
     }
   }
 }
 
-async function ensureSeedData(): Promise<void> {
-  if (seedPromise) return seedPromise;
-  seedPromise = seedDatabase().catch((error) => {
-    seedPromise = undefined;
-    throw error;
-  });
-  return seedPromise;
+async function replaceResourceTranslations(
+  db: ReturnType<typeof getDb>,
+  resourceId: string,
+  input: ResourceInput,
+  now: string,
+): Promise<void> {
+  for (const locale of ["en", "es"] as const) {
+    const translation = input.translations[locale];
+    await db
+      .insert(resourceTranslations)
+      .values({
+        id: `${resourceId}-${locale}`,
+        resourceId,
+        locale,
+        title: translation.title,
+        shortDescription: translation.shortDescription,
+        description: translation.description,
+        compatibilityNotes: translation.compatibilityNotes,
+        installationInstructions: translation.installationInstructions,
+        priceLabel: translation.priceLabel,
+        isPublished: translation.isPublished,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [
+          resourceTranslations.resourceId,
+          resourceTranslations.locale,
+        ],
+        set: {
+          title: translation.title,
+          shortDescription: translation.shortDescription,
+          description: translation.description,
+          compatibilityNotes: translation.compatibilityNotes,
+          installationInstructions: translation.installationInstructions,
+          priceLabel: translation.priceLabel,
+          isPublished: translation.isPublished,
+          revision: sql`${resourceTranslations.revision} + 1`,
+          updatedAt: now,
+        },
+      });
+  }
 }
 
-async function seedDatabase(): Promise<void> {
+async function replacePatreonTiers(
+  db: ReturnType<typeof getDb>,
+  resourceId: string,
+  tierIds: string[],
+): Promise<void> {
+  await db
+    .delete(resourcePatreonTiers)
+    .where(eq(resourcePatreonTiers.resourceId, resourceId));
+  if (!tierIds.length) return;
+
+  const validRows = await db
+    .select({ id: patreonTiers.id })
+    .from(patreonTiers)
+    .where(inArray(patreonTiers.id, tierIds));
+  if (validRows.length) {
+    await db
+      .insert(resourcePatreonTiers)
+      .values(
+        validRows.map(({ id }) => ({
+          resourceId,
+          tierId: id,
+        })),
+      )
+      .onConflictDoNothing();
+  }
+}
+
+async function ensureSeedData(): Promise<void> {
+  await ensureDatabaseSchema();
+}
+
+export async function seedExampleDatabase(): Promise<void> {
   await ensureDatabaseSchema();
   const db = getDb();
   const categoryRows = Array.from(
@@ -860,10 +1165,28 @@ async function seedDatabase(): Promise<void> {
         manifestUrl: resource.manifestUrl,
         projectUrl: resource.projectUrl,
         isFeatured: resource.isFeatured,
-        isPublished: true,
+        isPublished: false,
         downloadCount: resource.downloadCount,
         popularityScore: resource.popularityScore,
-        publishedAt: resource.publishedAt,
+        publishedAt: null,
+        createdAt: resource.publishedAt,
+        updatedAt: resource.updatedAt,
+      })
+      .onConflictDoNothing();
+
+    await db
+      .insert(resourceTranslations)
+      .values({
+        id: `${resource.id}-en`,
+        resourceId: resource.id,
+        locale: "en",
+        title: resource.title,
+        shortDescription: resource.shortDescription,
+        description: resource.description,
+        compatibilityNotes: resource.compatibilityNotes,
+        installationInstructions: resource.installationInstructions,
+        priceLabel: resource.priceLabel,
+        isPublished: false,
         createdAt: resource.publishedAt,
         updatedAt: resource.updatedAt,
       })

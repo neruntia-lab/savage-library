@@ -4,7 +4,6 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { CompatibilityBadge } from "../../../components/resources/CompatibilityBadge";
 import { ResourceGrid } from "../../../components/resources/ResourceGrid";
-import { SaveButton } from "../../../components/resources/SaveButton";
 import { CopyButton } from "../../../components/ui/CopyButton";
 import { ROUTES } from "../../../lib/config/site";
 import { formatBytes, formatDate } from "../../../lib/format";
@@ -12,6 +11,7 @@ import { getResourceBySlug } from "../../../lib/repositories/resource-repository
 
 type ResourcePageProps = {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ lang?: string; patreon?: string }>;
 };
 
 export async function generateMetadata({
@@ -32,9 +32,14 @@ export async function generateMetadata({
     : {};
 }
 
-export default async function ResourcePage({ params }: ResourcePageProps) {
+export default async function ResourcePage({
+  params,
+  searchParams,
+}: ResourcePageProps) {
   const { slug } = await params;
-  const resource = await getResourceBySlug(slug);
+  const query = await searchParams;
+  const locale = query?.lang === "es" ? "es" : "en";
+  const resource = await getResourceBySlug(slug, locale);
   if (!resource) notFound();
 
   return (
@@ -70,6 +75,9 @@ export default async function ResourcePage({ params }: ResourcePageProps) {
             <p className="resource-lead">{resource.shortDescription}</p>
             <div className="resource-hero-status">
               <CompatibilityBadge status={resource.compatibilityStatus} />
+              {resource.accessMode === "patreon" ? (
+                <span className="patreon-badge">Patreon access</span>
+              ) : null}
               <span>
                 Version <strong>{resource.currentVersion}</strong>
               </span>
@@ -93,10 +101,78 @@ export default async function ResourcePage({ params }: ResourcePageProps) {
                   View project
                 </a>
               ) : null}
-              <SaveButton resourceId={resource.id} />
             </div>
           </div>
         </div>
+
+        {resource.availableLocales && resource.availableLocales.length > 1 ? (
+          <nav className="resource-language-switcher" aria-label="Resource language">
+            <span>Language</span>
+            <Link
+              className={resource.activeLocale === "en" ? "active" : ""}
+              href={`${ROUTES.resource(resource.slug)}?lang=en`}
+            >
+              English
+            </Link>
+            <Link
+              className={resource.activeLocale === "es" ? "active" : ""}
+              href={`${ROUTES.resource(resource.slug)}?lang=es`}
+            >
+              Español
+            </Link>
+          </nav>
+        ) : null}
+
+        {resource.accessMode === "patreon" ? (
+          <section
+            className={`patreon-access-panel ${
+              query?.patreon === "required" ? "attention" : ""
+            }`}
+            aria-labelledby="patreon-access-title"
+          >
+            <div>
+              <p className="eyebrow">Member download</p>
+              <h2 id="patreon-access-title">
+                Unlock this resource through Patreon
+              </h2>
+              <p>
+                The complete details are public. Downloading checks your active
+                Savage Library Patreon tier in real time.
+              </p>
+              {resource.allowedPatreonTiers?.length ? (
+                <div className="patreon-tier-list">
+                  {resource.allowedPatreonTiers.map((tier) => (
+                    <span key={tier.id}>
+                      {tier.title} · ${(tier.amountCents / 100).toFixed(2)}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <div className="patreon-access-actions">
+              <Link
+                className="button button-primary"
+                href={`/api/auth/signin/patreon?callbackUrl=${encodeURIComponent(
+                  `${ROUTES.resource(resource.slug)}?lang=${resource.activeLocale ?? "en"}`,
+                )}`}
+              >
+                Sign in with Patreon
+              </Link>
+              <a
+                className="button button-secondary"
+                href={
+                  resource.allowedPatreonTiers?.[0]?.url ??
+                  process.env.PATREON_CAMPAIGN_URL ??
+                  "https://www.patreon.com/"
+                }
+                target="_blank"
+                rel="noreferrer"
+              >
+                View eligible tiers
+              </a>
+            </div>
+          </section>
+        ) : null}
 
         {["outdated", "unsupported"].includes(resource.compatibilityStatus) ? (
           <div className="notice notice-warning" role="alert">
@@ -123,7 +199,9 @@ export default async function ResourcePage({ params }: ResourcePageProps) {
                         <strong>{file.name}</strong>
                         <span>
                           {file.kind.toUpperCase()} · {formatBytes(file.sizeBytes)}
-                          {file.isRestricted ? " · Sign-in required" : ""}
+                          {resource.accessMode === "patreon"
+                            ? " · Patreon membership required"
+                            : ""}
                         </span>
                       </div>
                       <Link

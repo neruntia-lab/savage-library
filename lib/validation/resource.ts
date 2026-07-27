@@ -39,7 +39,24 @@ export type ResourceInput = {
   }>;
   changelogSummary?: string;
   changelogDetails?: string;
+  defaultLocale: "en" | "es";
+  accessMode: "public" | "patreon";
+  patreonTierIds: string[];
+  translations: {
+    en: ResourceTranslationInput;
+    es: ResourceTranslationInput;
+  };
   isFeatured: boolean;
+  isPublished: boolean;
+};
+
+export type ResourceTranslationInput = {
+  title: string;
+  shortDescription: string;
+  description: string;
+  compatibilityNotes?: string;
+  installationInstructions?: string;
+  priceLabel?: string;
   isPublished: boolean;
 };
 
@@ -53,12 +70,20 @@ export function validateResourceInput(value: unknown): ValidationResult<Resource
   }
 
   const errors: Record<string, string> = {};
-  const title = textField(value.title, "Title", 2, 120, errors, "title");
+  const publishing = value.isPublished === true;
+  const title = textField(
+    value.title,
+    "Title",
+    publishing ? 2 : 1,
+    120,
+    errors,
+    "title",
+  );
   const slug = textField(value.slug, "Slug", 2, 120, errors, "slug");
   const shortDescription = textField(
     value.shortDescription,
     "Short description",
-    10,
+    publishing ? 10 : 0,
     240,
     errors,
     "shortDescription",
@@ -118,6 +143,38 @@ export function validateResourceInput(value: unknown): ValidationResult<Resource
   const manifestUrl = optionalUrl(value.manifestUrl, errors, "manifestUrl");
   const projectUrl = optionalUrl(value.projectUrl, errors, "projectUrl");
   const parsedDependencies = dependencyArray(value.dependencies, errors);
+  const defaultLocale =
+    value.defaultLocale === "es" ? ("es" as const) : ("en" as const);
+  const accessMode =
+    value.accessMode === "patreon"
+      ? ("patreon" as const)
+      : ("public" as const);
+  const patreonTierIds = stringArray(value.patreonTierIds, 30, 120);
+  const translations = translationInput(
+    value.translations,
+    {
+      title,
+      shortDescription,
+      description,
+      compatibilityNotes: optionalText(value.compatibilityNotes, 2_000),
+      installationInstructions: optionalText(
+        value.installationInstructions,
+        8_000,
+      ),
+      priceLabel: optionalText(value.priceLabel, 80),
+      isPublished: value.isPublished === true,
+    },
+    errors,
+  );
+
+  if (
+    value.isPublished === true &&
+    accessMode === "patreon" &&
+    !patreonTierIds.length
+  ) {
+    errors.patreonTierIds =
+      "Choose at least one Patreon tier before publishing.";
+  }
 
   if (
     Object.keys(errors).length ||
@@ -161,9 +218,65 @@ export function validateResourceInput(value: unknown): ValidationResult<Resource
         optionalText(value.changelogSummary, 240) || undefined,
       changelogDetails:
         optionalText(value.changelogDetails, 4_000) || undefined,
+      defaultLocale,
+      accessMode,
+      patreonTierIds,
+      translations,
       isFeatured: value.isFeatured === true,
       isPublished: value.isPublished === true,
     },
+  };
+}
+
+function translationInput(
+  value: unknown,
+  fallback: ResourceTranslationInput,
+  errors: Record<string, string>,
+): ResourceInput["translations"] {
+  const record = isRecord(value) ? value : {};
+  return {
+    en: parseTranslation(record.en, fallback, "en", errors),
+    es: parseTranslation(
+      record.es,
+      {
+        title: "",
+        shortDescription: "",
+        description: "",
+        isPublished: false,
+      },
+      "es",
+      errors,
+    ),
+  };
+}
+
+function parseTranslation(
+  value: unknown,
+  fallback: ResourceTranslationInput,
+  locale: "en" | "es",
+  errors: Record<string, string>,
+): ResourceTranslationInput {
+  if (!isRecord(value)) return fallback;
+  const title = optionalText(value.title, 120);
+  const shortDescription = optionalText(value.shortDescription, 240);
+  const isPublished = value.isPublished === true;
+  if (isPublished && title.length < 2) {
+    errors[`${locale}Title`] = "Published translations need a title.";
+  }
+  if (isPublished && shortDescription.length < 10) {
+    errors[`${locale}ShortDescription`] =
+      "Published translations need a short description.";
+  }
+  return {
+    title,
+    shortDescription,
+    description: optionalText(value.description, 4_000),
+    compatibilityNotes:
+      optionalText(value.compatibilityNotes, 2_000) || undefined,
+    installationInstructions:
+      optionalText(value.installationInstructions, 8_000) || undefined,
+    priceLabel: optionalText(value.priceLabel, 80) || undefined,
+    isPublished,
   };
 }
 

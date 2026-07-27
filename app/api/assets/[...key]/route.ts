@@ -8,12 +8,14 @@ export async function GET(_request: Request, context: RouteContext) {
     const image = await readImage(
       key.map((segment) => decodeURIComponent(segment)).join("/"),
     );
-    if (!image) return new Response(null, { status: 404 });
+    if (!image || image.statusCode !== 200) {
+      return new Response(null, { status: 404 });
+    }
     const headers = new Headers();
-    image.writeHttpMetadata(headers);
+    image.headers.forEach((value, key) => headers.set(key, value));
     headers.set("Cache-Control", "public, max-age=86400, immutable");
     headers.set("X-Content-Type-Options", "nosniff");
-    return new Response(image.body, { headers });
+    return new Response(image.stream, { headers });
   } catch {
     return new Response(null, { status: 404 });
   }

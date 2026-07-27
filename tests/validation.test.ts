@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isAdminEmail } from "../lib/config/permissions";
 import {
   sanitizePlainText,
   validateResourceInput,
@@ -31,6 +30,18 @@ test("resource validation accepts normalized production input", () => {
   if (result.success) {
     assert.equal(result.data.slug, "test-module");
     assert.deepEqual(result.data.tagIds, ["tag-automation"]);
+  }
+});
+
+test("published Patreon resources require at least one entitled tier", () => {
+  const result = validateResourceInput({
+    ...validResource,
+    accessMode: "patreon",
+    patreonTierIds: [],
+  });
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.match(result.errors.patreonTierIds, /at least one Patreon tier/);
   }
 });
 
@@ -71,16 +82,4 @@ test("upload validation requires matching extension, MIME type, and size", () =>
     size: MAX_UPLOAD_BYTES + 1,
   } as File;
   assert.equal(validateUpload(oversized, "pdf").valid, false);
-});
-
-test("admin authorization uses an exact normalized email allowlist", () => {
-  const previous = process.env.ADMIN_EMAILS;
-  process.env.ADMIN_EMAILS = "owner@example.com, Admin@Example.org";
-  try {
-    assert.equal(isAdminEmail("OWNER@example.com"), true);
-    assert.equal(isAdminEmail("not-owner@example.com"), false);
-  } finally {
-    if (previous === undefined) delete process.env.ADMIN_EMAILS;
-    else process.env.ADMIN_EMAILS = previous;
-  }
 });

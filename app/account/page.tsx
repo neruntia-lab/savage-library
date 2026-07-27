@@ -1,85 +1,56 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireChatGPTUser, chatGPTSignOutPath } from "../chatgpt-auth";
-import { ProfileForm } from "../../components/account/ProfileForm";
-import { ResourceGrid } from "../../components/resources/ResourceGrid";
-import { ROUTES } from "../../lib/config/site";
-import { formatDate } from "../../lib/format";
-import { getAccountOverview } from "../../lib/repositories/account-repository";
-import { getAuthorizedUser } from "../../lib/services/auth";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../../auth";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Your account",
-  description: "Saved resources, download history, and profile settings.",
+  title: "Patreon access",
+  description: "Connect Patreon to unlock member-only Savage Library downloads.",
 };
 
 export default async function AccountPage() {
-  await requireChatGPTUser(ROUTES.account);
-  const user = await getAuthorizedUser();
-  if (!user) return null;
-
-  const overview = await getAccountOverview(user);
+  const session = await getServerSession(authOptions);
+  const isPatron = session?.user?.provider === "patreon";
 
   return (
     <section className="section page-section">
-      <div className="container">
-        <div className="account-heading">
-          <div className="page-heading">
-            <p className="eyebrow">Personal library</p>
-            <h1>Your account</h1>
-            <p>Saved resources, download history, and profile settings.</p>
-          </div>
-          <Link
-            className="button button-secondary button-small"
-            href={chatGPTSignOutPath("/")}
-          >
-            Sign out
-          </Link>
-        </div>
-
-        <div className="account-section">
-          <div className="section-heading">
-            <h2>Saved resources</h2>
-            <span>{overview.saved.length} saved</span>
-          </div>
-          <ResourceGrid
-            resources={overview.saved.map(({ resource }) => resource)}
-          />
-        </div>
-
-        <div className="account-grid">
-          <section className="account-panel" aria-labelledby="history-title">
-            <h2 id="history-title">Download history</h2>
-            {overview.history.length ? (
-              <div className="history-list">
-                {overview.history.map((entry) => (
-                  <div key={entry.id}>
-                    <div>
-                      <Link href={ROUTES.resource(entry.resourceSlug)}>
-                        {entry.resourceTitle}
-                      </Link>
-                      <span>{entry.fileName}</span>
-                    </div>
-                    <time dateTime={entry.downloadedAt}>
-                      {formatDate(entry.downloadedAt)}
-                    </time>
-                  </div>
-                ))}
-              </div>
+      <div className="container narrow-container">
+        <div className="account-panel patreon-account-panel">
+          <p className="eyebrow">Member access</p>
+          <h1>{isPatron ? "Patreon connected" : "Connect your Patreon"}</h1>
+          <p>
+            {isPatron
+              ? "Your current Savage Library membership is checked directly with Patreon whenever you request a protected download."
+              : "Sign in with Patreon to unlock resources included with your active Savage Library tier. No public profile or account dashboard is created."}
+          </p>
+          <div className="profile-actions">
+            {isPatron ? (
+              <>
+                <Link className="button button-primary" href="/library">
+                  Browse the library
+                </Link>
+                <Link
+                  className="button button-secondary"
+                  href="/api/auth/signout?callbackUrl=/"
+                >
+                  Disconnect
+                </Link>
+              </>
             ) : (
-              <p className="panel-empty">No downloads yet.</p>
+              <Link
+                className="button button-primary"
+                href="/api/auth/signin/patreon?callbackUrl=/library"
+              >
+                Sign in with Patreon
+              </Link>
             )}
-          </section>
-
-          <section className="account-panel" aria-labelledby="profile-title">
-            <h2 id="profile-title">Profile settings</h2>
-            <ProfileForm
-              email={overview.profile.email}
-              displayName={overview.profile.displayName}
-            />
-          </section>
+          </div>
+          <small>
+            Access is granted only when Patreon reports a currently entitled
+            qualifying tier.
+          </small>
         </div>
       </div>
     </section>

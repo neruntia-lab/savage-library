@@ -1,11 +1,14 @@
+import { NextRequest, NextResponse } from "next/server";
 import {
+  createSignedDownloadUrl,
   getDownloadRecord,
-  readStoredFile,
   recordDownload,
 } from "../../../../lib/repositories/file-repository";
 import {
   getAuthorizedUser,
+  getPatreonAccessToken,
 } from "../../../../lib/services/auth";
+import { verifyPatreonEntitlement } from "../../../../lib/services/patreon";
 import {
   enforceRateLimit,
   requestIdentifier,
@@ -13,7 +16,7 @@ import {
 
 type RouteContext = { params: Promise<{ fileId: string }> };
 
-export async function GET(request: Request, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
   const identifier = requestIdentifier(request);
   const limit = await enforceRateLimit({
     scope: "download",
@@ -31,59 +34,63 @@ export async function GET(request: Request, context: RouteContext) {
     }
 
     const user = await getAuthorizedUser();
-    if (record.file.isRestricted && !user) {
-      return Response.json(
-        { error: "Sign in to download this file." },
-        { status: 401 },
-      );
-    }
+    if (record.resource.accessMode === "patreon" && !user?.isAdmin) {
+      const token = await getPatreonAccessToken(request);
+      if (!token) {
+        const signIn = new URL("/api/auth/signin/patreon", request.url);
+        signIn.searchParams.set("callbackUrl", request.url);
+        return NextResponse.redirect(signIn);
+      }
 
-    const stored = await readStoredFile(record.file.storageKey);
-    if (!stored) {
-      return Response.json(
-        { error: "The file is temporarily unavailable." },
-        { status: 404 },
+      const entitlement = await verifyPatreonEntitlement(
+        token,
+        record.allowedTierIds,
       );
+      if (!entitlement.entitled) {
+        const resourceUrl = new URL(
+          `/resources/${record.resource.slug}`,
+          request.url,
+        );
+        resourceUrl.searchParams.set("patreon", "required");
+        return NextResponse.redirect(resourceUrl);
+      }
     }
 
     await recordDownload({
       resourceId: record.resource.id,
       fileId: record.file.id,
       user,
-      visitorHash: user ? undefined : await hashVisitor(identifier, request),
+      visitorHash: user ? await hashValue(user.id) : await hashVisitor(identifier, request),
     });
 
-    const headers = new Headers();
-    stored.writeHttpMetadata(headers);
-    headers.set(
-      "Content-Disposition",
-      `attachment; filename="${safeFilename(record.file.originalName)}"`,
-    );
-    headers.set("Content-Length", String(stored.size));
-    headers.set("Cache-Control", "private, no-store");
-    headers.set("X-Content-Type-Options", "nosniff");
-
-    return new Response(stored.body, { headers });
-  } catch {
+    const signedUrl = await createSignedDownloadUrl(record.file.storageKey);
+    return NextResponse.redirect(signedUrl, 302);
+  } catch (error) {
     return Response.json(
-      { error: "The download could not be completed." },
-      { status: 500 },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "The download could not be completed.",
+      },
+      { status: 502 },
     );
   }
-}
-
-function safeFilename(value: string): string {
-  return value.replace(/[\r\n"\\/]/g, "-").slice(0, 180);
 }
 
 async function hashVisitor(
   identifier: string,
   request: Request,
 ): Promise<string> {
-  const source = `${identifier}|${request.headers.get("user-agent") ?? ""}`;
+  return hashValue(
+    `${identifier}|${request.headers.get("user-agent") ?? ""}`,
+  );
+}
+
+async function hashValue(value: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(source),
+    new TextEncoder().encode(value),
   );
   return Array.from(new Uint8Array(digest))
     .slice(0, 16)

@@ -1,19 +1,22 @@
+import { del } from "@vercel/blob";
 import {
   deleteResource,
   getResourceStorageKeys,
 } from "../repositories/resource-repository";
-import { getFileBucketBinding } from "../platform/bindings";
 
 export async function deleteResourceAndFiles(id: string): Promise<boolean> {
-  const storageKeys = await getResourceStorageKeys(id);
-  const bucket = getFileBucketBinding();
+  const storageUrls = await getResourceStorageKeys(id);
+  const deleted = await deleteResource(id);
+  if (!deleted) return false;
 
-  if (storageKeys.length && !bucket) {
-    throw new Error("File storage is unavailable.");
-  }
-  if (bucket && storageKeys.length) {
-    await bucket.delete(storageKeys);
-  }
-
-  return deleteResource(id);
+  await Promise.all(
+    storageUrls.map(async (url) => {
+      const isPublic = url.includes(".public.blob.vercel-storage.com");
+      const token = isPublic
+        ? process.env.PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN
+        : process.env.PRIVATE_CONTENT_BLOB_READ_WRITE_TOKEN;
+      if (token) await del(url, { token }).catch(() => undefined);
+    }),
+  );
+  return true;
 }

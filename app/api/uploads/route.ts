@@ -1,10 +1,14 @@
-import { storeResourceFile } from "../../../lib/repositories/file-repository";
+import {
+  handleUpload,
+  type HandleUploadBody,
+} from "@vercel/blob/client";
+import { recordUploadedBlob } from "../../../lib/repositories/file-repository";
 import type { FileKind } from "../../../lib/domain/resource";
 import { requireApiAdmin } from "../../../lib/services/auth";
-import { enforceRateLimit } from "../../../lib/services/rate-limit";
 import {
   MAX_UPLOAD_BYTES,
-  validateUpload,
+  uploadRulesForKind,
+  validateUploadMetadata,
 } from "../../../lib/validation/upload";
 
 const ALLOWED_KINDS = [
@@ -15,62 +19,139 @@ const ALLOWED_KINDS = [
   "manifest",
 ] as const;
 
+type UploadPayload = {
+  resourceVersionId: string;
+  kind: FileKind;
+  locale: "en" | "es";
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  extension: string;
+  uploadedBy: string;
+};
+
 export async function POST(request: Request) {
-  const auth = await requireApiAdmin();
-  if (!auth.ok) return auth.response;
-
-  const contentLength = Number(request.headers.get("content-length") ?? 0);
-  if (contentLength > MAX_UPLOAD_BYTES + 1_000_000) {
-    return Response.json(
-      { error: "The upload exceeds the 50 MB limit." },
-      { status: 413 },
-    );
+  const body = (await request.json().catch(() => null)) as HandleUploadBody | null;
+  if (!body) {
+    return Response.json({ error: "Invalid upload request." }, { status: 400 });
   }
 
-  const limit = await enforceRateLimit({
-    scope: "admin",
-    identifier: auth.user.id,
-    limit: 30,
-    windowSeconds: 60,
-  });
-  if (!limit.allowed) return limit.response;
-
-  const formData = await request.formData().catch(() => null);
-  const file = formData?.get("file");
-  const kind = formData?.get("kind");
-  const resourceVersionId = formData?.get("resourceVersionId");
-
-  if (
-    !(file instanceof File) ||
-    typeof kind !== "string" ||
-    !ALLOWED_KINDS.includes(kind as FileKind) ||
-    typeof resourceVersionId !== "string" ||
-    resourceVersionId.length > 160
-  ) {
-    return Response.json(
-      { error: "A valid file, kind, and resource version are required." },
-      { status: 400 },
-    );
+  let authenticatedAdminId: string | null = null;
+  if (body.type === "blob.generate-client-token") {
+    const auth = await requireApiAdmin();
+    if (!auth.ok) return auth.response;
+    authenticatedAdminId = auth.user.id;
   }
 
-  const validation = validateUpload(file, kind as FileKind);
-  if (!validation.valid) {
-    return Response.json({ error: validation.message }, { status: 400 });
+  const payloadSource =
+    body.type === "blob.generate-client-token"
+      ? body.payload.clientPayload
+      : body.payload.tokenPayload;
+  const parsed = parseUploadPayload(payloadSource);
+  if (!parsed.ok) {
+    return Response.json({ error: parsed.error }, { status: 400 });
+  }
+  const payload = {
+    ...parsed.value,
+    uploadedBy: authenticatedAdminId ?? parsed.value.uploadedBy,
+  };
+  const isMedia = payload.kind === "cover" || payload.kind === "thumbnail";
+  const token = isMedia
+    ? process.env.PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN
+    : process.env.PRIVATE_CONTENT_BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    return Response.json(
+      { error: "The selected file storage is not configured." },
+      { status: 503 },
+    );
   }
 
   try {
-    const stored = await storeResourceFile({
-      resourceVersionId,
-      kind: kind as FileKind,
-      file,
-      extension: validation.extension,
-      uploadedBy: auth.user,
+    const response = await handleUpload({
+      body,
+      request,
+      token,
+      onBeforeGenerateToken: async (pathname) => {
+        if (!pathname.startsWith(`resource-files/${payload.resourceVersionId}/`)) {
+          throw new Error("The upload path is invalid.");
+        }
+        return {
+          allowedContentTypes: [...uploadRulesForKind(payload.kind).mimeTypes],
+          maximumSizeInBytes: MAX_UPLOAD_BYTES,
+          addRandomSuffix: true,
+          tokenPayload: JSON.stringify(payload),
+        };
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        const completed = parseUploadPayload(tokenPayload);
+        if (!completed.ok) throw new Error(completed.error);
+        await recordUploadedBlob({
+          ...completed.value,
+          blob,
+        });
+      },
     });
-    return Response.json(stored, { status: 201 });
-  } catch {
+    return Response.json(response);
+  } catch (error) {
     return Response.json(
-      { error: "The file could not be stored." },
-      { status: 500 },
+      {
+        error:
+          error instanceof Error ? error.message : "The upload could not complete.",
+      },
+      { status: 400 },
     );
   }
+}
+
+function parseUploadPayload(
+  source: string | null | undefined,
+): { ok: true; value: UploadPayload } | { ok: false; error: string } {
+  let value: unknown;
+  try {
+    value = JSON.parse(source ?? "");
+  } catch {
+    return { ok: false, error: "Upload metadata is invalid." };
+  }
+  if (!value || typeof value !== "object") {
+    return { ok: false, error: "Upload metadata is invalid." };
+  }
+
+  const input = value as Record<string, unknown>;
+  const kind = input.kind;
+  const locale = input.locale;
+  if (
+    typeof kind !== "string" ||
+    !ALLOWED_KINDS.includes(kind as FileKind) ||
+    (locale !== "en" && locale !== "es") ||
+    typeof input.resourceVersionId !== "string" ||
+    !input.resourceVersionId ||
+    typeof input.originalName !== "string" ||
+    typeof input.mimeType !== "string" ||
+    typeof input.sizeBytes !== "number" ||
+    typeof input.uploadedBy !== "string"
+  ) {
+    return { ok: false, error: "Upload metadata is incomplete." };
+  }
+
+  const validation = validateUploadMetadata({
+    name: input.originalName,
+    type: input.mimeType,
+    size: input.sizeBytes,
+    kind: kind as FileKind,
+  });
+  if (!validation.valid) return { ok: false, error: validation.message };
+
+  return {
+    ok: true,
+    value: {
+      resourceVersionId: input.resourceVersionId.slice(0, 160),
+      kind: kind as FileKind,
+      locale,
+      originalName: input.originalName.slice(0, 255),
+      mimeType: input.mimeType.slice(0, 160),
+      sizeBytes: input.sizeBytes,
+      extension: validation.extension,
+      uploadedBy: input.uploadedBy.slice(0, 160),
+    },
+  };
 }

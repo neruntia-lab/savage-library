@@ -54,6 +54,9 @@ export type ResourceSummary = {
   popularityScore: number;
   publishedAt: string;
   updatedAt: string;
+  accessMode?: "public" | "patreon";
+  defaultLocale?: "en" | "es";
+  availableLocales?: Array<"en" | "es">;
 };
 
 export type ResourceDetails = ResourceSummary & {
@@ -69,6 +72,13 @@ export type ResourceDetails = ResourceSummary & {
   dependencies: Dependency[];
   changelog: ChangelogEntry[];
   relatedResources: ResourceSummary[];
+  allowedPatreonTiers?: Array<{
+    id: string;
+    title: string;
+    amountCents: number;
+    url?: string | null;
+  }>;
+  activeLocale?: "en" | "es";
 };
 
 export type NamedEntity = {
