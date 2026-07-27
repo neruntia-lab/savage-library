@@ -12,9 +12,9 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#D71920",
     icons: [
       {
-        src: "/logo.png",
+        src: "/savage-library-logo.svg",
         sizes: "any",
-        type: "image/png",
+        type: "image/svg+xml",
       },
     ],
   };

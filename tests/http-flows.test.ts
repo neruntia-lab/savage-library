@@ -43,7 +43,7 @@ after(() => {
 test("home-to-library discovery flow renders searchable catalog content", async () => {
   const home = await get("/");
   assert.match(home, /Savage Library/);
-  assert.match(home, /Search library/);
+  assert.match(home, /Search the archive/);
   assert.match(home, /Foundry VTT Modules/);
 
   const library = await get(

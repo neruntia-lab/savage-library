@@ -8,8 +8,18 @@ export function SiteFooter() {
       <div className="container footer-grid">
         <div>
           <Link className="brand" href={ROUTES.home}>
-            <Image src="/logo-mark.svg" alt="" width={22} height={30} />
-            <span>{SITE_CONFIG.name}</span>
+            <span className="brand-mark">
+              <Image
+                src="/savage-library-logo.svg"
+                alt=""
+                width={30}
+                height={41}
+              />
+            </span>
+            <span className="brand-copy">
+              <strong>{SITE_CONFIG.name}</strong>
+              <small>The adventurer&apos;s archive</small>
+            </span>
           </Link>
           <p>{SITE_CONFIG.tagline}</p>
         </div>
@@ -21,7 +31,10 @@ export function SiteFooter() {
           ))}
         </nav>
         <div className="footer-meta">
-          <p>Only authorized resources are published.</p>
+          <span className="footer-seal" aria-hidden="true">
+            <span>SL</span>
+          </span>
+          <p>Only authorized resources enter the archive.</p>
           <Link href={ROUTES.admin}>Admin</Link>
         </div>
       </div>
