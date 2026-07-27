@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:vercel": "drizzle-kit migrate && tsx scripts/seed-examples.ts && next build",
     "start": "next start",
     "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts tests/patreon.test.ts",
     "test:flows": "tsx --test tests/http-flows.test.ts",

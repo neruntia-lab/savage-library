@@ -136,11 +136,12 @@ After changing `db/schema.ts`, generate and inspect a new migration under
 
 1. Connect Neon and both Blob stores to the Vercel project.
 2. Add environment values separately for Preview and Production.
-3. Apply migrations to the intended database.
-4. Push to `development` and verify the Vercel preview.
-5. Test admin login, Patreon tier synchronization, public downloads, protected
+3. Push to `development` and verify the Vercel preview. Vercel applies pending
+   migrations and idempotently creates the bundled draft examples before each
+   build, using `DATABASE_URL_UNPOOLED` when available.
+4. Test admin login, Patreon tier synchronization, public downloads, protected
    downloads, translations, uploads, preview, and publishing.
-6. Promote to `main` only after the preview is approved.
+5. Promote to `main` only after the preview is approved.
 
 `Logo`, `Macros`, and `Mods` are intentionally excluded from source control.
 Only the optimized logo asset under `public/` is deployed.
