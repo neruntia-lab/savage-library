@@ -113,7 +113,8 @@ as authorization.
 
 The default build targets Vercel's native Next.js runtime.
 
-1. Import this repository into Vercel and select the `development` branch.
+1. Import this repository into Vercel and use `main` as the production branch.
+   The `development` branch is reserved for preview deployments.
 2. Keep the framework preset on **Next.js**, the root directory on the
    repository root, and the output directory on its framework default.
 3. Set `NEXT_PUBLIC_SITE_URL` to the production origin and configure
