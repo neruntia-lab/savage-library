@@ -1,7 +1,7 @@
-import { scryptSync, timingSafeEqual } from "node:crypto";
 import type { NextAuthOptions } from "next-auth";
 import type { OAuthConfig } from "next-auth/providers/oauth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { verifyScryptPassword } from "./lib/services/password";
 
 type PatreonIdentity = {
   data: {
@@ -63,7 +63,9 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         const password = credentials?.password ?? "";
         const hash = process.env.ADMIN_PASSWORD_HASH ?? "";
-        if (!password || !hash || !verifyPassword(password, hash)) return null;
+        if (!password || !hash || !verifyScryptPassword(password, hash)) {
+          return null;
+        }
 
         return {
           id: "shared-admin",
@@ -100,16 +102,3 @@ export const authOptions: NextAuthOptions = {
     },
   },
 };
-
-function verifyPassword(password: string, encoded: string): boolean {
-  const [algorithm, salt, expectedHex] = encoded.split("$");
-  if (algorithm !== "scrypt" || !salt || !expectedHex) return false;
-
-  try {
-    const actual = scryptSync(password, salt, expectedHex.length / 2);
-    const expected = Buffer.from(expectedHex, "hex");
-    return actual.length === expected.length && timingSafeEqual(actual, expected);
-  } catch {
-    return false;
-  }
-}

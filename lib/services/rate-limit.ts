@@ -3,7 +3,7 @@ import { getDb, isDatabaseConfigured } from "../../db";
 import { rateLimits } from "../../db/schema";
 
 export async function enforceRateLimit(input: {
-  scope: "search" | "download" | "account" | "admin";
+  scope: "search" | "download" | "account" | "admin" | "preview";
   identifier: string;
   limit: number;
   windowSeconds: number;

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { scryptSync } from "node:crypto";
 import test from "node:test";
 import {
   sanitizePlainText,
@@ -10,6 +11,12 @@ import {
   validateHeroDimensions,
   validateHeroFileMetadata,
 } from "../lib/validation/hero-image";
+import { verifyScryptPassword } from "../lib/services/password";
+import {
+  createPreviewAccessToken,
+  PREVIEW_ACCESS_SECONDS,
+  verifyPreviewAccessToken,
+} from "../lib/services/preview-access";
 
 const validResource = {
   title: "Test Module",
@@ -120,4 +127,41 @@ test("hero image validation rejects unsafe files and crops", () => {
   );
   assert.equal(validateHeroDimensions(900, 900).valid, false);
   assert.equal(validateHeroDimensions(4000, 600).valid, false);
+});
+
+test("shared scrypt verifier accepts only the encoded password", () => {
+  const salt = "preview-test-salt";
+  const encoded = `scrypt$${salt}$${scryptSync(
+    "correct horse",
+    salt,
+    64,
+  ).toString("hex")}`;
+  assert.equal(verifyScryptPassword("correct horse", encoded), true);
+  assert.equal(verifyScryptPassword("wrong horse", encoded), false);
+  assert.equal(verifyScryptPassword("correct horse", "invalid"), false);
+});
+
+test("preview access tokens reject tampering and expiration", () => {
+  const now = Date.UTC(2026, 6, 27);
+  const access = createPreviewAccessToken("test-signing-secret", now);
+  assert.equal(
+    verifyPreviewAccessToken(access.token, "test-signing-secret", now),
+    true,
+  );
+  assert.equal(
+    verifyPreviewAccessToken(
+      `${access.token.slice(0, -1)}x`,
+      "test-signing-secret",
+      now,
+    ),
+    false,
+  );
+  assert.equal(
+    verifyPreviewAccessToken(
+      access.token,
+      "test-signing-secret",
+      now + PREVIEW_ACCESS_SECONDS * 1_000 + 1,
+    ),
+    false,
+  );
 });

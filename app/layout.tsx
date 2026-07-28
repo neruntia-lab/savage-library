@@ -2,11 +2,16 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { SiteFooter } from "../components/layout/SiteFooter";
 import { SiteHeader } from "../components/layout/SiteHeader";
+import { ConstructionGate } from "../components/preview/ConstructionGate";
 import { SITE_CONFIG } from "../lib/config/site";
+import { getPreviewAccessState } from "../lib/services/preview-access";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const origin = await requestOrigin();
+  const [origin, previewAccess] = await Promise.all([
+    requestOrigin(),
+    getPreviewAccessState(),
+  ]);
   const socialImage = `${origin}/og-fantasy.png`;
   return {
     metadataBase: new URL(origin),
@@ -48,6 +53,9 @@ export async function generateMetadata(): Promise<Metadata> {
       description: SITE_CONFIG.tagline,
       images: [socialImage],
     },
+    robots: previewAccess.authorized
+      ? undefined
+      : { index: false, follow: false, noarchive: true },
   };
 }
 
@@ -56,18 +64,26 @@ export const viewport: Viewport = {
   themeColor: "#0D0D0F",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const previewAccess = await getPreviewAccessState();
+
   return (
     <html lang="en">
       <body>
-        <a className="skip-link" href="#main-content">
-          Skip to content
-        </a>
-        <SiteHeader />
-        <main id="main-content">{children}</main>
-        <SiteFooter />
+        {previewAccess.authorized ? (
+          <>
+            <a className="skip-link" href="#main-content">
+              Skip to content
+            </a>
+            <SiteHeader />
+            <main id="main-content">{children}</main>
+            <SiteFooter />
+          </>
+        ) : (
+          <ConstructionGate configured={previewAccess.configured} />
+        )}
       </body>
     </html>
   );
