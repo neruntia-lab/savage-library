@@ -5,6 +5,7 @@ declare module "next-auth" {
   interface User {
     role?: "admin" | "patron";
     provider?: string;
+    emailVerified?: Date | null;
   }
 
   interface Session {
@@ -15,6 +16,7 @@ declare module "next-auth" {
       image?: string | null;
       role: "admin" | "patron";
       provider: string;
+      emailVerified?: Date | null;
     };
   }
 }

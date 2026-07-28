@@ -10,6 +10,7 @@ export type AuthorizedUser = {
   fullName: string | null;
   isAdmin: boolean;
   provider: string;
+  emailVerified: boolean;
 };
 
 export async function getAuthorizedUser(): Promise<AuthorizedUser | null> {
@@ -21,10 +22,11 @@ export async function getAuthorizedUser(): Promise<AuthorizedUser | null> {
   return {
     id: user.id,
     displayName,
-    email: user.email ?? `${user.id}@patreon.invalid`,
+    email: user.email ?? "",
     fullName: user.name ?? null,
     isAdmin: user.role === "admin",
     provider: user.provider,
+    emailVerified: Boolean(user.email),
   };
 }
 

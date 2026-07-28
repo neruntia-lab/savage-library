@@ -27,6 +27,7 @@ export function SiteHeader() {
         </Link>
         <nav className="header-nav" aria-label="Primary navigation">
           <Link href={ROUTES.library}>Library</Link>
+          <Link href={ROUTES.news}>News</Link>
           <Link href={ROUTES.category("foundry-modules")}>Modules</Link>
           <Link href={ROUTES.category("classes")}>Classes</Link>
           <Link href={ROUTES.category("subclasses")}>Subclasses</Link>

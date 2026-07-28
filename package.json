@@ -10,7 +10,7 @@
     "build": "next build",
     "build:vercel": "drizzle-kit migrate && tsx scripts/seed-examples.ts && next build",
     "start": "next start",
-    "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts tests/patreon.test.ts",
+    "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts tests/patreon.test.ts tests/patreon-posts.test.ts",
     "test:flows": "tsx --test tests/http-flows.test.ts",
     "test:build": "npm run build && npm test && npm run test:flows",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
@@ -20,19 +20,24 @@
     "auth:hash-admin-password": "tsx scripts/hash-admin-password.ts"
   },
   "dependencies": {
+    "@auth/drizzle-adapter": "^1.11.3",
     "@neondatabase/serverless": "^1.1.0",
     "@vercel/blob": "^2.6.1",
     "drizzle-orm": "0.45.2",
     "next": "16.2.6",
     "next-auth": "^4.24.15",
+    "nodemailer": "^7.0.13",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "sanitize-html": "^2.17.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
+    "@types/nodemailer": "^8.0.1",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "@types/sanitize-html": "^2.16.1",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",

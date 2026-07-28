@@ -26,6 +26,84 @@
   --container: 1180px;
 }
 
+.news-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.news-card,
+.news-article,
+.membership-row,
+.grant-form {
+  border: 1px solid var(--border, #35343c);
+  border-radius: 12px;
+  background: rgba(20, 19, 24, 0.82);
+  padding: 1.25rem;
+}
+
+.news-card time,
+.news-article time,
+.membership-row small {
+  display: block;
+  color: var(--text-muted, #aaa6b5);
+}
+
+.news-body {
+  margin: 2rem 0;
+  line-height: 1.75;
+}
+
+.news-body img {
+  max-width: 100%;
+  height: auto;
+}
+
+.paid-post-link {
+  display: inline-flex;
+  margin: 0.5rem 0;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  background: #8f6fd1;
+  color: white;
+  font-weight: 700;
+}
+
+.email-signin-form,
+.grant-form {
+  display: grid;
+  gap: 0.8rem;
+  width: 100%;
+}
+
+.email-signin-form label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.membership-admin {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.grant-form fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.membership-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.membership-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+}
+
 * {
   box-sizing: border-box;
 }

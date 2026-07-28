@@ -12,6 +12,7 @@ export const ROUTES = {
   home: "/",
   library: "/library",
   account: "/account",
+  news: "/news",
   admin: "/admin",
   resource: (slug: string) => `/resources/${encodeURIComponent(slug)}`,
   category: (slug: string) => `/categories/${encodeURIComponent(slug)}`,

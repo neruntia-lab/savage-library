@@ -69,6 +69,11 @@ the configured services.
 | `PATREON_CAMPAIGN_ID` | Savage Library campaign ID |
 | `PATREON_CAMPAIGN_URL` | Public membership page |
 | `PATREON_CREATOR_ACCESS_TOKEN` | Creator token used to synchronize campaign tiers |
+| `PATREON_TOKEN_ENCRYPTION_KEY` | Secret used to encrypt stored creator OAuth and webhook credentials |
+| `PATREON_WEBHOOK_SECRET` | Optional bootstrap webhook secret when no stored creator connection exists |
+| `EMAIL_SERVER` | SMTP connection URL used for passwordless member sign-in |
+| `EMAIL_FROM` | Verified sender used for Savage Library sign-in links |
+| `CRON_SECRET` | Bearer secret protecting the daily Patreon reconciliation endpoint |
 | `PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN` | Public Blob store for covers and thumbnails |
 | `PRIVATE_CONTENT_BLOB_READ_WRITE_TOKEN` | Private Blob store for downloadable content |
 
@@ -76,6 +81,13 @@ Register this callback URL in the Patreon developer portal:
 
 ```text
 https://YOUR-DOMAIN/api/auth/callback/patreon
+```
+
+Also register the creator and explicit account-linking callbacks:
+
+```text
+https://YOUR-DOMAIN/api/admin/patreon/callback
+https://YOUR-DOMAIN/api/account/link-patreon/callback
 ```
 
 Use the stable `development` branch URL for preview credentials and the
@@ -95,6 +107,9 @@ The dashboard supports:
 - direct cover, thumbnail, ZIP, PDF, and JSON uploads up to 250 MB
 - background autosave, explicit save, draft preview, and publication
 - Patreon tier synchronization
+- Patreon member and post synchronization with signed webhooks
+- complimentary tier grants with optional expiration and audit history
+- passwordless email access for complimentary members
 
 English and Spanish files are attached independently to the current release.
 Changing the current version creates a new release while older releases remain
@@ -113,6 +128,12 @@ download, the application:
 
 Authorization fails closed if Patreon cannot verify the membership. Private Blob
 URLs are never exposed through catalog responses.
+
+Administrators may grant selected tier-equivalent access to a verified website
+email account. An active Patreon membership permanently replaces an existing
+complimentary grant. Patreon post text is mirrored under `/news`; links prefixed
+with `[PAID]` are removed from public HTML and resolved only after an entitlement
+check.
 
 ## Commands
 

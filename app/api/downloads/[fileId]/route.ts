@@ -4,11 +4,8 @@ import {
   getDownloadRecord,
   recordDownload,
 } from "../../../../lib/repositories/file-repository";
-import {
-  getAuthorizedUser,
-  getPatreonAccessToken,
-} from "../../../../lib/services/auth";
-import { verifyPatreonEntitlement } from "../../../../lib/services/patreon";
+import { getAuthorizedUser } from "../../../../lib/services/auth";
+import { resolveEntitlement } from "../../../../lib/services/entitlements";
 import {
   enforceRateLimit,
   requestIdentifier,
@@ -35,17 +32,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const user = await getAuthorizedUser();
     if (record.resource.accessMode === "patreon" && !user?.isAdmin) {
-      const token = await getPatreonAccessToken(request);
-      if (!token) {
+      if (!user) {
         const signIn = new URL("/api/auth/signin/patreon", request.url);
         signIn.searchParams.set("callbackUrl", request.url);
         return NextResponse.redirect(signIn);
       }
 
-      const entitlement = await verifyPatreonEntitlement(
-        token,
-        record.allowedTierIds,
-      );
+      const entitlement = await resolveEntitlement({
+        user,
+        request,
+        requiredTierIds: record.allowedTierIds,
+      });
       if (!entitlement.entitled) {
         const resourceUrl = new URL(
           `/resources/${record.resource.slug}`,

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../../db";
 import { patreonTiers } from "../../db/schema";
+import { getCreatorAccessToken } from "./creator-credentials";
 
 type PatreonResource = {
   id: string;
@@ -65,7 +66,7 @@ export async function listPatreonTiers() {
 
 export async function syncPatreonTiers(): Promise<number> {
   const campaignId = process.env.PATREON_CAMPAIGN_ID;
-  const creatorToken = process.env.PATREON_CREATOR_ACCESS_TOKEN;
+  const creatorToken = await getCreatorAccessToken();
   if (!campaignId || !creatorToken) {
     throw new Error("Patreon campaign credentials are not configured.");
   }
