@@ -78,6 +78,20 @@ export function MembershipManager({ onStatus }: { onStatus: (message: string) =>
     setBusy(false);
   }
 
+  async function connectCreator() {
+    setBusy(true);
+    onStatus("Validating creator credentials and registering the webhook…");
+    const response = await fetch("/api/admin/patreon/setup", { method: "POST" });
+    const body = await response.json().catch(() => ({}));
+    onStatus(
+      response.ok
+        ? `Patreon connected. ${body.memberCount} members and ${body.postCount} posts synchronized.`
+        : body.error ?? "Patreon creator setup failed.",
+    );
+    if (response.ok) await load();
+    setBusy(false);
+  }
+
   async function updatePost(post: Post, action: "publish" | "resync" | "associate") {
     const resourceId =
       action === "associate"
@@ -108,7 +122,7 @@ export function MembershipManager({ onStatus }: { onStatus: (message: string) =>
     <section className="admin-panel patreon-settings">
       <div><p className="eyebrow">Campaign connection</p><h2>Patreon synchronization</h2><p>Refresh tiers, subscriber status, and public news posts.</p></div>
       <div className="profile-actions">
-        <a className="button button-secondary" href="/api/admin/patreon/connect">Connect creator account</a>
+        <button className="button button-secondary" onClick={connectCreator} disabled={busy}>Connect creator account</button>
         <button className="button button-primary" onClick={synchronize} disabled={busy}>{busy ? "Working…" : "Synchronize Patreon"}</button>
       </div>
     </section>

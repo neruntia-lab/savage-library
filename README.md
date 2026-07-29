@@ -69,6 +69,7 @@ the configured services.
 | `PATREON_CAMPAIGN_ID` | Savage Library campaign ID |
 | `PATREON_CAMPAIGN_URL` | Public membership page |
 | `PATREON_CREATOR_ACCESS_TOKEN` | Creator token used to synchronize campaign tiers |
+| `PATREON_CREATOR_REFRESH_TOKEN` | Creator refresh token used to renew campaign access |
 | `PATREON_TOKEN_ENCRYPTION_KEY` | Secret used to encrypt stored creator OAuth and webhook credentials |
 | `PATREON_WEBHOOK_SECRET` | Optional bootstrap webhook secret when no stored creator connection exists |
 | `EMAIL_SERVER` | SMTP connection URL used for passwordless member sign-in |
@@ -83,10 +84,9 @@ Register this callback URL in the Patreon developer portal:
 https://YOUR-DOMAIN/api/auth/callback/patreon
 ```
 
-Also register the creator and explicit account-linking callbacks:
+Also register the explicit account-linking callback:
 
 ```text
-https://YOUR-DOMAIN/api/admin/patreon/callback
 https://YOUR-DOMAIN/api/account/link-patreon/callback
 ```
 

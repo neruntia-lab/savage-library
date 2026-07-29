@@ -100,6 +100,61 @@ export async function getStoredWebhookId() {
   )[0]?.id ?? null;
 }
 
+export async function registerCreatorWebhook(
+  accessToken: string,
+  origin: string,
+) {
+  const campaignId = process.env.PATREON_CAMPAIGN_ID;
+  if (!campaignId) throw new Error("PATREON_CAMPAIGN_ID is not configured.");
+  const existingId = await getStoredWebhookId();
+  const response = await fetch(
+    `https://www.patreon.com/api/oauth2/v2/webhooks${existingId ? `/${encodeURIComponent(existingId)}` : ""}`,
+    {
+      method: existingId ? "PATCH" : "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/vnd.api+json",
+      },
+      body: JSON.stringify({
+        data: {
+          ...(existingId ? { id: existingId } : {}),
+          type: "webhook",
+          attributes: {
+            triggers: [
+              "members:create",
+              "members:update",
+              "members:delete",
+              "posts:publish",
+              "posts:update",
+              "posts:delete",
+            ],
+            uri: new URL("/api/patreon/webhook", origin).toString(),
+          },
+          relationships: {
+            campaign: {
+              data: { type: "campaign", id: campaignId },
+            },
+          },
+        },
+      }),
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) {
+    const details = await response.text().catch(() => "");
+    throw new Error(
+      `Patreon webhook registration failed (${response.status})${details ? `: ${details.slice(0, 240)}` : "."}`,
+    );
+  }
+  const body = (await response.json()) as {
+    data?: { id?: string; attributes?: { secret?: string } };
+  };
+  if (body.data?.id && body.data.attributes?.secret) {
+    await storeWebhookCredentials(body.data.id, body.data.attributes.secret);
+  }
+  return body.data?.id ?? existingId;
+}
+
 async function refresh(refreshToken: string) {
   const response = await fetch("https://www.patreon.com/api/oauth2/token", {
     method: "POST",
