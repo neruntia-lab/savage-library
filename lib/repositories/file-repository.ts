@@ -186,19 +186,20 @@ export async function recordDownload(input: {
   visitorHash?: string;
 }): Promise<void> {
   const db = getDb();
-  await db.insert(downloads).values({
+  const auditQuery = db.insert(downloads).values({
     id: crypto.randomUUID(),
     resourceId: input.resourceId,
     fileId: input.fileId,
     visitorHash: input.visitorHash,
   });
-  await db
+  const counterQuery = db
     .update(resources)
     .set({
       downloadCount: sql`${resources.downloadCount} + 1`,
       popularityScore: sql`${resources.popularityScore} + 1`,
     })
     .where(eq(resources.id, input.resourceId));
+  await db.batch([auditQuery, counterQuery]);
 }
 
 export async function createSignedDownloadUrl(

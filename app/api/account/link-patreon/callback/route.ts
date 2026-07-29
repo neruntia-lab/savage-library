@@ -56,18 +56,31 @@ export async function GET(request: NextRequest) {
   if (existing && existing.userId !== auth.user.id) {
     return Response.json({ error: "That Patreon account is already linked." }, { status: 409 });
   }
+  const accountValues = {
+    access_token: token.access_token,
+    refresh_token: token.refresh_token,
+    expires_at: Math.floor(Date.now() / 1000) + (token.expires_in ?? 2_592_000),
+    token_type: token.token_type,
+    scope: token.scope,
+  };
   if (!existing) {
     await getDb().insert(accounts).values({
       userId: auth.user.id,
       type: "oauth",
       provider: "patreon",
       providerAccountId: patreonUserId,
-      access_token: token.access_token,
-      refresh_token: token.refresh_token,
-      expires_at: Math.floor(Date.now() / 1000) + (token.expires_in ?? 2_592_000),
-      token_type: token.token_type,
-      scope: token.scope,
+      ...accountValues,
     });
+  } else {
+    await getDb()
+      .update(accounts)
+      .set(accountValues)
+      .where(
+        and(
+          eq(accounts.provider, "patreon"),
+          eq(accounts.providerAccountId, patreonUserId),
+        ),
+      );
   }
   await getDb()
     .update(patreonMembers)

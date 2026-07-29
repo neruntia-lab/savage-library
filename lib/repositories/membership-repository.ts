@@ -189,15 +189,20 @@ export async function getAccountMembership(userId: string) {
       .orderBy(desc(manualGrants.createdAt)),
   ]);
   const activePatreon = memberRows.some((row) => row.active);
+  const now = new Date().toISOString();
   const grant = grantRows.find(
     (row) =>
       row.status === "active" &&
-      (!row.expiresAt || row.expiresAt > new Date().toISOString()),
+      (!row.expiresAt || row.expiresAt > now),
   );
   const tierIds = activePatreon
     ? memberRows.flatMap((row) => (row.tierId ? [row.tierId] : []))
     : grantRows
-        .filter((row) => row.status === "active")
+        .filter(
+          (row) =>
+            row.status === "active" &&
+            (!row.expiresAt || row.expiresAt > now),
+        )
         .flatMap((row) => (row.tierId ? [row.tierId] : []));
   const tierNames = tierIds.length
     ? await db

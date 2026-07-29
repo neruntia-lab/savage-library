@@ -130,7 +130,7 @@ export async function getResourceBySlug(
             and(
               eq(resourceVersions.resourceId, row.resource.id),
               eq(resourceVersions.isCurrent, true),
-              inArray(files.kind, ["pdf", "module"]),
+              inArray(files.kind, ["pdf", "module", "macro"]),
               eq(files.locale, activeLocale),
             ),
           ),

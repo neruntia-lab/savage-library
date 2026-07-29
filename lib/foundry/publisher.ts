@@ -83,6 +83,18 @@ export function inspectFoundryModule(
   if (parts[0] && manifest.id && parts[0] !== manifest.id) {
     errors.push("The top-level module directory must match the manifest id.");
   }
+  if (manifest.id) {
+    const unexpected = entries.find((entry) => {
+      const first = entry.entryName
+        .replaceAll("\\", "/")
+        .split("/")
+        .filter(Boolean)[0];
+      return first && first !== manifest.id;
+    });
+    if (unexpected) {
+      errors.push("The archive must contain only the module's top-level directory.");
+    }
+  }
   if (expectedModuleId && manifest.id !== expectedModuleId) {
     errors.push(`This resource is linked to module id "${expectedModuleId}".`);
   }

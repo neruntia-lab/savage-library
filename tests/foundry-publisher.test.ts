@@ -54,6 +54,27 @@ test("rejects unsafe ZIP paths", () => {
   assert.ok(result.errors.some((error) => error.includes("Unsafe archive path")));
 });
 
+test("rejects files outside the module top-level directory", () => {
+  const zip = new AdmZip();
+  zip.addFile(
+    "safe-module/module.json",
+    Buffer.from(
+      JSON.stringify({
+        id: "safe-module",
+        title: "Safe",
+        version: "1.0.0",
+      }),
+    ),
+  );
+  zip.addFile("unrelated/readme.txt", Buffer.from("not part of the module"));
+  const result = inspectFoundryModule(zip.toBuffer());
+  assert.ok(
+    result.errors.some((error) =>
+      error.includes("only the module's top-level directory"),
+    ),
+  );
+});
+
 test("generates stable site manifest and version-specific download", () => {
   const result = publicManifest(
     {

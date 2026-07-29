@@ -95,6 +95,7 @@ export async function createReleaseDraftFromUploadedBlob(input: {
   try {
     const draft = await createReleaseDraftFromBytes({
       ...input,
+      sizeBytes: result.blob.size,
       bytes,
       versionId: crypto.randomUUID(),
     });
@@ -166,7 +167,7 @@ async function createReleaseDraftFromBytes(input: {
   const status = inspected.errors.length ? "failed" : "draft";
   const version = manifest?.version ?? `invalid-${versionId.slice(0, 8)}`;
 
-  await db.insert(resourceVersions).values({
+  const releaseQuery = db.insert(resourceVersions).values({
     id: versionId,
     resourceId: resource.id,
     version,
@@ -184,7 +185,7 @@ async function createReleaseDraftFromBytes(input: {
     createdAt: now,
     updatedAt: now,
   });
-  await db.insert(files).values({
+  const fileQuery = db.insert(files).values({
     id: crypto.randomUUID(),
     resourceVersionId: versionId,
     kind: "module",
@@ -201,6 +202,7 @@ async function createReleaseDraftFromBytes(input: {
     createdAt: now,
     updatedAt: now,
   });
+  await db.batch([releaseQuery, fileQuery]);
   return { id: versionId, status, manifest, errors: inspected.errors, reused: false };
 }
 
@@ -459,7 +461,7 @@ export async function getPublicFoundryArtifact(slug: string, releaseId: string) 
         eq(resources.isPublished, true),
         eq(resources.accessMode, "public"),
         eq(resourceVersions.id, releaseId),
-        eq(resourceVersions.releaseStatus, "published"),
+        inArray(resourceVersions.releaseStatus, ["published", "superseded"]),
       ),
     )
     .limit(1);

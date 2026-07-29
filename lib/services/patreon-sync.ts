@@ -111,6 +111,7 @@ export async function syncAllMembers() {
 
 export async function syncAllPosts() {
   const campaignId = required("PATREON_CAMPAIGN_ID");
+  const seen = new Set<string>();
   let count = 0;
   for await (const page of pages(
     `/campaigns/${encodeURIComponent(campaignId)}/posts`,
@@ -121,8 +122,26 @@ export async function syncAllPosts() {
   )) {
     for (const post of page.data ?? []) {
       await upsertPost(post, campaignId);
+      seen.add(post.id);
       count += 1;
     }
+  }
+  const existing = await getDb()
+    .select({ id: patreonPosts.id })
+    .from(patreonPosts)
+    .where(eq(patreonPosts.campaignId, campaignId));
+  const stale = existing.filter((row) => !seen.has(row.id)).map((row) => row.id);
+  if (stale.length) {
+    const now = new Date().toISOString();
+    await getDb()
+      .update(patreonPosts)
+      .set({
+        isPublished: false,
+        reviewStatus: "source_deleted",
+        sourceDeletedAt: now,
+        updatedAt: now,
+      })
+      .where(inArray(patreonPosts.id, stale));
   }
   return count;
 }
@@ -222,7 +241,12 @@ async function upsertMember(input: {
           revocationReason: "replaced_by_patreon",
           updatedAt: now,
         })
-        .where(eq(manualGrants.userId, linked));
+        .where(
+          and(
+            eq(manualGrants.userId, linked),
+            eq(manualGrants.status, "active"),
+          ),
+        );
     }
   }
 }
