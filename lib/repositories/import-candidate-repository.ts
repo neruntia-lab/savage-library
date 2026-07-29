@@ -14,7 +14,10 @@ import {
   getAdminResource,
   updateResource,
 } from "./resource-repository";
-import type { PatreonImportPayload } from "../services/patreon-posts";
+import {
+  normalizePatreonImportPayload,
+  type PatreonImportPayload,
+} from "../services/patreon-posts";
 import type { ResourceInput } from "../validation/resource";
 
 export async function listImportCandidates() {
@@ -45,13 +48,10 @@ export async function listImportCandidates() {
     .from(resources);
   return rows.map((row) => ({
     ...row,
-    payload: parseJson<PatreonImportPayload>(row.extractedPayload, {
-      title: row.title,
-      description: "",
-      shortDescription: "",
-      version: "1.0.0",
-      tags: [],
-    }),
+    payload: normalizePatreonImportPayload(
+      parseJson<unknown>(row.extractedPayload, {}),
+      row.title,
+    ),
     warnings: parseJson<string[]>(row.warnings, []),
     tierIds: parseJson<string[]>(row.requiredTierIds, []),
     matchedResource:
@@ -104,11 +104,11 @@ export async function approveImportCandidate(id: string) {
   if (candidate.reviewStatus === "source_deleted") {
     throw new Error("A deleted Patreon source cannot be approved.");
   }
-  const payload = parseJson<PatreonImportPayload | null>(
-    candidate.extractedPayload,
-    null,
+  const payload = normalizePatreonImportPayload(
+    parseJson<unknown>(candidate.extractedPayload, {}),
+    candidate.title,
   );
-  if (!payload?.resourceType) throw new Error("Choose a content type before approval.");
+  if (!payload.resourceType) throw new Error("Choose a content type before approval.");
 
   await ensureImportTaxonomy(payload.tags);
   const tierIds = parseJson<string[]>(candidate.requiredTierIds, []);

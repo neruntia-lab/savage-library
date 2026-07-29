@@ -31,6 +31,54 @@ export type PatreonImportResult = {
   links: ParsedProtectedLink[];
 };
 
+export function normalizePatreonImportPayload(
+  value: unknown,
+  fallbackTitle = "Patreon import",
+): PatreonImportPayload {
+  const input =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  const description =
+    typeof input.description === "string" ? input.description : "";
+  const title =
+    typeof input.title === "string" && input.title.trim()
+      ? input.title
+      : fallbackTitle;
+  const resourceType =
+    input.resourceType === "module" ||
+    input.resourceType === "pdf" ||
+    input.resourceType === "macro"
+      ? input.resourceType
+      : undefined;
+  const optionalString = (key: string) =>
+    typeof input[key] === "string" && input[key]
+      ? String(input[key])
+      : undefined;
+  return {
+    resourceKey: optionalString("resourceKey"),
+    title,
+    description,
+    shortDescription:
+      typeof input.shortDescription === "string"
+        ? input.shortDescription
+        : description.replace(/\s+/g, " ").slice(0, 240),
+    resourceType,
+    version:
+      typeof input.version === "string" && input.version
+        ? input.version
+        : "1.0.0",
+    manifestUrl: optionalString("manifestUrl"),
+    projectUrl: optionalString("projectUrl"),
+    foundryMinimum: optionalString("foundryMinimum"),
+    foundryVerified: optionalString("foundryVerified"),
+    foundryMaximum: optionalString("foundryMaximum"),
+    tags: Array.isArray(input.tags)
+      ? input.tags.filter((tag): tag is string => typeof tag === "string")
+      : [],
+  };
+}
+
 const FIELD_NAMES = [
   "type",
   "resource key",

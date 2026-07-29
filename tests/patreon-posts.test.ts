@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   extractPatreonImport,
+  normalizePatreonImportPayload,
   postSlug,
   sanitizeAndExtractPaidLinks,
 } from "../lib/services/patreon-posts";
@@ -17,6 +18,23 @@ test("Patreon post sanitizer extracts paid HTTPS links without exposing destinat
   assert.doesNotMatch(result.html, /files\.example/);
   assert.doesNotMatch(result.html, /script|alert/);
   assert.match(result.html, new RegExp(`/api/posts/links/${result.links[0].id}`));
+});
+
+test("historical empty payloads receive safe candidate defaults", () => {
+  assert.deepEqual(normalizePatreonImportPayload({}, "Legacy Patreon post"), {
+    resourceKey: undefined,
+    title: "Legacy Patreon post",
+    description: "",
+    shortDescription: "",
+    resourceType: undefined,
+    version: "1.0.0",
+    manifestUrl: undefined,
+    projectUrl: undefined,
+    foundryMinimum: undefined,
+    foundryVerified: undefined,
+    foundryMaximum: undefined,
+    tags: [],
+  });
 });
 
 test("structured Patreon fields produce a high-confidence module candidate", () => {
