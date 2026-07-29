@@ -11,7 +11,7 @@ type Context = { params: Promise<{ id: string }> };
 export async function GET(request: NextRequest, context: Context) {
   const { id } = await context.params;
   const record = await getProtectedPostLink(id);
-  if (!record?.postPublished) {
+  if (!record || record.postPublished !== "approved") {
     return Response.json({ error: "Download not found." }, { status: 404 });
   }
   const user = await getAuthorizedUser();

@@ -1,14 +1,16 @@
 import {
-  listAdminPosts,
-  updateAdminPost,
-} from "../../../../../lib/repositories/post-repository";
+  approveImportCandidate,
+  listImportCandidates,
+  updateImportCandidate,
+} from "../../../../../lib/repositories/import-candidate-repository";
 import { requireApiAdmin } from "../../../../../lib/services/auth";
 import { syncPostById } from "../../../../../lib/services/patreon-sync";
+import type { PatreonImportPayload } from "../../../../../lib/services/patreon-posts";
 
 export async function GET() {
   const auth = await requireApiAdmin();
   if (!auth.ok) return auth.response;
-  return Response.json({ posts: await listAdminPosts() });
+  return Response.json({ candidates: await listImportCandidates() });
 }
 
 export async function PATCH(request: Request) {
@@ -16,24 +18,41 @@ export async function PATCH(request: Request) {
   if (!auth.ok) return auth.response;
   const body = (await request.json().catch(() => null)) as {
     id?: string;
-    isPublished?: boolean;
+    action?: "save" | "approve" | "reject" | "reprocess";
+    payload?: PatreonImportPayload;
     resourceId?: string | null;
-    resync?: boolean;
   } | null;
-  if (!body?.id) return Response.json({ error: "Post ID is required." }, { status: 400 });
-  if (body.resync) await syncPostById(body.id);
-  const changed =
-    body.isPublished !== undefined || body.resourceId !== undefined
-      ? await updateAdminPost(body.id, {
-          ...(body.isPublished !== undefined
-            ? { isPublished: body.isPublished }
-            : {}),
-          ...(body.resourceId !== undefined
-            ? { resourceId: body.resourceId || null }
-            : {}),
-        })
-      : true;
-  return changed
-    ? Response.json({ updated: true })
-    : Response.json({ error: "Post not found." }, { status: 404 });
+  if (!body?.id) {
+    return Response.json({ error: "Candidate ID is required." }, { status: 400 });
+  }
+  try {
+    if (body.action === "reprocess") {
+      await syncPostById(body.id);
+    } else if (body.action === "approve") {
+      if (body.payload || body.resourceId !== undefined) {
+        await updateImportCandidate(body.id, {
+          payload: body.payload,
+          resourceId: body.resourceId,
+          status: "pending",
+        });
+      }
+      const resourceId = await approveImportCandidate(body.id);
+      return Response.json({ updated: true, resourceId });
+    } else {
+      const updated = await updateImportCandidate(body.id, {
+        payload: body.payload,
+        resourceId: body.resourceId,
+        status: body.action === "reject" ? "rejected" : "pending",
+      });
+      if (!updated) {
+        return Response.json({ error: "Candidate not found." }, { status: 404 });
+      }
+    }
+    return Response.json({ updated: true });
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Candidate update failed." },
+      { status: 400 },
+    );
+  }
 }

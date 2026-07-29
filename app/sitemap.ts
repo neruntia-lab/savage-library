@@ -2,18 +2,14 @@ import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
 import { CATEGORY_LINKS } from "../lib/config/site";
 import { listCatalog } from "../lib/repositories/resource-repository";
-import { listPublishedPosts } from "../lib/repositories/post-repository";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = await metadataOrigin();
-  const [catalog, posts] = await Promise.all([
-    listCatalog({
-      sort: "recently-updated",
-      page: 1,
-      pageSize: 48,
-    }),
-    listPublishedPosts().catch(() => []),
-  ]);
+  const catalog = await listCatalog({
+    sort: "recently-updated",
+    page: 1,
+    pageSize: 48,
+  });
 
   return [
     { url: origin, changeFrequency: "weekly", priority: 1 },
@@ -21,11 +17,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${origin}/library`,
       changeFrequency: "daily",
       priority: 0.9,
-    },
-    {
-      url: `${origin}/news`,
-      changeFrequency: "daily",
-      priority: 0.8,
     },
     ...CATEGORY_LINKS.map((category) => ({
       url: `${origin}/categories/${category.slug}`,
@@ -37,12 +28,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(resource.updatedAt),
       changeFrequency: "monthly" as const,
       priority: 0.7,
-    })),
-    ...posts.map((post) => ({
-      url: `${origin}/news/${post.slug}`,
-      lastModified: new Date(post.publishedAt),
-      changeFrequency: "monthly" as const,
-      priority: 0.65,
     })),
   ];
 }

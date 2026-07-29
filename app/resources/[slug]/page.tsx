@@ -216,6 +216,28 @@ export default async function ResourcePage({
               </section>
             ) : null}
 
+            {resource.protectedDownloads?.length ? (
+              <section className="content-section">
+                <h2>Member downloads</h2>
+                <div className="file-list">
+                  {resource.protectedDownloads.map((file) => (
+                    <div className="file-row" key={file.id}>
+                      <div>
+                        <strong>{file.label}</strong>
+                        <span>{file.role.toUpperCase()} · Patreon membership required</span>
+                      </div>
+                      <Link
+                        className="button button-secondary button-small"
+                        href={`/api/posts/links/${encodeURIComponent(file.id)}`}
+                      >
+                        Download
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             {resource.installationInstructions ? (
               <details className="disclosure" open>
                 <summary>Installation instructions</summary>

@@ -33,7 +33,7 @@ export async function getProtectedPostLink(id: string) {
     await getDb()
       .select({
         link: protectedPostLinks,
-        postPublished: patreonPosts.isPublished,
+        postPublished: patreonPosts.reviewStatus,
       })
       .from(protectedPostLinks)
       .innerJoin(patreonPosts, eq(patreonPosts.id, protectedPostLinks.postId))

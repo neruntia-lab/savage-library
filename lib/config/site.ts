@@ -1,8 +1,8 @@
 export const SITE_CONFIG = {
   name: "Savage Library",
-  tagline: "Modules, classes, and subclasses for Foundry VTT.",
+  tagline: "Modules, macros, classes, and subclasses for Foundry VTT.",
   description:
-    "A focused archive of authorized Foundry VTT modules, classes, subclasses, PDFs, and documentation.",
+    "A focused archive of authorized Foundry VTT modules, macros, classes, subclasses, PDFs, and documentation.",
   defaultPageSize: 12,
   maxPageSize: 48,
   supportEmail: "library@neruntia-lab.com",
@@ -12,7 +12,6 @@ export const ROUTES = {
   home: "/",
   library: "/library",
   account: "/account",
-  news: "/news",
   admin: "/admin",
   resource: (slug: string) => `/resources/${encodeURIComponent(slug)}`,
   category: (slug: string) => `/categories/${encodeURIComponent(slug)}`,
@@ -20,6 +19,11 @@ export const ROUTES = {
 } as const;
 
 export const CATEGORY_LINKS = [
+  {
+    name: "Macros",
+    slug: "macros",
+    description: "Ready-to-use Foundry VTT automations and scripts.",
+  },
   {
     name: "Foundry VTT Modules",
     slug: "foundry-modules",

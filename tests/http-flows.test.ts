@@ -117,9 +117,15 @@ test("category and discovery metadata routes are available", async () => {
 
   const sitemap = await get("/sitemap.xml");
   assert.match(sitemap, /resources\/savage-craft/);
+  assert.doesNotMatch(sitemap, /\/news/);
 
   const robots = await get("/robots.txt");
   assert.match(robots, /Disallow: \/admin/);
+
+  const removedNews = await fetch(`${origin}/news`, {
+    headers: { Cookie: previewCookie },
+  });
+  assert.equal(removedNews.status, 404);
 });
 
 async function get(pathname: string): Promise<string> {

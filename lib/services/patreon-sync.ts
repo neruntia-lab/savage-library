@@ -7,9 +7,10 @@ import {
   patreonMemberTiers,
   patreonPosts,
   protectedPostLinks,
+  resources,
   syncStates,
 } from "../../db/schema";
-import { postSlug, sanitizeAndExtractPaidLinks } from "./patreon-posts";
+import { extractPatreonImport, postSlug } from "./patreon-posts";
 import { syncPatreonTiers } from "./patreon";
 import { getCreatorAccessToken } from "./creator-credentials";
 
@@ -141,7 +142,12 @@ export async function syncPostById(id: string) {
 export async function unpublishPost(id: string) {
   await getDb()
     .update(patreonPosts)
-    .set({ isPublished: false, updatedAt: new Date().toISOString() })
+    .set({
+      isPublished: false,
+      reviewStatus: "source_deleted",
+      sourceDeletedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
     .where(eq(patreonPosts.id, id));
 }
 
@@ -227,18 +233,35 @@ async function upsertPost(post: Resource, campaignId: string) {
   const tierIds = Array.isArray(attributes.tiers)
     ? attributes.tiers.map(String)
     : [];
-  const parsed = sanitizeAndExtractPaidLinks(
+  const parsed = extractPatreonImport(
     post.id,
+    title,
     String(attributes.content ?? ""),
   );
   const now = new Date().toISOString();
   const existing = (
     await getDb()
-      .select({ resourceId: patreonPosts.resourceId, slug: patreonPosts.slug })
+      .select({
+        resourceId: patreonPosts.resourceId,
+        slug: patreonPosts.slug,
+        reviewStatus: patreonPosts.reviewStatus,
+        extractedPayload: patreonPosts.extractedPayload,
+      })
       .from(patreonPosts)
       .where(eq(patreonPosts.id, post.id))
       .limit(1)
   )[0];
+  const match = existing?.resourceId
+    ? { resourceId: existing.resourceId, matchedBy: "preserved" }
+    : await matchResource(parsed.payload);
+  const serializedPayload = JSON.stringify(parsed.payload);
+  const reviewStatus =
+    existing?.reviewStatus === "approved" &&
+    existing.extractedPayload === serializedPayload
+      ? "approved"
+      : parsed.warnings.length
+        ? "needs_review"
+        : "pending";
   await getDb()
     .insert(patreonPosts)
     .values({
@@ -246,7 +269,7 @@ async function upsertPost(post: Resource, campaignId: string) {
       campaignId,
       slug: existing?.slug ?? postSlug(title, post.id),
       title,
-      sanitizedHtml: parsed.html,
+      sanitizedHtml: parsed.sanitizedHtml,
       sourceUrl: String(attributes.url ?? "https://www.patreon.com/"),
       embedUrl:
         typeof attributes.embed_url === "string" &&
@@ -259,8 +282,15 @@ async function upsertPost(post: Resource, campaignId: string) {
       isPublicOnPatreon: attributes.is_public === true,
       requiredTierIds: JSON.stringify(tierIds),
       publishedAt: String(attributes.published_at ?? now),
-      isPublished: true,
-      resourceId: existing?.resourceId ?? null,
+      isPublished: false,
+      resourceId: match.resourceId,
+      reviewStatus,
+      detectedType: parsed.payload.resourceType ?? null,
+      confidence: parsed.confidence,
+      extractedPayload: serializedPayload,
+      warnings: JSON.stringify(parsed.warnings),
+      matchedBy: match.matchedBy,
+      sourceDeletedAt: null,
       lastSyncedAt: now,
       createdAt: now,
       updatedAt: now,
@@ -269,7 +299,7 @@ async function upsertPost(post: Resource, campaignId: string) {
       target: patreonPosts.id,
       set: {
         title,
-        sanitizedHtml: parsed.html,
+        sanitizedHtml: parsed.sanitizedHtml,
         sourceUrl: String(attributes.url ?? "https://www.patreon.com/"),
         embedUrl:
           typeof attributes.embed_url === "string" &&
@@ -282,7 +312,15 @@ async function upsertPost(post: Resource, campaignId: string) {
         requiredTierIds: JSON.stringify(tierIds),
         isPublicOnPatreon: attributes.is_public === true,
         publishedAt: String(attributes.published_at ?? now),
-        isPublished: true,
+        isPublished: false,
+        resourceId: match.resourceId,
+        reviewStatus,
+        detectedType: parsed.payload.resourceType ?? null,
+        confidence: parsed.confidence,
+        extractedPayload: serializedPayload,
+        warnings: JSON.stringify(parsed.warnings),
+        matchedBy: match.matchedBy,
+        sourceDeletedAt: null,
         lastSyncedAt: now,
         updatedAt: now,
       },
@@ -295,12 +333,72 @@ async function upsertPost(post: Resource, campaignId: string) {
       parsed.links.map((link) => ({
         ...link,
         postId: post.id,
+        role: link.role,
         requiredTierIds: JSON.stringify(tierIds),
         createdAt: now,
         updatedAt: now,
       })),
     );
   }
+}
+
+async function matchResource(payload: {
+  resourceKey?: string;
+  title: string;
+  manifestUrl?: string;
+  projectUrl?: string;
+}) {
+  const rows = await getDb()
+    .select({
+      id: resources.id,
+      slug: resources.slug,
+      title: resources.title,
+      manifestUrl: resources.manifestUrl,
+      projectUrl: resources.projectUrl,
+    })
+    .from(resources);
+  if (payload.resourceKey) {
+    const found = rows.find((row) => row.slug === payload.resourceKey);
+    if (found) return { resourceId: found.id, matchedBy: "resource_key" };
+  }
+  for (const [field, value] of [
+    ["manifest_url", payload.manifestUrl],
+    ["project_url", payload.projectUrl],
+  ] as const) {
+    if (!value) continue;
+    const normalized = normalizeUrl(value);
+    const found = rows.find((row) =>
+      normalizeUrl(field === "manifest_url" ? row.manifestUrl : row.projectUrl) ===
+      normalized,
+    );
+    if (found) return { resourceId: found.id, matchedBy: field };
+  }
+  const normalizedTitle = normalizeTitle(payload.title);
+  const titleMatches = rows.filter(
+    (row) => normalizeTitle(row.title) === normalizedTitle,
+  );
+  return titleMatches.length === 1
+    ? { resourceId: titleMatches[0].id, matchedBy: "title" }
+    : { resourceId: null, matchedBy: titleMatches.length ? "ambiguous_title" : null };
+}
+
+function normalizeUrl(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    return url.toString().replace(/\/$/, "").toLowerCase();
+  } catch {
+    return value.trim().toLowerCase();
+  }
+}
+
+function normalizeTitle(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/gi, "")
+    .toLowerCase();
 }
 
 async function* pages(path: string, params: Record<string, string>) {

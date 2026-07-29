@@ -464,6 +464,7 @@ export function ResourceWorkspace({
                 ["thumbnail", "Card thumbnail", "PNG, JPG or WebP"],
                 ["module", "Foundry module", "ZIP, up to 250 MB"],
                 ["pdf", "PDF document", "PDF, up to 250 MB"],
+                ["macro", "Foundry macro", "JS or JSON, up to 250 MB"],
                 ["manifest", "Manifest", "JSON"],
               ] as const
             ).map(([kind, title, hint]) => {
@@ -948,6 +949,7 @@ function normalizedMimeType(file: File): string {
   if (file.type) return file.type;
   if (file.name.toLowerCase().endsWith(".zip")) return "application/zip";
   if (file.name.toLowerCase().endsWith(".json")) return "application/json";
+  if (file.name.toLowerCase().endsWith(".js")) return "text/javascript";
   return "application/octet-stream";
 }
 
@@ -960,6 +962,8 @@ function acceptForKind(kind: FileKind): string {
       return ".zip";
     case "pdf":
       return ".pdf";
+    case "macro":
+      return ".js,.json";
     case "manifest":
       return ".json";
   }
