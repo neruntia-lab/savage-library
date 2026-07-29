@@ -4,7 +4,10 @@ import {
   type TaxonomyType,
 } from "../../../../lib/repositories/taxonomy-repository";
 import { requireApiAdmin } from "../../../../lib/services/auth";
-import { validate } from "../route";
+import {
+  taxonomyError,
+  validateTaxonomy,
+} from "../../../../lib/validation/taxonomy";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -16,7 +19,7 @@ export async function PUT(request: Request, context: RouteContext) {
     name?: unknown;
     slug?: unknown;
   } | null;
-  const validation = validate(payload);
+  const validation = validateTaxonomy(payload);
   if (!validation.ok) return validation.response;
   const { id } = await context.params;
 
@@ -25,9 +28,9 @@ export async function PUT(request: Request, context: RouteContext) {
     return updated
       ? Response.json({ id })
       : Response.json({ error: "Metadata not found." }, { status: 404 });
-  } catch {
+  } catch (error) {
     return Response.json(
-      { error: "Metadata could not be updated." },
+      { error: taxonomyError(error, "updated") },
       { status: 500 },
     );
   }

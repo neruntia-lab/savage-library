@@ -17,6 +17,10 @@ import {
   PREVIEW_ACCESS_SECONDS,
   verifyPreviewAccessToken,
 } from "../lib/services/preview-access";
+import {
+  taxonomyError,
+  validateTaxonomy,
+} from "../lib/validation/taxonomy";
 
 const validResource = {
   title: "Test Module",
@@ -163,5 +167,34 @@ test("preview access tokens reject tampering and expiration", () => {
       now + PREVIEW_ACCESS_SECONDS * 1_000 + 1,
     ),
     false,
+  );
+});
+
+test("taxonomy validation accepts canonical values and rejects unsafe slugs", async () => {
+  assert.equal(
+    validateTaxonomy({
+      type: "tag",
+      name: "Encounter Tools",
+      slug: "encounter-tools",
+    }).ok,
+    true,
+  );
+  const invalid = validateTaxonomy({
+    type: "tag",
+    name: "Encounter Tools",
+    slug: "Encounter Tools",
+  });
+  assert.equal(invalid.ok, false);
+  if (!invalid.ok) assert.equal(invalid.response.status, 400);
+});
+
+test("taxonomy errors identify duplicate slugs without leaking details", () => {
+  assert.equal(
+    taxonomyError(new Error("duplicate key violates unique constraint"), "updated"),
+    "That taxonomy slug is already in use.",
+  );
+  assert.equal(
+    taxonomyError(new Error("database unavailable"), "updated"),
+    "The taxonomy entry could not be updated.",
   );
 });
