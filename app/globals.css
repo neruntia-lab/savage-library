@@ -2693,6 +2693,12 @@ textarea:focus {
 }
 
 .admin-content-panel {
+  --admin-content-columns:
+    minmax(320px, 1.6fr)
+    minmax(120px, 0.65fr)
+    minmax(120px, 0.62fr)
+    minmax(150px, 0.75fr)
+    220px;
   padding: 0;
 }
 
@@ -2702,7 +2708,7 @@ textarea:focus {
   font-size: 0.65rem;
   font-weight: 700;
   gap: 1rem;
-  grid-template-columns: minmax(280px, 1.6fr) 0.65fr 0.62fr 0.75fr auto;
+  grid-template-columns: var(--admin-content-columns);
   letter-spacing: 0.11em;
   padding: 0.75rem 1rem;
   text-transform: uppercase;
@@ -2713,6 +2719,11 @@ textarea:focus {
   display: flex;
   justify-content: center;
   text-align: center;
+}
+
+.admin-table-header > span:first-child {
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .admin-resource-list {
@@ -2730,7 +2741,7 @@ textarea:focus {
   border-radius: 0;
   display: grid;
   gap: 1rem;
-  grid-template-columns: minmax(280px, 1.6fr) 0.65fr 0.62fr 0.75fr auto;
+  grid-template-columns: var(--admin-content-columns);
   min-height: 86px;
   padding: 0.85rem 1rem;
   transition:
@@ -2769,11 +2780,11 @@ textarea:focus {
   display: flex;
   flex-direction: row;
   gap: 0.8rem;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .admin-resource-identity > div:last-child {
-  text-align: center;
+  text-align: left;
 }
 
 .admin-resource-thumb {
