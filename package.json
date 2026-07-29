@@ -2,6 +2,9 @@
   "name": "savage-library",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "savage-library": "./scripts/savage-library.mjs"
+  },
   "engines": {
     "node": ">=22.13.0"
   },
@@ -10,19 +13,21 @@
     "build": "next build",
     "build:vercel": "drizzle-kit migrate && tsx scripts/seed-examples.ts && next build",
     "start": "next start",
-    "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts tests/patreon.test.ts tests/patreon-posts.test.ts",
+    "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts tests/patreon.test.ts tests/patreon-posts.test.ts tests/foundry-publisher.test.ts",
     "test:flows": "tsx --test tests/http-flows.test.ts",
     "test:build": "npm run build && npm test && npm run test:flows",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed-examples.ts",
-    "auth:hash-admin-password": "tsx scripts/hash-admin-password.ts"
+    "auth:hash-admin-password": "tsx scripts/hash-admin-password.ts",
+    "publisher": "node scripts/savage-library.mjs"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
     "@neondatabase/serverless": "^1.1.0",
     "@vercel/blob": "^2.6.1",
+    "adm-zip": "^0.6.0",
     "drizzle-orm": "0.45.2",
     "next": "16.2.6",
     "next-auth": "^4.24.15",
@@ -33,6 +38,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.2.1",
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "22.19.19",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "19.2.14",

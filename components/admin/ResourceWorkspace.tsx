@@ -10,6 +10,7 @@ import type {
   ResourceTranslationInput,
 } from "../../lib/validation/resource";
 import type { EditingResource } from "./types";
+import { ModuleReleaseManager } from "./ModuleReleaseManager";
 
 type PatreonTier = {
   id: string;
@@ -178,6 +179,7 @@ export function ResourceWorkspace({
           <a href="#translations">Translations</a>
           <a href="#classification">Classification</a>
           <a href="#release">Current release</a>
+          {editing && initialValue.resourceType === "module" ? <a href="#module-releases">Module publisher</a> : null}
           <a href="#files">Files and artwork</a>
           <a href="#access">Access and publishing</a>
         </nav>
@@ -446,6 +448,10 @@ export function ResourceWorkspace({
           />
         </section>
 
+        {editing && initialValue.resourceType === "module" ? (
+          <ModuleReleaseManager resourceId={initialValue.id} accessMode={accessMode} />
+        ) : null}
+
         <section className="admin-editor-section" id="files">
           <SectionHeading
             eyebrow={`${locale === "en" ? "English" : "Spanish"} assets`}
@@ -467,7 +473,9 @@ export function ResourceWorkspace({
                 ["macro", "Foundry macro", "JS or JSON, up to 250 MB"],
                 ["manifest", "Manifest", "JSON"],
               ] as const
-            ).map(([kind, title, hint]) => {
+            )
+              .filter(([kind]) => !(editing && initialValue.resourceType === "module" && kind === "module"))
+              .map(([kind, title, hint]) => {
               const key = `${locale}-${kind}`;
               const progress = uploadProgress[key] ?? 0;
               const existingFile =

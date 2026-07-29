@@ -36,6 +36,13 @@
       "when": 1785303053243,
       "tag": "0004_good_molly_hayes",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785348000000,
+      "tag": "0005_foundry_publisher",
+      "breakpoints": true
     }
   ]
 }

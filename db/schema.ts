@@ -109,6 +109,10 @@ export const resources = pgTable(
     licenseUrl: text("license_url"),
     manifestUrl: text("manifest_url"),
     projectUrl: text("project_url"),
+    foundryModuleId: text("foundry_module_id"),
+    activeReleaseId: text("active_release_id"),
+    publisherTokenHash: text("publisher_token_hash"),
+    publisherTokenCreatedAt: text("publisher_token_created_at"),
     defaultLocale: text("default_locale").notNull().default("en"),
     accessMode: text("access_mode").notNull().default("public"),
     sourcePatreonPostId: text("source_patreon_post_id"),
@@ -130,6 +134,9 @@ export const resources = pgTable(
     ),
     index("resources_recency_idx").on(table.publishedAt, table.updatedAt),
     index("resources_access_idx").on(table.accessMode, table.isPublished),
+    uniqueIndex("resources_foundry_module_id_unique")
+      .on(table.foundryModuleId)
+      .where(sql`${table.foundryModuleId} IS NOT NULL`),
   ],
 );
 
@@ -176,6 +183,17 @@ export const resourceVersions = pgTable(
     foundryMaximum: text("foundry_maximum"),
     isCurrent: boolean("is_current").notNull().default(false),
     releasedAt: text("released_at").notNull(),
+    releaseStatus: text("release_status").notNull().default("published"),
+    manifestSnapshot: text("manifest_snapshot"),
+    validationErrors: text("validation_errors").notNull().default("[]"),
+    uploadSource: text("upload_source").notNull().default("admin"),
+    artifactChecksum: text("artifact_checksum"),
+    artifactSize: integer("artifact_size"),
+    changelogSummary: text("changelog_summary").notNull().default(""),
+    changelogDetails: text("changelog_details").notNull().default(""),
+    publishedAt: text("published_at"),
+    rejectedAt: text("rejected_at"),
+    supersededAt: text("superseded_at"),
     ...timestamps,
   },
   (table) => [
@@ -187,6 +205,10 @@ export const resourceVersions = pgTable(
       .on(table.resourceId)
       .where(sql`${table.isCurrent} = true`),
     index("resource_versions_resource_idx").on(table.resourceId),
+    index("resource_versions_release_status_idx").on(
+      table.resourceId,
+      table.releaseStatus,
+    ),
   ],
 );
 

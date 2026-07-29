@@ -153,6 +153,27 @@ npm run auth:hash-admin-password
 After changing `db/schema.ts`, generate and inspect a new migration under
 `drizzle/`.
 
+## Foundry module publishing
+
+Savage Library can publish free Foundry modules without GitHub Releases. In the
+resource editor, open **Module releases**, upload a ZIP, review the detected
+manifest and compatibility, then publish the draft. Each module keeps a stable
+manifest at `/api/foundry/modules/{resource-slug}/module.json`.
+
+For command-line uploads, rotate the module's CLI token in that panel and link
+the module directory once:
+
+```powershell
+npm run publisher -- link --site https://your-site.example --resource RESOURCE_ID --token TOKEN
+npm run publisher -- validate
+npm run publisher -- release
+```
+
+The local `.savage-library.json` contains the publisher credential and is
+ignored by Git. Add one filename or directory per line to `.savageignore` to
+exclude development files from the generated ZIP. CLI uploads always create a
+draft and never change the active Foundry release.
+
 ## Deployment
 
 1. Connect Neon and both Blob stores to the Vercel project.
