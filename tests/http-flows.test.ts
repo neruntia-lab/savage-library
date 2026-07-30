@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { scryptSync } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import path from "node:path";
 import { after, before, test } from "node:test";
@@ -8,14 +7,6 @@ const port = 31_000 + (process.pid % 1_000);
 const origin = `http://localhost:${port}`;
 let server: ChildProcess;
 let serverOutput = "";
-let previewCookie = "";
-const previewPassword = "test-preview-password";
-const previewSalt = "http-flow-preview-salt";
-const previewPasswordHash = `scrypt$${previewSalt}$${scryptSync(
-  previewPassword,
-  previewSalt,
-  64,
-).toString("hex")}`;
 
 before(async () => {
   server = spawn(
@@ -30,11 +21,7 @@ before(async () => {
     ],
     {
       cwd: process.cwd(),
-      env: {
-        ...process.env,
-        PREVIEW_PASSWORD_HASH: previewPasswordHash,
-        PREVIEW_ACCESS_SECRET: "http-flow-signing-secret",
-      },
+      env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     },
@@ -53,34 +40,12 @@ after(() => {
   server?.kill();
 });
 
-test("construction gate protects pages and issues a 24-hour access cookie", async () => {
-  const lockedHome = await fetch(origin);
-  assert.equal(lockedHome.status, 200);
-  assert.match(await lockedHome.text(), /Site under construction/);
-
-  const lockedAdmin = await fetch(`${origin}/admin/login`);
-  assert.equal(lockedAdmin.status, 200);
-  assert.match(await lockedAdmin.text(), /Enter password to preview/);
-
-  const invalid = await fetch(`${origin}/api/preview-access`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password: "incorrect" }),
-  });
-  assert.equal(invalid.status, 401);
-
-  const authorized = await fetch(`${origin}/api/preview-access`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password: previewPassword }),
-  });
-  assert.equal(authorized.status, 200);
-  const setCookie = authorized.headers.get("set-cookie") ?? "";
-  assert.match(setCookie, /sl_preview_access=/);
-  assert.match(setCookie, /HttpOnly/i);
-  assert.match(setCookie, /SameSite=Lax/i);
-  assert.match(setCookie, /Max-Age=86400/i);
-  previewCookie = setCookie.split(";")[0];
+test("public pages load without the retired construction login", async () => {
+  const home = await fetch(origin);
+  assert.equal(home.status, 200);
+  const html = await home.text();
+  assert.match(html, /Savage Library/);
+  assert.doesNotMatch(html, /Site under construction/);
 });
 
 test("home-to-library discovery flow renders searchable catalog content", async () => {
@@ -123,15 +88,12 @@ test("category and discovery metadata routes are available", async () => {
   assert.match(robots, /Disallow: \/admin/);
 
   const removedNews = await fetch(`${origin}/news`, {
-    headers: { Cookie: previewCookie },
   });
   assert.equal(removedNews.status, 404);
 });
 
 async function get(pathname: string): Promise<string> {
-  const response = await fetch(`${origin}${pathname}`, {
-    headers: previewCookie ? { Cookie: previewCookie } : undefined,
-  });
+  const response = await fetch(`${origin}${pathname}`);
   assert.equal(response.status, 200, `${pathname} should return HTTP 200`);
   return response.text();
 }

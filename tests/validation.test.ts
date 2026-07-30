@@ -13,11 +13,6 @@ import {
 } from "../lib/validation/hero-image";
 import { verifyScryptPassword } from "../lib/services/password";
 import {
-  createPreviewAccessToken,
-  PREVIEW_ACCESS_SECONDS,
-  verifyPreviewAccessToken,
-} from "../lib/services/preview-access";
-import {
   taxonomyError,
   validateTaxonomy,
 } from "../lib/validation/taxonomy";
@@ -143,31 +138,6 @@ test("shared scrypt verifier accepts only the encoded password", () => {
   assert.equal(verifyScryptPassword("correct horse", encoded), true);
   assert.equal(verifyScryptPassword("wrong horse", encoded), false);
   assert.equal(verifyScryptPassword("correct horse", "invalid"), false);
-});
-
-test("preview access tokens reject tampering and expiration", () => {
-  const now = Date.UTC(2026, 6, 27);
-  const access = createPreviewAccessToken("test-signing-secret", now);
-  assert.equal(
-    verifyPreviewAccessToken(access.token, "test-signing-secret", now),
-    true,
-  );
-  assert.equal(
-    verifyPreviewAccessToken(
-      `${access.token.slice(0, -1)}x`,
-      "test-signing-secret",
-      now,
-    ),
-    false,
-  );
-  assert.equal(
-    verifyPreviewAccessToken(
-      access.token,
-      "test-signing-secret",
-      now + PREVIEW_ACCESS_SECONDS * 1_000 + 1,
-    ),
-    false,
-  );
 });
 
 test("taxonomy validation accepts canonical values and rejects unsafe slugs", async () => {
