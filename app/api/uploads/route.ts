@@ -2,6 +2,7 @@ import {
   handleUpload,
   type HandleUploadBody,
 } from "@vercel/blob/client";
+import { privateBlobToken } from "../../../lib/config/blob";
 import { recordUploadedBlob } from "../../../lib/repositories/file-repository";
 import type { FileKind } from "../../../lib/domain/resource";
 import { requireApiAdmin } from "../../../lib/services/auth";
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
   const isMedia = payload.kind === "cover" || payload.kind === "thumbnail";
   const token = isMedia
     ? process.env.PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN
-    : process.env.PRIVATE_CONTENT_BLOB_READ_WRITE_TOKEN;
+    : privateBlobToken();
   if (!token) {
     return Response.json(
       { error: "The selected file storage is not configured." },
