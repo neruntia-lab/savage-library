@@ -160,6 +160,53 @@ async function createReleaseDraftFromBytes(input: {
         reused: true,
       };
     }
+    if (!duplicate[0].checksum && !duplicate[0].snapshot) {
+      const now = new Date().toISOString();
+      const status = inspected.errors.length ? "failed" : "draft";
+      const releaseQuery = db
+        .update(resourceVersions)
+        .set({
+          foundryMinimum: manifest.compatibility?.minimum,
+          foundryVerified: manifest.compatibility?.verified,
+          foundryMaximum: manifest.compatibility?.maximum,
+          isCurrent: false,
+          releaseStatus: status,
+          manifestSnapshot: JSON.stringify(manifest),
+          validationErrors: JSON.stringify(inspected.errors),
+          uploadSource: input.source,
+          artifactChecksum: checksum,
+          artifactSize: input.sizeBytes,
+          releasedAt: now,
+          publishedAt: null,
+          updatedAt: now,
+        })
+        .where(eq(resourceVersions.id, duplicate[0].id));
+      const fileQuery = db.insert(files).values({
+        id: crypto.randomUUID(),
+        resourceVersionId: duplicate[0].id,
+        kind: "module",
+        locale: "en",
+        storageKey: input.blob.pathname,
+        storageUrl: input.blob.url,
+        originalName: input.originalName.slice(0, 255),
+        mimeType: "application/zip",
+        extension: "zip",
+        sizeBytes: input.sizeBytes,
+        checksum,
+        uploadedBy: input.uploadedBy,
+        isRestricted: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.batch([releaseQuery, fileQuery]);
+      return {
+        id: duplicate[0].id,
+        status,
+        manifest,
+        errors: inspected.errors,
+        reused: false,
+      };
+    }
     throw new Error(`Version ${manifest.version} already exists with different contents.`);
   }
 
