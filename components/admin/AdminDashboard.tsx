@@ -8,6 +8,7 @@ import { AdminResourceList } from "./AdminResourceList";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { TaxonomyManager } from "./TaxonomyManager";
 import type { AdminResource } from "./types";
+import { MembershipManager } from "./MembershipManager";
 
 export function AdminDashboard({
   initialResources,
@@ -200,12 +201,14 @@ export function AdminDashboard({
           onStatus={setStatus}
         />
       ) : (
-        <PatreonSettings onStatus={setStatus} />
+        <MembershipManager onStatus={setStatus} />
       )}
     </>
   );
 }
 
+// Kept as a compact fallback for deployments that only configure tier sync.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function PatreonSettings({
   onStatus,
 }: {

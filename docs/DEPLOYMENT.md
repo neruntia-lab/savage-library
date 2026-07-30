@@ -8,6 +8,9 @@
 - `npm run test:build` passes.
 - Resource attribution and license fields are complete.
 - Uploaded files have the expected MIME type, extension, and size.
+- SMTP sender configuration has been verified with a real magic-link login.
+- The Patreon creator account is connected and webhook health is shown as healthy.
+- `CRON_SECRET` and `PATREON_TOKEN_ENCRYPTION_KEY` are unique production secrets.
 
 ## Smoke test
 

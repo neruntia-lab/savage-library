@@ -20,6 +20,8 @@ import {
   files,
   gameSystems,
   patreonTiers,
+  patreonPosts,
+  protectedPostLinks,
   resourcePatreonTiers,
   resourceTags,
   resourceTranslations,
@@ -110,7 +112,7 @@ export async function getResourceBySlug(
           ? ("en" as const)
           : defaultLocale;
 
-    const [tagRows, fileRows, dependencyRows, changelogRows, tierRows] =
+    const [tagRows, fileRows, dependencyRows, changelogRows, tierRows, protectedRows] =
       await Promise.all([
         db
           .select({ tag: tags })
@@ -128,7 +130,7 @@ export async function getResourceBySlug(
             and(
               eq(resourceVersions.resourceId, row.resource.id),
               eq(resourceVersions.isCurrent, true),
-              inArray(files.kind, ["pdf", "module"]),
+              inArray(files.kind, ["pdf", "module", "macro"]),
               eq(files.locale, activeLocale),
             ),
           ),
@@ -162,6 +164,23 @@ export async function getResourceBySlug(
           )
           .where(eq(resourcePatreonTiers.resourceId, row.resource.id))
           .orderBy(asc(patreonTiers.amountCents)),
+        db
+          .select({
+            id: protectedPostLinks.id,
+            label: protectedPostLinks.label,
+            role: protectedPostLinks.role,
+          })
+          .from(protectedPostLinks)
+          .innerJoin(
+            patreonPosts,
+            eq(protectedPostLinks.postId, patreonPosts.id),
+          )
+          .where(
+            and(
+              eq(patreonPosts.resourceId, row.resource.id),
+              eq(patreonPosts.reviewStatus, "approved"),
+            ),
+          ),
       ]);
 
     const related = await listCatalogFromDatabase({
@@ -224,6 +243,7 @@ export async function getResourceBySlug(
             locale === "en" || locale === "es",
         ),
       allowedPatreonTiers: tierRows,
+      protectedDownloads: protectedRows,
     };
   } catch {
     return SEED_RESOURCES.find((resource) => resource.slug === slug) ?? null;

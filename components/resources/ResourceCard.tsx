@@ -10,6 +10,7 @@ const typeLabels: Record<ResourceSummary["resourceType"], string> = {
   class: "Class",
   subclass: "Subclass",
   pdf: "PDF",
+  macro: "Macro",
 };
 
 export function ResourceCard({ resource }: { resource: ResourceSummary }) {

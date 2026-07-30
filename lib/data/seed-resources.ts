@@ -48,6 +48,11 @@ const categories = {
     name: "PDFs",
     slug: "pdfs",
   },
+  macros: {
+    id: "category-macros",
+    name: "Macros",
+    slug: "macros",
+  },
 };
 
 export const SEED_RESOURCES: ResourceDetails[] = [

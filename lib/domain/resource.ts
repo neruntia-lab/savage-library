@@ -3,6 +3,7 @@ export const RESOURCE_TYPES = [
   "class",
   "subclass",
   "pdf",
+  "macro",
 ] as const;
 
 export const PRICING_TYPES = ["free", "premium"] as const;
@@ -27,7 +28,7 @@ export type ResourceType = (typeof RESOURCE_TYPES)[number];
 export type PricingType = (typeof PRICING_TYPES)[number];
 export type CompatibilityStatus = (typeof COMPATIBILITY_STATUSES)[number];
 export type ResourceSort = (typeof SORT_OPTIONS)[number];
-export type FileKind = "pdf" | "module" | "cover" | "thumbnail" | "manifest";
+export type FileKind = "pdf" | "module" | "macro" | "cover" | "thumbnail" | "manifest";
 
 export type ResourceSummary = {
   id: string;
@@ -78,6 +79,7 @@ export type ResourceDetails = ResourceSummary & {
     amountCents: number;
     url?: string | null;
   }>;
+  protectedDownloads?: Array<{ id: string; label: string; role: string }>;
   activeLocale?: "en" | "es";
 };
 

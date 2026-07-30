@@ -18,6 +18,17 @@ const FILE_RULES: Record<
       "application/octet-stream",
     ],
   },
+  macro: {
+    extensions: [".js", ".json"],
+    mimeTypes: [
+      "application/javascript",
+      "text/javascript",
+      "application/json",
+      "text/json",
+      "text/plain",
+      "application/octet-stream",
+    ],
+  },
   cover: {
     extensions: [".png", ".jpg", ".jpeg", ".webp"],
     mimeTypes: ["image/png", "image/jpeg", "image/webp"],

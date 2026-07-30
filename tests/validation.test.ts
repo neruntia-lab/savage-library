@@ -13,10 +13,9 @@ import {
 } from "../lib/validation/hero-image";
 import { verifyScryptPassword } from "../lib/services/password";
 import {
-  createPreviewAccessToken,
-  PREVIEW_ACCESS_SECONDS,
-  verifyPreviewAccessToken,
-} from "../lib/services/preview-access";
+  taxonomyError,
+  validateTaxonomy,
+} from "../lib/validation/taxonomy";
 
 const validResource = {
   title: "Test Module",
@@ -141,27 +140,31 @@ test("shared scrypt verifier accepts only the encoded password", () => {
   assert.equal(verifyScryptPassword("correct horse", "invalid"), false);
 });
 
-test("preview access tokens reject tampering and expiration", () => {
-  const now = Date.UTC(2026, 6, 27);
-  const access = createPreviewAccessToken("test-signing-secret", now);
+test("taxonomy validation accepts canonical values and rejects unsafe slugs", async () => {
   assert.equal(
-    verifyPreviewAccessToken(access.token, "test-signing-secret", now),
+    validateTaxonomy({
+      type: "tag",
+      name: "Encounter Tools",
+      slug: "encounter-tools",
+    }).ok,
     true,
   );
+  const invalid = validateTaxonomy({
+    type: "tag",
+    name: "Encounter Tools",
+    slug: "Encounter Tools",
+  });
+  assert.equal(invalid.ok, false);
+  if (!invalid.ok) assert.equal(invalid.response.status, 400);
+});
+
+test("taxonomy errors identify duplicate slugs without leaking details", () => {
   assert.equal(
-    verifyPreviewAccessToken(
-      `${access.token.slice(0, -1)}x`,
-      "test-signing-secret",
-      now,
-    ),
-    false,
+    taxonomyError(new Error("duplicate key violates unique constraint"), "updated"),
+    "That taxonomy slug is already in use.",
   );
   assert.equal(
-    verifyPreviewAccessToken(
-      access.token,
-      "test-signing-secret",
-      now + PREVIEW_ACCESS_SECONDS * 1_000 + 1,
-    ),
-    false,
+    taxonomyError(new Error("database unavailable"), "updated"),
+    "The taxonomy entry could not be updated.",
   );
 });

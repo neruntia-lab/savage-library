@@ -15,6 +15,34 @@
       "when": 1785176647170,
       "tag": "0001_glossy_rick_jones",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785258099775,
+      "tag": "0002_orange_maverick",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785258414216,
+      "tag": "0003_slimy_sharon_carter",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785303053243,
+      "tag": "0004_good_molly_hayes",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785348000000,
+      "tag": "0005_foundry_publisher",
+      "breakpoints": true
     }
   ]
 }

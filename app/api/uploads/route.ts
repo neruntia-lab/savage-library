@@ -14,6 +14,7 @@ import {
 const ALLOWED_KINDS = [
   "pdf",
   "module",
+  "macro",
   "cover",
   "thumbnail",
   "manifest",
