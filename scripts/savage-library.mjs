@@ -39,10 +39,7 @@ if (command === "validate") {
   console.log(`Module: ${result.manifest.id}`);
   console.log(`Archive: ${(result.bytes.length / 1024 / 1024).toFixed(2)} MB`);
   console.log(`SHA-256: ${result.checksum}`);
-  process.exit(0);
-}
-
-if (command === "release") {
+} else if (command === "release") {
   if (!existsSync(configPath)) fail("Run savage-library link first.");
   const config = JSON.parse(readFileSync(configPath, "utf8"));
   const token = process.env.SAVAGE_LIBRARY_TOKEN ?? config.token;
@@ -69,10 +66,9 @@ if (command === "release") {
   );
   console.log("Release uploaded as a draft.");
   console.log(`${config.site}/admin/resources/${config.resourceId}#module-releases`);
-  process.exit(0);
+} else {
+  fail(`Unknown command "${command}".`);
 }
-
-fail(`Unknown command "${command}".`);
 
 function packageModule(directory) {
   const manifestPath = join(directory, "module.json");
