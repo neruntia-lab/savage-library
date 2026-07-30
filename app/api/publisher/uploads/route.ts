@@ -6,6 +6,7 @@ import {
   authenticatePublisherToken,
   createReleaseDraftFromUploadedBlob,
 } from "../../../../lib/repositories/publisher-repository";
+import { privateBlobToken } from "../../../../lib/config/blob";
 import { requireApiAdmin } from "../../../../lib/services/auth";
 
 type Payload = {
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const token = process.env.PRIVATE_CONTENT_BLOB_READ_WRITE_TOKEN;
+  const token = privateBlobToken();
   if (!token) {
     return Response.json({ error: "Private module storage is unavailable." }, { status: 503 });
   }

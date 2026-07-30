@@ -1,6 +1,7 @@
 import { del, get, put, type PutBlobResult } from "@vercel/blob";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../db";
+import { privateBlobToken } from "../config/blob";
 import {
   changelogEntries,
   files,
@@ -48,7 +49,7 @@ export async function createReleaseDraft(input: {
 
   const bytes = new Uint8Array(await input.file.arrayBuffer());
   const versionId = crypto.randomUUID();
-  const token = process.env.PRIVATE_CONTENT_BLOB_READ_WRITE_TOKEN;
+  const token = privateBlobToken();
   if (!token) throw new Error("Private module storage is unavailable.");
   const blob = await put(
     `foundry-releases/${input.resourceId}/${versionId}/${input.file.name}`,
@@ -87,7 +88,7 @@ export async function createReleaseDraftFromUploadedBlob(input: {
   source: "admin" | "cli";
   uploadedBy: string;
 }) {
-  const token = process.env.PRIVATE_CONTENT_BLOB_READ_WRITE_TOKEN;
+  const token = privateBlobToken();
   if (!token) throw new Error("Private module storage is unavailable.");
   const result = await get(input.blob.pathname, { access: "private", token });
   if (!result || result.statusCode !== 200) throw new Error("Uploaded module could not be read.");

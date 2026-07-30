@@ -8,6 +8,7 @@ import {
 } from "@vercel/blob";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "../../db";
+import { privateBlobToken } from "../config/blob";
 import {
   downloads,
   files,
@@ -41,7 +42,7 @@ export async function storeResourceFile(input: {
   const isMedia = input.kind === "cover" || input.kind === "thumbnail";
   const token = isMedia
     ? process.env.PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN
-    : process.env.PRIVATE_CONTENT_BLOB_READ_WRITE_TOKEN;
+    : privateBlobToken();
   if (!token) throw new Error("File storage is unavailable.");
 
   const blob = await put(
@@ -205,7 +206,7 @@ export async function recordDownload(input: {
 export async function createSignedDownloadUrl(
   pathname: string,
 ): Promise<string> {
-  const token = process.env.PRIVATE_CONTENT_BLOB_READ_WRITE_TOKEN;
+  const token = privateBlobToken();
   if (!token) throw new Error("Private file storage is unavailable.");
   const validUntil = Date.now() + 2 * 60 * 1_000;
   const signed = await issueSignedToken({
@@ -235,7 +236,7 @@ export async function deleteStoredFile(fileId: string): Promise<boolean> {
 }
 
 export async function readStoredFile(storageKey: string) {
-  const token = process.env.PRIVATE_CONTENT_BLOB_READ_WRITE_TOKEN;
+  const token = privateBlobToken();
   if (!token) return null;
   return get(storageKey, { access: "private", token });
 }
@@ -251,7 +252,7 @@ async function deleteBlobBestEffort(url: string): Promise<void> {
   const isPublic = url.includes(".public.blob.vercel-storage.com");
   const token = isPublic
     ? process.env.PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN
-    : process.env.PRIVATE_CONTENT_BLOB_READ_WRITE_TOKEN;
+    : privateBlobToken();
   if (!token) return;
   await del(url, { token }).catch(() => undefined);
 }

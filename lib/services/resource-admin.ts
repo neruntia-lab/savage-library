@@ -1,4 +1,5 @@
 import { del } from "@vercel/blob";
+import { privateBlobToken } from "../config/blob";
 import {
   deleteResource,
   getResourceStorageKeys,
@@ -14,7 +15,7 @@ export async function deleteResourceAndFiles(id: string): Promise<boolean> {
       const isPublic = url.includes(".public.blob.vercel-storage.com");
       const token = isPublic
         ? process.env.PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN
-        : process.env.PRIVATE_CONTENT_BLOB_READ_WRITE_TOKEN;
+        : privateBlobToken();
       if (token) await del(url, { token }).catch(() => undefined);
     }),
   );
