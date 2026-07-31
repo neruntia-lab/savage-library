@@ -318,6 +318,7 @@ export async function listAdminResources(): Promise<
     defaultLocale: "en" | "es";
     thumbnailUrl: string | null;
     revision: number;
+    pendingReleaseCount: number;
   }>
 > {
   try {
@@ -338,6 +339,12 @@ export async function listAdminResources(): Promise<
         defaultLocale: resources.defaultLocale,
         thumbnailKey: resources.thumbnailKey,
         revision: resources.revision,
+        pendingReleaseCount: sql<number>`(
+          select count(*)::int
+          from resource_versions as pending_release
+          where pending_release.resource_id = ${resources.id}
+            and pending_release.release_status in ('draft', 'failed')
+        )`,
       })
       .from(resources)
       .innerJoin(
@@ -372,6 +379,7 @@ export async function listAdminResources(): Promise<
       defaultLocale: "en" as const,
       thumbnailUrl: resource.thumbnailUrl ?? null,
       revision: 1,
+      pendingReleaseCount: 0,
     }));
   }
 }

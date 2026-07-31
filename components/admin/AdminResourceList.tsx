@@ -57,6 +57,15 @@ export function AdminResourceList({
                   year: "numeric",
                 })}
               </small>
+              {resource.pendingReleaseCount > 0 ? (
+                <Link
+                  className="admin-release-review-link"
+                  href={`/admin/resources/${resource.id}#module-releases`}
+                >
+                  Review {resource.pendingReleaseCount} release{" "}
+                  {resource.pendingReleaseCount === 1 ? "draft" : "drafts"}
+                </Link>
+              ) : null}
             </div>
             <div>
               <span

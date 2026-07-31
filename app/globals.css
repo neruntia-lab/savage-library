@@ -2775,6 +2775,19 @@ textarea:focus {
   margin-top: 0.25rem;
 }
 
+.admin-release-review-link {
+  color: var(--color-accent);
+  font-size: 0.67rem;
+  font-weight: 700;
+  margin-top: 0.35rem;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.admin-release-review-link:hover {
+  color: var(--color-accent-light);
+}
+
 .admin-resource-list article > .admin-resource-identity {
   align-items: center;
   display: flex;
