@@ -15,6 +15,7 @@ export type AdminResource = {
   defaultLocale?: "en" | "es";
   thumbnailUrl?: string | null;
   revision?: number;
+  pendingReleaseCount: number;
 };
 
 export type EditingResource = ResourceInput & {
