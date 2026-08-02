@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { MarkdownContent } from "../../../components/resources/MarkdownContent";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { CompatibilityBadge } from "../../../components/resources/CompatibilityBadge";
@@ -186,7 +187,7 @@ export default async function ResourcePage({
           <div className="details-main">
             <section className="content-section">
               <h2>About</h2>
-              <p>{resource.description}</p>
+              <MarkdownContent markdown={resource.description} />
             </section>
 
             {resource.files.length ? (

@@ -1,10 +1,11 @@
 import type { FileKind } from "../domain/resource";
 
 export const MAX_UPLOAD_BYTES = 250 * 1024 * 1024;
+export const MAX_DESCRIPTION_IMAGE_BYTES = 10 * 1024 * 1024;
 
 const FILE_RULES: Record<
   FileKind,
-  { extensions: readonly string[]; mimeTypes: readonly string[] }
+  { extensions: readonly string[]; mimeTypes: readonly string[]; maxBytes?: number }
 > = {
   pdf: {
     extensions: [".pdf"],
@@ -37,6 +38,11 @@ const FILE_RULES: Record<
     extensions: [".png", ".jpg", ".jpeg", ".webp"],
     mimeTypes: ["image/png", "image/jpeg", "image/webp"],
   },
+  descriptionImage: {
+    extensions: [".png", ".jpg", ".jpeg", ".gif", ".webp"],
+    mimeTypes: ["image/png", "image/jpeg", "image/gif", "image/webp"],
+    maxBytes: MAX_DESCRIPTION_IMAGE_BYTES,
+  },
   manifest: {
     extensions: [".json"],
     mimeTypes: ["application/json", "text/json"],
@@ -45,6 +51,10 @@ const FILE_RULES: Record<
 
 export function uploadRulesForKind(kind: FileKind) {
   return FILE_RULES[kind];
+}
+
+export function maximumUploadBytesForKind(kind: FileKind) {
+  return FILE_RULES[kind].maxBytes ?? MAX_UPLOAD_BYTES;
 }
 
 export function validateUploadMetadata(input: {
@@ -67,10 +77,11 @@ export function validateUploadMetadata(input: {
       message: `The file type is not allowed for ${input.kind} uploads.`,
     };
   }
-  if (input.size <= 0 || input.size > MAX_UPLOAD_BYTES) {
+  const maximumBytes = maximumUploadBytesForKind(input.kind);
+  if (input.size <= 0 || input.size > maximumBytes) {
     return {
       valid: false,
-      message: "Files must be larger than 0 bytes and no larger than 250 MB.",
+      message: `Files must be larger than 0 bytes and no larger than ${Math.round(maximumBytes / 1024 / 1024)} MB.`,
     };
   }
   return { valid: true, extension };

@@ -7,7 +7,7 @@ import { recordUploadedBlob } from "../../../lib/repositories/file-repository";
 import type { FileKind } from "../../../lib/domain/resource";
 import { requireApiAdmin } from "../../../lib/services/auth";
 import {
-  MAX_UPLOAD_BYTES,
+  maximumUploadBytesForKind,
   uploadRulesForKind,
   validateUploadMetadata,
 } from "../../../lib/validation/upload";
@@ -18,6 +18,7 @@ const ALLOWED_KINDS = [
   "macro",
   "cover",
   "thumbnail",
+  "descriptionImage",
   "manifest",
 ] as const;
 
@@ -57,7 +58,10 @@ export async function POST(request: Request) {
     ...parsed.value,
     uploadedBy: authenticatedAdminId ?? parsed.value.uploadedBy,
   };
-  const isMedia = payload.kind === "cover" || payload.kind === "thumbnail";
+  const isMedia =
+    payload.kind === "cover" ||
+    payload.kind === "thumbnail" ||
+    payload.kind === "descriptionImage";
   const token = isMedia
     ? process.env.PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN
     : privateBlobToken();
@@ -79,7 +83,7 @@ export async function POST(request: Request) {
         }
         return {
           allowedContentTypes: [...uploadRulesForKind(payload.kind).mimeTypes],
-          maximumSizeInBytes: MAX_UPLOAD_BYTES,
+          maximumSizeInBytes: maximumUploadBytesForKind(payload.kind),
           addRandomSuffix: true,
           tokenPayload: JSON.stringify(payload),
         };

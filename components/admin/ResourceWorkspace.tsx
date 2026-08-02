@@ -117,12 +117,16 @@ export function ResourceWorkspace({
     }
   }
 
-  async function uploadFile(kind: FileKind, file: File) {
+  async function uploadFile(
+    kind: FileKind,
+    file: File,
+    targetLocale: "en" | "es" = locale,
+  ): Promise<string | undefined> {
     if (!resourceVersionId) {
       setStatus("Save this draft before uploading files.");
-      return;
+      return undefined;
     }
-    const key = `${locale}-${kind}`;
+    const key = `${targetLocale}-${kind}`;
     const mimeType = normalizedMimeType(file);
     setUploadProgress((current) => ({ ...current, [key]: 1 }));
     setStatus(`Uploading ${file.name}…`);
@@ -130,18 +134,22 @@ export function ResourceWorkspace({
       const safeName = file.name
         .replace(/[^a-zA-Z0-9._-]+/g, "-")
         .slice(0, 120);
-      await upload(
+      const blob = await upload(
         `resource-files/${resourceVersionId}/${Date.now()}-${safeName}`,
         file,
         {
           access:
-            kind === "cover" || kind === "thumbnail" ? "public" : "private",
+            kind === "cover" ||
+            kind === "thumbnail" ||
+            kind === "descriptionImage"
+              ? "public"
+              : "private",
           handleUploadUrl: "/api/uploads",
           multipart: file.size > 20 * 1024 * 1024,
           clientPayload: JSON.stringify({
             resourceVersionId,
             kind,
-            locale,
+            locale: targetLocale,
             originalName: file.name,
             mimeType,
             sizeBytes: file.size,
@@ -158,11 +166,13 @@ export function ResourceWorkspace({
       setUploadProgress((current) => ({ ...current, [key]: 100 }));
       setStatus(`${file.name} uploaded.`);
       router.refresh();
+      return blob.url;
     } catch (error) {
       setUploadProgress((current) => ({ ...current, [key]: 0 }));
       setStatus(
         error instanceof Error ? error.message : "The upload could not complete.",
       );
+      return undefined;
     }
   }
 
@@ -298,6 +308,10 @@ export function ResourceWorkspace({
               <TranslationFields
                 locale={item}
                 value={initialValue.translations[item]}
+                onChanged={changed}
+                onImageUpload={(file) =>
+                  uploadFile("descriptionImage", file, item)
+                }
               />
             </div>
           ))}
@@ -650,9 +664,13 @@ export function ResourceWorkspace({
 function TranslationFields({
   locale,
   value,
+  onChanged,
+  onImageUpload,
 }: {
   locale: "en" | "es";
   value: ResourceTranslationInput;
+  onChanged: () => void;
+  onImageUpload: (file: File) => Promise<string | undefined>;
 }) {
   return (
     <div className="translation-fields">
@@ -668,10 +686,11 @@ function TranslationFields({
         maxLength={240}
         hint={`${value.shortDescription.length}/240 characters`}
       />
-      <TextArea
-        label="Full description"
+      <MarkdownDescriptionEditor
         name={`${locale}Description`}
         value={value.description}
+        onChanged={onChanged}
+        onImageUpload={onImageUpload}
       />
       <div className="form-grid form-grid-two">
         <TextArea
@@ -695,6 +714,88 @@ function TranslationFields({
         />
         <span>Publish this translation when the resource is published</span>
       </label>
+    </div>
+  );
+}
+
+function MarkdownDescriptionEditor({
+  name,
+  value,
+  onChanged,
+  onImageUpload,
+}: {
+  name: string;
+  value: string;
+  onChanged: () => void;
+  onImageUpload: (file: File) => Promise<string | undefined>;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [markdown, setMarkdown] = useState(value);
+  const [uploading, setUploading] = useState(false);
+
+  function replaceSelection(prefix: string, suffix: string, placeholder: string) {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = markdown.slice(start, end) || placeholder;
+    const next = `${markdown.slice(0, start)}${prefix}${selected}${suffix}${markdown.slice(end)}`;
+    setMarkdown(next);
+    onChanged();
+    window.requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+    });
+  }
+
+  async function addImage(file: File) {
+    setUploading(true);
+    const url = await onImageUpload(file);
+    setUploading(false);
+    if (!url) return;
+    const textarea = textareaRef.current;
+    const position = textarea?.selectionStart ?? markdown.length;
+    const alt = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
+    const insertion = `\n\n![${alt}](${url})\n\n`;
+    setMarkdown(`${markdown.slice(0, position)}${insertion}${markdown.slice(position)}`);
+    onChanged();
+    window.requestAnimationFrame(() => textarea?.focus());
+  }
+
+  return (
+    <div className="markdown-editor">
+      <div className="markdown-editor-heading">
+        <label htmlFor={name}>Full description</label>
+        <small>Markdown formatting is supported.</small>
+      </div>
+      <div className="markdown-toolbar" aria-label="Description formatting tools">
+        <button type="button" onClick={() => replaceSelection("**", "**", "bold text")}>Bold</button>
+        <button type="button" onClick={() => replaceSelection("_", "_", "italic text")}>Italic</button>
+        <button type="button" onClick={() => replaceSelection("## ", "", "Heading")}>Heading</button>
+        <button type="button" onClick={() => replaceSelection("- ", "", "List item")}>List</button>
+        <button type="button" onClick={() => replaceSelection("[", "](https://example.com)", "link text")}>Link</button>
+        <label className="markdown-image-button">
+          {uploading ? "Uploading…" : "Add image"}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp"
+            disabled={uploading}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void addImage(file);
+              event.currentTarget.value = "";
+            }}
+          />
+        </label>
+      </div>
+      <textarea
+        id={name}
+        ref={textareaRef}
+        name={name}
+        value={markdown}
+        maxLength={20_000}
+        onChange={(event) => setMarkdown(event.target.value)}
+      />
     </div>
   );
 }
@@ -955,9 +1056,14 @@ function SelectField({
 
 function normalizedMimeType(file: File): string {
   if (file.type) return file.type;
-  if (file.name.toLowerCase().endsWith(".zip")) return "application/zip";
-  if (file.name.toLowerCase().endsWith(".json")) return "application/json";
-  if (file.name.toLowerCase().endsWith(".js")) return "text/javascript";
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".zip")) return "application/zip";
+  if (name.endsWith(".json")) return "application/json";
+  if (name.endsWith(".js")) return "text/javascript";
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  if (name.endsWith(".gif")) return "image/gif";
+  if (name.endsWith(".webp")) return "image/webp";
   return "application/octet-stream";
 }
 
@@ -966,6 +1072,8 @@ function acceptForKind(kind: FileKind): string {
     case "cover":
     case "thumbnail":
       return ".png,.jpg,.jpeg,.webp";
+    case "descriptionImage":
+      return ".png,.jpg,.jpeg,.gif,.webp";
     case "module":
       return ".zip";
     case "pdf":
