@@ -65,11 +65,31 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   try {
+    if (payload.isPublished) {
+      const resource = await getAdminResource(id);
+      if (!resource) {
+        return Response.json({ error: "Resource not found." }, { status: 404 });
+      }
+      const validation = validateResourceInput({
+        ...resource,
+        isPublished: true,
+      });
+      if (!validation.success) {
+        return Response.json(
+          {
+            error: "Complete the required content fields before publishing.",
+            errors: validation.errors,
+          },
+          { status: 400 },
+        );
+      }
+    }
     const updated = await setResourcePublication(id, payload.isPublished);
     return updated
       ? Response.json({ id, isPublished: payload.isPublished })
       : Response.json({ error: "Resource not found." }, { status: 404 });
-  } catch {
+  } catch (error) {
+    console.error("Resource publication failed", { resourceId: id, error });
     return Response.json(
       { error: "Publication state could not be changed." },
       { status: 500 },
