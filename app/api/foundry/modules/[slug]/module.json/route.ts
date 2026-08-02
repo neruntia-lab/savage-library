@@ -24,11 +24,17 @@ export async function GET(request: Request, context: Context) {
     baseUrl: new URL(request.url).origin,
     slug,
     versionId: record.release.id,
+    description:
+      record.resource.description ||
+      record.resource.shortDescription ||
+      record.resource.title,
+    authorName: record.author.name,
   });
   return Response.json(manifest, {
     headers: {
       "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
       "Content-Disposition": 'inline; filename="module.json"',
+      "Access-Control-Allow-Origin": "*",
     },
   });
 }

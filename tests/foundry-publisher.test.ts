@@ -12,7 +12,15 @@ function moduleZip(
   folder = String(manifest.id),
 ) {
   const zip = new AdmZip();
-  zip.addFile(`${folder}/module.json`, Buffer.from(JSON.stringify(manifest)));
+  zip.addFile(
+    `${folder}/module.json`,
+    Buffer.from(
+      JSON.stringify({
+        description: "Test module description.",
+        ...manifest,
+      }),
+    ),
+  );
   zip.addFile(`${folder}/scripts/main.js`, Buffer.from("export {};"));
   return zip.toBuffer();
 }
@@ -41,6 +49,19 @@ test("rejects mismatched folders and module identifiers", () => {
   );
   assert.ok(result.errors.some((error) => error.includes("top-level")));
   assert.ok(result.errors.some((error) => error.includes("expected-module")));
+});
+
+test("rejects a manifest without Foundry's required description", () => {
+  const result = inspectFoundryModule(
+    moduleZip({
+      id: "missing-description",
+      title: "Missing Description",
+      description: "",
+      version: "1.0.0",
+    }),
+  );
+
+  assert.ok(result.errors.some((error) => error.includes("description")));
 });
 
 test("rejects unsafe ZIP paths", () => {
@@ -102,6 +123,7 @@ test("generates stable site manifest and version-specific download", () => {
     {
       id: "savage-craft",
       title: "Savage Craft",
+      description: "A crafting module.",
       version: "2.0.0",
       manifest: "https://untrusted.example/module.json",
       download: "https://untrusted.example/module.zip",
@@ -110,6 +132,7 @@ test("generates stable site manifest and version-specific download", () => {
       baseUrl: "https://library.example",
       slug: "savage-craft",
       versionId: "release-id",
+      authorName: "Neruntia Lab",
     },
   );
   assert.equal(
@@ -120,6 +143,27 @@ test("generates stable site manifest and version-specific download", () => {
     result.download,
     "https://library.example/api/foundry/modules/savage-craft/releases/release-id/module.zip",
   );
+  assert.deepEqual(result.authors, [{ name: "Neruntia Lab" }]);
+});
+
+test("fills required public manifest metadata from the catalog", () => {
+  const result = publicManifest(
+    {
+      id: "savage-sounds",
+      title: "Savage Sounds",
+      version: "3.9.3",
+    },
+    {
+      baseUrl: "https://library.example",
+      slug: "savage-sounds",
+      versionId: "release-id",
+      description: "Sound management for Foundry VTT.",
+      authorName: "Neruntia Lab",
+    },
+  );
+
+  assert.equal(result.description, "Sound management for Foundry VTT.");
+  assert.deepEqual(result.authors, [{ name: "Neruntia Lab" }]);
 });
 
 test("SHA-256 output is deterministic", async () => {
