@@ -75,6 +75,28 @@ test("rejects files outside the module top-level directory", () => {
   );
 });
 
+test("rejects publisher credentials, environment files, and nested archives", () => {
+  const zip = new AdmZip();
+  zip.addFile(
+    "safe-module/module.json",
+    Buffer.from(
+      JSON.stringify({
+        id: "safe-module",
+        title: "Safe",
+        version: "1.0.0",
+      }),
+    ),
+  );
+  zip.addFile("safe-module/.savage-library.json", Buffer.from("secret"));
+  zip.addFile("safe-module/.env.local", Buffer.from("secret"));
+  zip.addFile("safe-module/safe-module.zip", Buffer.from("nested"));
+
+  const result = inspectFoundryModule(zip.toBuffer());
+
+  assert.ok(result.errors.some((error) => error.includes("Publisher credentials")));
+  assert.ok(result.errors.some((error) => error.includes("Nested ZIP")));
+});
+
 test("generates stable site manifest and version-specific download", () => {
   const result = publicManifest(
     {

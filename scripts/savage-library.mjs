@@ -90,13 +90,20 @@ function packageModule(directory) {
     ".next",
     "node_modules",
     ".savage-library.json",
+    ".savageignore",
+    `${manifest.id}.zip`,
+    `${manifest.id}-${manifest.version}.zip`,
     ...readIgnore(directory),
   ]);
   const zip = new AdmZip();
   zip.addLocalFolder(directory, manifest.id, (path) => {
-    const relative = path.replaceAll("\\", "/");
+    const relative = path.replaceAll("\\", "/").replace(/^\.\//, "");
     return ![...ignored].some(
-      (entry) => relative === entry || relative.startsWith(`${entry}/`) || relative.includes(`/${entry}/`),
+      (entry) =>
+        relative === entry ||
+        relative.endsWith(`/${entry}`) ||
+        relative.startsWith(`${entry}/`) ||
+        relative.includes(`/${entry}/`),
     );
   });
   const bytes = zip.toBuffer();
