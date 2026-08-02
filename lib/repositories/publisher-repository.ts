@@ -345,7 +345,38 @@ export async function publishRelease(
   if (!row.resource.isPublished) {
     throw new Error("Publish the catalog resource before activating its Foundry release.");
   }
+  if (
+    !row.release.manifestSnapshot ||
+    !row.release.artifactChecksum ||
+    !row.release.artifactSize
+  ) {
+    throw new Error("This release does not have a validated module ZIP.");
+  }
+  const validationErrors = JSON.parse(row.release.validationErrors) as unknown;
+  if (Array.isArray(validationErrors) && validationErrors.length) {
+    throw new Error("Resolve the release validation errors before publishing.");
+  }
+  const artifacts = await db
+    .select({ id: files.id })
+    .from(files)
+    .where(
+      and(
+        eq(files.resourceVersionId, releaseId),
+        eq(files.kind, "module"),
+      ),
+    )
+    .limit(1);
+  if (!artifacts[0]) {
+    throw new Error("This release does not have a module ZIP to publish.");
+  }
   const manifest = JSON.parse(row.release.manifestSnapshot ?? "{}") as FoundryManifest;
+  if (
+    !manifest.id ||
+    manifest.version !== row.release.version ||
+    (row.resource.foundryModuleId && manifest.id !== row.resource.foundryModuleId)
+  ) {
+    throw new Error("The release manifest does not match this module resource.");
+  }
   const now = new Date().toISOString();
   const manifestUrl = `${siteOrigin.replace(/\/+$/, "")}/api/foundry/modules/${row.resource.slug}/module.json`;
 

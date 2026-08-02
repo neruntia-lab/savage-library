@@ -603,6 +603,7 @@ export async function updateResource(
 ): Promise<boolean> {
   await ensureSeedData();
   const db = getDb();
+  const now = new Date().toISOString();
   const existing = await db
     .select({ currentVersion: resources.currentVersion })
     .from(resources)
@@ -638,16 +639,15 @@ export async function updateResource(
       isFeatured: input.isFeatured,
       isPublished: input.isPublished,
       publishedAt: input.isPublished
-        ? sql`COALESCE(${resources.publishedAt}, CURRENT_TIMESTAMP)`
+        ? sql`COALESCE(${resources.publishedAt}, ${now})`
         : resources.publishedAt,
       revision: sql`${resources.revision} + 1`,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     })
     .where(eq(resources.id, id))
     .returning({ id: resources.id });
   if (!result[0]) return false;
 
-  const now = new Date().toISOString();
   if (existing[0]?.currentVersion !== input.currentVersion) {
     const targetVersion = await db
       .select({ id: resourceVersions.id })
@@ -714,14 +714,15 @@ export async function setResourcePublication(
   id: string,
   isPublished: boolean,
 ): Promise<boolean> {
+  const now = new Date().toISOString();
   const result = await getDb()
     .update(resources)
     .set({
       isPublished,
       publishedAt: isPublished
-        ? sql`COALESCE(${resources.publishedAt}, CURRENT_TIMESTAMP)`
+        ? sql`COALESCE(${resources.publishedAt}, ${now})`
         : resources.publishedAt,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     })
     .where(eq(resources.id, id))
     .returning({ id: resources.id });

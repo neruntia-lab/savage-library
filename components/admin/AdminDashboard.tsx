@@ -74,12 +74,15 @@ export function AdminDashboard({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isPublished: !resource.isPublished }),
     });
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
     setStatus(
       response.ok
         ? resource.isPublished
           ? "Entry returned to drafts."
           : "Entry published."
-        : "Publication status could not be changed.",
+        : body.error ?? "Publication status could not be changed.",
     );
     if (response.ok) await refreshResources();
   }
