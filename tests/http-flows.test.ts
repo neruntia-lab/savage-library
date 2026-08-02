@@ -45,6 +45,10 @@ test("public pages load without the retired construction login", async () => {
   assert.equal(home.status, 200);
   const html = await home.text();
   assert.match(html, /Savage Library/);
+  assert.match(html, /Open navigation menu/);
+  assert.match(html, /aria-controls="mobile-navigation"/);
+  assert.match(html, /aria-label="Mobile navigation"/);
+  assert.match(html, /Patreon access/);
   assert.doesNotMatch(html, /Site under construction/);
 });
 
@@ -59,6 +63,8 @@ test("home-to-library discovery flow renders searchable catalog content", async 
   );
   assert.match(library, /Savage Craft/);
   assert.match(library, /matching/);
+  assert.match(library, /Filters.*\(4\)/);
+  assert.match(library, /filter-advanced is-open/);
   assert.doesNotMatch(library, /Vanguard Class/);
 
   const tagSearch = await get("/library?q=Automation");

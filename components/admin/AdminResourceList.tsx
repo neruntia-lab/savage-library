@@ -48,7 +48,7 @@ export function AdminResourceList({
                 <small>/{resource.slug}</small>
               </div>
             </div>
-            <div>
+            <div className="admin-resource-cell" data-label="Release">
               <strong>v{resource.currentVersion}</strong>
               <small>
                 {new Date(resource.updatedAt).toLocaleDateString("en-US", {
@@ -67,7 +67,7 @@ export function AdminResourceList({
                 </Link>
               ) : null}
             </div>
-            <div>
+            <div className="admin-resource-cell" data-label="Access">
               <span
                 className={`admin-status-pill ${
                   resource.accessMode === "patreon" ? "patreon" : ""
@@ -76,7 +76,7 @@ export function AdminResourceList({
                 {resource.accessMode === "patreon" ? "Patreon" : "Public"}
               </span>
             </div>
-            <div>
+            <div className="admin-resource-cell" data-label="Status">
               <span
                 className={`admin-status-pill ${
                   resource.isPublished ? "published" : "draft"
@@ -86,7 +86,7 @@ export function AdminResourceList({
               </span>
               <small>{resource.downloadCount.toLocaleString()} downloads</small>
             </div>
-            <div className="admin-row-actions">
+            <div className="admin-row-actions" data-label="Actions">
               <Link
                 className="button button-secondary button-small"
                 href={`/admin/resources/${resource.id}`}
