@@ -44,6 +44,18 @@ export function inspectFoundryModule(
     ) {
       errors.push(`Unsafe archive path: ${entry.entryName}`);
     }
+    const parts = normalized.split("/").filter(Boolean);
+    const fileName = parts.at(-1)?.toLowerCase() ?? "";
+    if (
+      fileName === ".savage-library.json" ||
+      fileName === ".env" ||
+      fileName === ".env.local"
+    ) {
+      errors.push(`Publisher credentials or environment files are not allowed: ${entry.entryName}`);
+    }
+    if (parts.length > 1 && fileName.endsWith(".zip")) {
+      errors.push(`Nested ZIP archives are not allowed: ${entry.entryName}`);
+    }
   }
 
   const manifests = entries.filter(
