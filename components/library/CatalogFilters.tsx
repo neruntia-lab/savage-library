@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { ROUTES } from "../../lib/config/site";
 import {
   COMPATIBILITY_STATUSES,
@@ -37,6 +40,20 @@ export function CatalogFilters({
   facets: CatalogFacets;
   fixedCategory?: string;
 }) {
+  const activeFilterCount = [
+    filters.resourceType,
+    filters.system,
+    filters.foundryVersion,
+    filters.moduleVersion,
+    filters.classOrSubclass,
+    filters.pricing,
+    filters.tag,
+    filters.author,
+    filters.compatibility,
+    filters.sort !== "recently-added" ? filters.sort : undefined,
+  ].filter(Boolean).length;
+  const [filtersOpen, setFiltersOpen] = useState(activeFilterCount > 0);
+
   return (
     <form className="catalog-filters" method="get">
       <div className="filter-search">
@@ -59,16 +76,31 @@ export function CatalogFilters({
         <input type="hidden" name="category" value={fixedCategory} />
       ) : null}
 
-      <div className="filter-grid">
-        <FilterSelect
-          label="Resource type"
-          name="type"
-          value={filters.resourceType}
-          options={RESOURCE_TYPES.map((value) => ({
-            value,
-            label: labels[value],
-          }))}
-        />
+      <button
+        className="filter-toggle"
+        type="button"
+        aria-expanded={filtersOpen}
+        aria-controls="advanced-catalog-filters"
+        onClick={() => setFiltersOpen((value) => !value)}
+      >
+        <span>Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}</span>
+        <span aria-hidden="true">{filtersOpen ? "−" : "+"}</span>
+      </button>
+
+      <div
+        id="advanced-catalog-filters"
+        className={`filter-advanced ${filtersOpen ? "is-open" : ""}`}
+      >
+        <div className="filter-grid">
+          <FilterSelect
+            label="Resource type"
+            name="type"
+            value={filters.resourceType}
+            options={RESOURCE_TYPES.map((value) => ({
+              value,
+              label: labels[value],
+            }))}
+          />
         <FilterSelect
           label="Game system"
           name="system"
@@ -148,22 +180,19 @@ export function CatalogFilters({
             label: labels[value],
           }))}
         />
-      </div>
+        </div>
 
-      <div className="filter-actions">
-        <button className="button button-secondary" type="submit">
-          Apply filters
-        </button>
-        <Link
-          className="button button-quiet"
-          href={
-            fixedCategory
-              ? ROUTES.category(fixedCategory)
-              : ROUTES.library
-          }
-        >
-          Clear
-        </Link>
+        <div className="filter-actions">
+          <button className="button button-secondary" type="submit">
+            Apply filters
+          </button>
+          <Link
+            className="button button-quiet"
+            href={fixedCategory ? ROUTES.category(fixedCategory) : ROUTES.library}
+          >
+            Clear
+          </Link>
+        </div>
       </div>
     </form>
   );
