@@ -5,7 +5,12 @@ import {
   sanitizePlainText,
   validateResourceInput,
 } from "../lib/validation/resource";
-import { MAX_UPLOAD_BYTES, validateUpload } from "../lib/validation/upload";
+import {
+  MAX_DESCRIPTION_IMAGE_BYTES,
+  MAX_UPLOAD_BYTES,
+  validateUpload,
+  validateUploadMetadata,
+} from "../lib/validation/upload";
 import {
   HERO_IMAGE_MAX_BYTES,
   validateHeroDimensions,
@@ -93,6 +98,36 @@ test("upload validation requires matching extension, MIME type, and size", () =>
     size: MAX_UPLOAD_BYTES + 1,
   } as File;
   assert.equal(validateUpload(oversized, "pdf").valid, false);
+});
+
+test("description image validation accepts safe formats and enforces 10 MB", () => {
+  assert.deepEqual(
+    validateUploadMetadata({
+      name: "preview.webp",
+      type: "image/webp",
+      size: 500_000,
+      kind: "descriptionImage",
+    }),
+    { valid: true, extension: ".webp" },
+  );
+  assert.equal(
+    validateUploadMetadata({
+      name: "preview.svg",
+      type: "image/svg+xml",
+      size: 500_000,
+      kind: "descriptionImage",
+    }).valid,
+    false,
+  );
+  assert.equal(
+    validateUploadMetadata({
+      name: "preview.png",
+      type: "image/png",
+      size: MAX_DESCRIPTION_IMAGE_BYTES + 1,
+      kind: "descriptionImage",
+    }).valid,
+    false,
+  );
 });
 
 test("hero image validation accepts a suitable wide WebP", () => {

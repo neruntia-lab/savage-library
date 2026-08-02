@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { MarkdownContent } from "../../../../../components/resources/MarkdownContent";
 import { notFound, redirect } from "next/navigation";
 import {
   getAdminResource,
@@ -58,7 +59,9 @@ export default async function ResourcePreviewPage({
         </div>
         <section className="content-section">
           <h2>About</h2>
-          <p>{translation.description || "No description has been added yet."}</p>
+          <MarkdownContent
+            markdown={translation.description || "No description has been added yet."}
+          />
         </section>
         {translation.installationInstructions ? (
           <section className="content-section">

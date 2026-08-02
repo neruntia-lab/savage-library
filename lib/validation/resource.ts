@@ -88,7 +88,7 @@ export function validateResourceInput(value: unknown): ValidationResult<Resource
     errors,
     "shortDescription",
   );
-  const description = optionalText(value.description, 4_000);
+  const description = optionalText(value.description, 20_000);
   const categoryId = textField(
     value.categoryId,
     "Category",
@@ -270,7 +270,7 @@ function parseTranslation(
   return {
     title,
     shortDescription,
-    description: optionalText(value.description, 4_000),
+    description: optionalText(value.description, 20_000),
     compatibilityNotes:
       optionalText(value.compatibilityNotes, 2_000) || undefined,
     installationInstructions:

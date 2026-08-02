@@ -28,7 +28,14 @@ export type ResourceType = (typeof RESOURCE_TYPES)[number];
 export type PricingType = (typeof PRICING_TYPES)[number];
 export type CompatibilityStatus = (typeof COMPATIBILITY_STATUSES)[number];
 export type ResourceSort = (typeof SORT_OPTIONS)[number];
-export type FileKind = "pdf" | "module" | "macro" | "cover" | "thumbnail" | "manifest";
+export type FileKind =
+  | "pdf"
+  | "module"
+  | "macro"
+  | "cover"
+  | "thumbnail"
+  | "descriptionImage"
+  | "manifest";
 
 export type ResourceSummary = {
   id: string;
