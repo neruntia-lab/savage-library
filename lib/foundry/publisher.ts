@@ -3,8 +3,14 @@ import AdmZip from "adm-zip";
 export type FoundryManifest = {
   id: string;
   title: string;
-  version: string;
   description?: string;
+  version: string;
+  authors?: Array<{
+    name: string;
+    email?: string;
+    url?: string;
+    discord?: string;
+  }>;
   compatibility?: {
     minimum?: string;
     verified?: string;
@@ -89,6 +95,9 @@ export function inspectFoundryModule(
     errors.push("The manifest id must use lowercase letters, numbers, and hyphens.");
   }
   if (!manifest.title?.trim()) errors.push("The manifest title is required.");
+  if (!manifest.description?.trim()) {
+    errors.push("The manifest description is required by Foundry VTT.");
+  }
   if (!manifest.version || !VERSION_PATTERN.test(manifest.version)) {
     errors.push("The manifest version must be a semantic version such as 1.2.0.");
   }
@@ -147,10 +156,21 @@ export function publicManifest(
     baseUrl: string;
     slug: string;
     versionId: string;
+    description?: string;
+    authorName?: string;
   },
 ): FoundryManifest {
+  const description = snapshot.description?.trim() || input.description?.trim();
+  const authors =
+    Array.isArray(snapshot.authors) && snapshot.authors.length
+      ? snapshot.authors
+      : input.authorName?.trim()
+        ? [{ name: input.authorName.trim() }]
+        : undefined;
   return {
     ...snapshot,
+    ...(description ? { description } : {}),
+    ...(authors ? { authors } : {}),
     url: `${input.baseUrl}/resources/${input.slug}`,
     manifest: `${input.baseUrl}/api/foundry/modules/${input.slug}/module.json`,
     download: `${input.baseUrl}/api/foundry/modules/${input.slug}/releases/${input.versionId}/module.zip`,

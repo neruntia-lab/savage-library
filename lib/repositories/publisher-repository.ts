@@ -3,6 +3,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../db";
 import { privateBlobToken } from "../config/blob";
 import {
+  authors,
   changelogEntries,
   files,
   resources,
@@ -494,8 +495,14 @@ export async function rollbackRelease(resourceId: string, releaseId: string) {
 
 export async function getActiveFoundryRelease(slug: string) {
   const rows = await getDb()
-    .select({ resource: resources, release: resourceVersions, file: files })
+    .select({
+      resource: resources,
+      release: resourceVersions,
+      file: files,
+      author: authors,
+    })
     .from(resources)
+    .innerJoin(authors, eq(resources.authorId, authors.id))
     .innerJoin(
       resourceVersions,
       and(
