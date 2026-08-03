@@ -769,13 +769,14 @@ function MarkdownDescriptionEditor({
         <small>Markdown formatting is supported.</small>
       </div>
       <div className="markdown-toolbar" aria-label="Description formatting tools">
-        <button type="button" onClick={() => replaceSelection("**", "**", "bold text")}>Bold</button>
-        <button type="button" onClick={() => replaceSelection("_", "_", "italic text")}>Italic</button>
-        <button type="button" onClick={() => replaceSelection("## ", "", "Heading")}>Heading</button>
-        <button type="button" onClick={() => replaceSelection("- ", "", "List item")}>List</button>
-        <button type="button" onClick={() => replaceSelection("[", "](https://example.com)", "link text")}>Link</button>
-        <label className="markdown-image-button">
-          {uploading ? "Uploading…" : "Add image"}
+        <button type="button" onClick={() => replaceSelection("**", "**", "bold text")}><MarkdownToolbarIcon name="bold" /><span>Bold</span></button>
+        <button type="button" onClick={() => replaceSelection("_", "_", "italic text")}><MarkdownToolbarIcon name="italic" /><span>Italic</span></button>
+        <button type="button" onClick={() => replaceSelection("## ", "", "Heading")}><MarkdownToolbarIcon name="heading" /><span>Heading</span></button>
+        <button type="button" onClick={() => replaceSelection("- ", "", "List item")}><MarkdownToolbarIcon name="list" /><span>List</span></button>
+        <button type="button" onClick={() => replaceSelection("[", "](https://example.com)", "link text")}><MarkdownToolbarIcon name="link" /><span>Link</span></button>
+        <label className={`markdown-image-button ${uploading ? "uploading" : ""}`}>
+          <MarkdownToolbarIcon name="image" />
+          <span>{uploading ? "Uploading…" : "Add image"}</span>
           <input
             type="file"
             accept="image/png,image/jpeg,image/gif,image/webp"
@@ -798,6 +799,22 @@ function MarkdownDescriptionEditor({
       />
     </div>
   );
+}
+
+function MarkdownToolbarIcon({
+  name,
+}: {
+  name: "bold" | "italic" | "heading" | "list" | "link" | "image";
+}) {
+  const paths = {
+    bold: <><path d="M6 3.5h5a3 3 0 0 1 0 6H6z" /><path d="M6 9.5h5.8a3.5 3.5 0 0 1 0 7H6z" /></>,
+    italic: <><path d="M9.5 3.5h5" /><path d="M5.5 16.5h5" /><path d="m12 3.5-4 13" /></>,
+    heading: <><path d="M3.5 4v12" /><path d="M11 4v12" /><path d="M3.5 10h7.5" /><path d="M14 10.5a2 2 0 1 1 3.8.8c0 1.6-3.8 2.4-3.8 4.7h4" /></>,
+    list: <><path d="M7 5h10" /><path d="M7 10h10" /><path d="M7 15h10" /><circle cx="3.5" cy="5" r=".75" fill="currentColor" stroke="none" /><circle cx="3.5" cy="10" r=".75" fill="currentColor" stroke="none" /><circle cx="3.5" cy="15" r=".75" fill="currentColor" stroke="none" /></>,
+    link: <><path d="m8 12 4-4" /><path d="M6.5 13.5 5 15a3 3 0 0 1-4.2-4.2l3-3A3 3 0 0 1 8 7" /><path d="M12 13a3 3 0 0 0 4.2-.2l3-3A3 3 0 0 0 15 5.6L13.5 7" /></>,
+    image: <><rect x="2.5" y="3.5" width="15" height="13" rx="1" /><circle cx="7" cy="8" r="1.5" /><path d="m3 15 4.5-4 3 2.5 2.5-2 4 3.5" /></>,
+  };
+  return <svg className="markdown-toolbar-icon" aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5">{paths[name]}</svg>;
 }
 
 function DependenciesEditor({

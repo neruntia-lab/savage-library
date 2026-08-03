@@ -49,6 +49,8 @@ test("public pages load without the retired construction login", async () => {
   assert.match(html, /aria-controls="mobile-navigation"/);
   assert.match(html, /aria-label="Mobile navigation"/);
   assert.match(html, /Patreon access/);
+  assert.doesNotMatch(html, /footer-seal/);
+  assert.doesNotMatch(html, /href="\/admin"/);
   assert.doesNotMatch(html, /Site under construction/);
 });
 
