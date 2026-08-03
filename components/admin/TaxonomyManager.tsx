@@ -123,70 +123,33 @@ export function TaxonomyManager({
     }));
   }
 
-  return (
-    <div className="taxonomy-grid">
-      {groups.map(([type, title, items]) => (
-        <section className="admin-panel" key={type}>
-          <div className="admin-panel-heading">
-            <h2>{title}</h2>
-            <span>{items.length}</span>
-          </div>
-          <form
-            className="taxonomy-create"
-            onSubmit={(event) => create(type, event)}
-          >
-            <input type="hidden" name="type" value={type} />
-            <input name="name" placeholder={`New ${type} name`} required />
-            <input name="slug" placeholder="url-slug" required />
-            <button
-              className="button button-primary button-small"
-              disabled={busy.has(`create-${type}`)}
-            >
-              {busy.has(`create-${type}`) ? "Adding…" : "Add"}
-            </button>
-          </form>
-          <div className="taxonomy-list">
-            {items.map((item) => (
-              <form
-                key={item.id}
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void update(type, item.id);
-                }}
-              >
-                <input
-                  name="name"
-                  value={drafts[item.id]?.name ?? item.name}
-                  onChange={(event) => updateDraft(item.id, "name", event.target.value)}
-                  required
-                />
-                <input
-                  name="slug"
-                  value={drafts[item.id]?.slug ?? item.slug}
-                  onChange={(event) => updateDraft(item.id, "slug", event.target.value)}
-                  required
-                />
-                <button
-                  className="button button-secondary button-small"
-                  disabled={busy.has(item.id)}
-                >
-                  {busy.has(item.id) ? "Saving…" : "Update"}
-                </button>
-                <button
-                  className="button button-danger button-small"
-                  type="button"
-                  disabled={busy.has(item.id)}
-                  onClick={() => void remove(type, item.id)}
-                >
-                  Delete
-                </button>
-              </form>
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
-  );
+  return <div className="taxonomy-grid">
+    {groups.map(([type, title, items]) => <section className="admin-panel" key={type}>
+      <div className="admin-panel-heading"><h2>{title}</h2><span>{items.length}</span></div>
+      <form className="taxonomy-create" onSubmit={(event) => create(type, event)}>
+        <input type="hidden" name="type" value={type} />
+        <input name="name" placeholder={`New ${type} name`} required />
+        <input name="slug" placeholder="url-slug" required />
+        <button className="button button-primary button-small" disabled={busy.has(`create-${type}`)}>{busy.has(`create-${type}`) ? "Adding…" : "Add"}</button>
+      </form>
+      <div className="admin-data-table-wrap taxonomy-list">
+        <table className="admin-data-table taxonomy-table">
+          <thead><tr><th>Name</th><th>URL slug</th><th>Actions</th></tr></thead>
+          <tbody>{items.map((item) => {
+            const formId = `taxonomy-${type}-${item.id}`;
+            return <tr key={item.id}>
+              <td data-label="Name"><input form={formId} name="name" aria-label={`${title} name`} value={drafts[item.id]?.name ?? item.name} onChange={(event) => updateDraft(item.id, "name", event.target.value)} required /></td>
+              <td data-label="URL slug"><input form={formId} name="slug" aria-label={`${title} URL slug`} value={drafts[item.id]?.slug ?? item.slug} onChange={(event) => updateDraft(item.id, "slug", event.target.value)} required /></td>
+              <td data-label="Actions"><div className="admin-row-actions"><form id={formId} onSubmit={(event) => { event.preventDefault(); void update(type, item.id); }}>
+                <button className="button button-secondary button-small" disabled={busy.has(item.id)}>{busy.has(item.id) ? "Saving…" : "Update"}</button>
+                <button className="button button-danger button-small" type="button" disabled={busy.has(item.id)} onClick={() => void remove(type, item.id)}>Delete</button>
+              </form></div></td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+    </section>)}
+  </div>;
 }
 
 function draftsFromFacets(facets: CatalogFacets) {

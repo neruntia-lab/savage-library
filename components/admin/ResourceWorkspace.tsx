@@ -627,7 +627,7 @@ export function ResourceWorkspace({
           </label>
         </section>
 
-        <div className="admin-sticky-actions">
+        <div className="admin-editor-actions">
           <span aria-live="polite">{status}</span>
           <div>
             {editing ? (
