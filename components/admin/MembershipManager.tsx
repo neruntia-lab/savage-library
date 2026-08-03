@@ -154,12 +154,17 @@ export function MembershipManager({ onStatus }: { onStatus: (message: string) =>
           <option value="active">Active</option><option value="inactive">Inactive / expired</option><option value="expired">Expired grants</option><option value="replaced">Replaced by Patreon</option>
         </select>
       </div>
-      <div className="membership-list">{rows.map((row) =>
-        <div key={`${row.source}-${row.id}`} className="membership-row">
-          <div><strong>{row.displayName}</strong><small>{row.source === "patreon" ? `Patreon · ${row.isActive ? "active" : "inactive"}` : `${row.email} · complimentary · ${row.status}`}</small></div>
-          <span>{row.tierIds.map((id) => data.tiers.find((tier) => tier.id === id)?.title ?? id).join(", ") || "No tier"}</span>
-          {row.source === "complimentary" && row.status === "active" ? <div className="profile-actions"><button className="button button-secondary button-small" onClick={() => resend(row.id)}>Resend link</button><button className="button button-secondary button-small" onClick={() => revoke(row.id)}>Revoke</button></div> : null}
-        </div>)}</div>
+      <div className="admin-data-table-wrap">
+        <table className="admin-data-table membership-table">
+          <thead><tr><th>Member</th><th>Source and status</th><th>Effective tiers</th><th>Actions</th></tr></thead>
+          <tbody>{rows.map((row) => <tr key={`${row.source}-${row.id}`}>
+            <td data-label="Member"><strong>{row.displayName}</strong>{row.source === "complimentary" ? <small>{row.email}</small> : null}</td>
+            <td data-label="Source and status"><span className={`admin-status-pill ${row.source === "patreon" ? "patreon" : row.status}`}>{row.source === "patreon" ? `Patreon · ${row.isActive ? "active" : "inactive"}` : `Complimentary · ${row.status}`}</span></td>
+            <td data-label="Effective tiers">{row.tierIds.map((id) => data.tiers.find((tier) => tier.id === id)?.title ?? id).join(", ") || "No tier"}</td>
+            <td data-label="Actions"><div className="admin-row-actions">{row.source === "complimentary" && row.status === "active" ? <><button className="button button-secondary button-small" onClick={() => resend(row.id)}>Resend link</button><button className="button button-danger button-small" onClick={() => revoke(row.id)}>Revoke</button></> : <span className="admin-table-empty">—</span>}</div></td>
+          </tr>)}</tbody>
+        </table>
+      </div>
     </section>
     <section className="admin-panel">
       <div className="admin-filter-bar">

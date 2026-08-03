@@ -23,17 +23,13 @@ export function AdminResourceList({
 
   return (
     <section className="admin-panel admin-content-panel" aria-label="Library content">
-      <div className="admin-table-header" aria-hidden="true">
-        <span>Resource</span>
-        <span>Release</span>
-        <span>Access</span>
-        <span>Status</span>
-        <span>Actions</span>
-      </div>
-      <div className="admin-resource-list">
+      <div className="admin-data-table-wrap">
+        <table className="admin-data-table admin-resource-table">
+          <thead><tr><th>Resource</th><th>Release</th><th>Access</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
         {resources.map((resource) => (
-          <article key={resource.id}>
-            <div className="admin-resource-identity">
+          <tr key={resource.id}>
+            <td className="admin-resource-identity-cell" data-label="Resource"><div className="admin-resource-identity">
               <div className="admin-resource-thumb">
                 <Image
                   src={resource.thumbnailUrl ?? "/savage-library-logo.svg"}
@@ -47,8 +43,8 @@ export function AdminResourceList({
                 <h3>{resource.title}</h3>
                 <small>/{resource.slug}</small>
               </div>
-            </div>
-            <div className="admin-resource-cell" data-label="Release">
+            </div></td>
+            <td className="admin-resource-cell" data-label="Release">
               <strong>v{resource.currentVersion}</strong>
               <small>
                 {new Date(resource.updatedAt).toLocaleDateString("en-US", {
@@ -66,8 +62,8 @@ export function AdminResourceList({
                   {resource.pendingReleaseCount === 1 ? "draft" : "drafts"}
                 </Link>
               ) : null}
-            </div>
-            <div className="admin-resource-cell" data-label="Access">
+            </td>
+            <td className="admin-resource-cell" data-label="Access">
               <span
                 className={`admin-status-pill ${
                   resource.accessMode === "patreon" ? "patreon" : ""
@@ -75,8 +71,8 @@ export function AdminResourceList({
               >
                 {resource.accessMode === "patreon" ? "Patreon" : "Public"}
               </span>
-            </div>
-            <div className="admin-resource-cell" data-label="Status">
+            </td>
+            <td className="admin-resource-cell" data-label="Status">
               <span
                 className={`admin-status-pill ${
                   resource.isPublished ? "published" : "draft"
@@ -85,8 +81,8 @@ export function AdminResourceList({
                 {resource.isPublished ? "Published" : "Draft"}
               </span>
               <small>{resource.downloadCount.toLocaleString()} downloads</small>
-            </div>
-            <div className="admin-row-actions" data-label="Actions">
+            </td>
+            <td data-label="Actions"><div className="admin-row-actions">
               <Link
                 className="button button-secondary button-small"
                 href={`/admin/resources/${resource.id}`}
@@ -108,9 +104,11 @@ export function AdminResourceList({
               >
                 ×
               </button>
-            </div>
-          </article>
+            </div></td>
+          </tr>
         ))}
+          </tbody>
+        </table>
       </div>
     </section>
   );
