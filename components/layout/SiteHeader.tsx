@@ -49,8 +49,9 @@ export function SiteHeader() {
   }, [menuOpen]);
 
   return (
-    <header className="site-header">
-      <div className="container header-inner">
+    <>
+      <header className="site-header">
+        <div className="container header-inner">
         <Link
           className="brand"
           href={ROUTES.home}
@@ -80,7 +81,7 @@ export function SiteHeader() {
             Patreon access
           </Link>
         </nav>
-        <button
+          <button
           ref={menuButtonRef}
           className="mobile-menu-button"
           type="button"
@@ -92,8 +93,9 @@ export function SiteHeader() {
           <span />
           <span />
           <span />
-        </button>
-      </div>
+          </button>
+        </div>
+      </header>
       {menuOpen ? (
         <button
           className="mobile-menu-backdrop open"
@@ -132,6 +134,6 @@ export function SiteHeader() {
           Patreon access
         </Link>
       </nav>
-    </header>
+    </>
   );
 }
