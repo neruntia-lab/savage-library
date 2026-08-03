@@ -3344,8 +3344,10 @@ textarea:focus {
 }
 
 .admin-workspace-form .markdown-image-button > span {
+  color: inherit;
   display: inline;
   font-size: inherit;
+  font-weight: inherit;
   letter-spacing: normal;
   margin: 0 !important;
 }
