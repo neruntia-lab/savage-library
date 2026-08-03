@@ -4037,6 +4037,15 @@ textarea:focus {
   display: block;
 }
 
+.admin-resource-list .admin-row-actions .admin-more-button {
+  border-color: rgb(239 91 91 / 38%);
+}
+
+.admin-resource-list .admin-row-actions .admin-more-button:hover {
+  background: rgb(239 91 91 / 8%);
+  border-color: rgb(239 91 91 / 68%);
+}
+
 @media (max-width: 820px) {
   html,
   body {
@@ -4507,7 +4516,9 @@ textarea:focus {
   }
 
   .admin-sticky-actions {
+    align-items: stretch;
     bottom: 0;
+    flex-direction: column;
     gap: 0.5rem;
     padding: 0.65rem 0.75rem calc(0.65rem + env(safe-area-inset-bottom));
   }
@@ -4521,13 +4532,15 @@ textarea:focus {
 
   .admin-sticky-actions > div {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     width: 100%;
   }
 
   .admin-sticky-actions .button {
     justify-content: center;
+    min-width: 0;
     min-height: 44px;
+    width: 100%;
   }
 
   .form-grid-two,
