@@ -31,11 +31,7 @@ export function SiteFooter() {
           ))}
         </nav>
         <div className="footer-meta">
-          <span className="footer-seal" aria-hidden="true">
-            <span>SL</span>
-          </span>
           <p>Only authorized resources enter the archive.</p>
-          <Link href={ROUTES.admin}>Admin</Link>
         </div>
       </div>
     </footer>
