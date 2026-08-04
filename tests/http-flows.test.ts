@@ -79,8 +79,10 @@ test("resource detail flow exposes attribution, compatibility, and manifest acti
   assert.match(details, /Foundry support/);
   assert.match(details, /Installation instructions/);
   assert.match(details, /Copy manifest/);
+  assert.match(details, /api\/foundry\/modules\/savage-craft\/module\.json/);
   assert.match(details, /All rights reserved/);
   assert.doesNotMatch(details, /<h2>Files<\/h2>/);
+  assert.doesNotMatch(details, /Download module/i);
 });
 
 test("category and discovery metadata routes are available", async () => {

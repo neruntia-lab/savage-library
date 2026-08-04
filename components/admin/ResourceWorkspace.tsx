@@ -126,7 +126,8 @@ export function ResourceWorkspace({
       setStatus("Save this draft before uploading files.");
       return undefined;
     }
-    const key = `${targetLocale}-${kind}`;
+    const uploadLocale = kind === "cover" || kind === "thumbnail" ? "en" : targetLocale;
+    const key = `${uploadLocale}-${kind}`;
     const mimeType = normalizedMimeType(file);
     setUploadProgress((current) => ({ ...current, [key]: 1 }));
     setStatus(`Uploading ${file.name}…`);
@@ -149,7 +150,7 @@ export function ResourceWorkspace({
           clientPayload: JSON.stringify({
             resourceVersionId,
             kind,
-            locale: targetLocale,
+            locale: uploadLocale,
             originalName: file.name,
             mimeType,
             sizeBytes: file.size,
@@ -163,6 +164,26 @@ export function ResourceWorkspace({
           },
         },
       );
+      if (kind === "cover" || kind === "thumbnail") {
+        const finalizeResponse = await fetch("/api/uploads/finalize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resourceVersionId,
+            kind,
+            locale: "en",
+            originalName: file.name,
+            mimeType,
+            sizeBytes: file.size,
+            url: blob.url,
+            pathname: blob.pathname,
+          }),
+        });
+        const finalized = (await finalizeResponse.json().catch(() => ({}))) as { error?: string };
+        if (!finalizeResponse.ok) {
+          throw new Error(finalized.error ?? "The artwork could not be saved.");
+        }
+      }
       setUploadProgress((current) => ({ ...current, [key]: 100 }));
       setStatus(`${file.name} uploaded.`);
       router.refresh();
@@ -468,16 +489,16 @@ export function ResourceWorkspace({
 
         <section className="admin-editor-section" id="files">
           <SectionHeading
-            eyebrow={`${locale === "en" ? "English" : "Spanish"} assets`}
+            eyebrow="Shared artwork and localized files"
             title="Files and artwork"
-            description="Uploads are attached to the current release and selected language."
+            description="Cover and thumbnail artwork is shared by every language. Downloadable files use the selected language."
           />
           {!editing ? (
             <div className="admin-callout">
               Save the draft once to enable its secure upload areas.
             </div>
           ) : null}
-          <div className="upload-card-grid">
+          {editing ? <div className="upload-card-grid">
             {(
               [
                 ["cover", "Cover image", "PNG, JPG or WebP"],
@@ -490,16 +511,27 @@ export function ResourceWorkspace({
             )
               .filter(([kind]) => !(editing && initialValue.resourceType === "module" && kind === "module"))
               .map(([kind, title, hint]) => {
-              const key = `${locale}-${kind}`;
+              const fileLocale = kind === "cover" || kind === "thumbnail" ? "en" : locale;
+              const key = `${fileLocale}-${kind}`;
               const progress = uploadProgress[key] ?? 0;
               const existingFile =
                 editing
                   ? initialValue.files.find(
-                      (file) => file.kind === kind && file.locale === locale,
+                      (file) => file.kind === kind && file.locale === fileLocale,
                     )
                   : null;
+              const artworkUrl =
+                editing && kind === "cover"
+                  ? initialValue.coverUrl
+                  : editing && kind === "thumbnail"
+                    ? initialValue.thumbnailUrl
+                    : null;
               return (
                 <label className="upload-card" key={kind}>
+                  {artworkUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img className="upload-card-preview" src={artworkUrl} alt="" />
+                  ) : null}
                   <span>{title}</span>
                   <small>
                     {existingFile
@@ -508,7 +540,6 @@ export function ResourceWorkspace({
                   </small>
                   <input
                     type="file"
-                    disabled={!editing}
                     accept={acceptForKind(kind)}
                     onChange={(event) => {
                       const file = event.currentTarget.files?.[0];
@@ -528,7 +559,7 @@ export function ResourceWorkspace({
                 </label>
               );
             })}
-          </div>
+          </div> : null}
         </section>
 
         <section className="admin-editor-section" id="access">

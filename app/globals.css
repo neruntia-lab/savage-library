@@ -840,6 +840,12 @@ textarea:focus {
   width: 72%;
 }
 
+.resource-cover img.custom-artwork {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
 .resource-hero h1 {
   margin: 0.4rem 0 0.8rem;
 }
@@ -3612,6 +3618,14 @@ textarea:focus {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.upload-card-preview {
+  aspect-ratio: 16 / 9;
+  border: 1px solid rgb(216 181 106 / 14%);
+  display: block;
+  object-fit: cover;
+  width: 100%;
+}
+
 .upload-card {
   background:
     radial-gradient(circle at 90% 0%, rgb(216 181 106 / 6%), transparent 50%),
@@ -4222,6 +4236,11 @@ textarea:focus {
     width: 100%;
   }
 
+  .admin-resource-table th,
+  .admin-resource-table td {
+    width: 100%;
+  }
+
   .admin-data-table {
     table-layout: auto;
   }
@@ -4265,7 +4284,29 @@ textarea:focus {
 
   .admin-data-table .admin-resource-identity-cell {
     display: flex;
+    min-width: 0;
     width: 100%;
+  }
+
+  .admin-data-table .admin-resource-identity {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .admin-data-table .admin-resource-identity > div:last-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .admin-data-table .admin-resource-identity h3,
+  .admin-data-table .admin-resource-identity small {
+    overflow-wrap: anywhere;
+  }
+
+  .resource-language-switcher {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    margin: 1rem 0 1.3rem;
   }
 
   .admin-data-table .admin-resource-identity-cell::before {
