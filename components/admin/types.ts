@@ -21,6 +21,8 @@ export type AdminResource = {
 export type EditingResource = ResourceInput & {
   id: string;
   resourceVersionId: string;
+  coverUrl?: string | null;
+  thumbnailUrl?: string | null;
   files: Array<{
     id: string;
     kind: string;

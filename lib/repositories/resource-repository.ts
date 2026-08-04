@@ -390,6 +390,8 @@ export async function getAdminResource(
   | (ResourceInput & {
       id: string;
       resourceVersionId: string;
+      coverUrl: string | null;
+      thumbnailUrl: string | null;
       files: Array<{
         id: string;
         kind: string;
@@ -489,6 +491,8 @@ export async function getAdminResource(
 
   return {
     id: resource.id,
+    coverUrl: storageImageUrl(resource.coverKey),
+    thumbnailUrl: storageImageUrl(resource.thumbnailKey),
     resourceVersionId:
       versionRows.find((version) => version.isCurrent)?.id ?? "",
     files: fileRows.map((file) => ({
@@ -965,7 +969,7 @@ function storageImageUrl(key?: string | null): string | null {
         .split("/")
         .map((segment) => encodeURIComponent(segment))
         .join("/")}`
-    : "/savage-library-logo.svg";
+    : null;
 }
 
 async function replaceResourceRelations(

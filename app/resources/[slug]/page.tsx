@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { MarkdownContent } from "../../../components/resources/MarkdownContent";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { NextRequest } from "next/server";
 import { CompatibilityBadge } from "../../../components/resources/CompatibilityBadge";
 import { ResourceGrid } from "../../../components/resources/ResourceGrid";
 import { CopyButton } from "../../../components/ui/CopyButton";
 import { ROUTES } from "../../../lib/config/site";
 import { formatBytes, formatDate } from "../../../lib/format";
 import { getResourceBySlug } from "../../../lib/repositories/resource-repository";
+import { getAuthorizedUser } from "../../../lib/services/auth";
+import { resolveEntitlement } from "../../../lib/services/entitlements";
+
+export const dynamic = "force-dynamic";
 
 type ResourcePageProps = {
   params: Promise<{ slug: string }>;
@@ -42,6 +48,42 @@ export default async function ResourcePage({
   const locale = query?.lang === "es" ? "es" : "en";
   const resource = await getResourceBySlug(slug, locale);
   if (!resource) notFound();
+  const user =
+    resource.accessMode === "patreon" ? await getAuthorizedUser() : null;
+  const requiredTierIds = resource.allowedPatreonTiers?.map((tier) => tier.id) ?? [];
+  const entitlement =
+    resource.accessMode === "patreon"
+      ? await (async () => {
+          const requestHeaders = await headers();
+          return resolveEntitlement({
+          user,
+          request: new NextRequest("https://savage-library.local/resource", {
+            headers: requestHeaders,
+          }),
+          requiredTierIds,
+          allowAnyPaidTier: requiredTierIds.length === 0,
+          });
+        })()
+      : null;
+  const isPublic = resource.accessMode !== "patreon";
+  const canAccessDownloads =
+    isPublic || Boolean(entitlement?.entitled);
+  const isModule = resource.resourceType === "module";
+  const siteOrigin = (
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : "http://localhost:3000")
+  ).replace(/\/+$/, "");
+  const publicManifestUrl =
+    isModule && isPublic
+      ? `${siteOrigin}/api/foundry/modules/${encodeURIComponent(resource.slug)}/module.json`
+      : null;
+  const hasCustomCover = Boolean(
+    resource.coverUrl &&
+      !resource.coverUrl.endsWith("/logo.png") &&
+      !resource.coverUrl.endsWith("/savage-library-logo.svg"),
+  );
 
   return (
     <article className="section page-section">
@@ -60,6 +102,7 @@ export default async function ResourcePage({
           <div className="resource-cover">
             <Image
               src={resource.coverUrl ?? "/logo.png"}
+              className={hasCustomCover ? "custom-artwork" : "fallback-artwork"}
               alt={`${resource.title} cover`}
               width={220}
               height={220}
@@ -85,14 +128,16 @@ export default async function ResourcePage({
               <span>{resource.pricing === "free" ? "Free" : resource.priceLabel ?? "Premium"}</span>
             </div>
             <div className="resource-actions">
-              {resource.files[0] ? (
+              {publicManifestUrl ? (
+                <CopyButton value={publicManifestUrl} />
+              ) : !isModule && canAccessDownloads && resource.files[0] ? (
                 <Link
                   className="button button-primary"
                   href={ROUTES.download(resource.files[0].id)}
                 >
                   Download {resource.files[0].kind.toUpperCase()}
                 </Link>
-              ) : resource.projectUrl ? (
+              ) : isPublic && resource.projectUrl ? (
                 <a
                   className="button button-primary"
                   href={resource.projectUrl}
@@ -137,8 +182,11 @@ export default async function ResourcePage({
                 Unlock this resource through Patreon
               </h2>
               <p>
-                The complete details are public. Downloading checks your active
-                Savage Library Patreon tier in real time.
+                {entitlement?.entitled
+                  ? "Your membership is verified. Eligible downloads are available below."
+                  : user
+                    ? "Your account does not currently have an eligible membership tier."
+                    : "The complete details are public. Sign in to verify your active Savage Library Patreon tier."}
               </p>
               {resource.allowedPatreonTiers?.length ? (
                 <div className="patreon-tier-list">
@@ -151,14 +199,16 @@ export default async function ResourcePage({
               ) : null}
             </div>
             <div className="patreon-access-actions">
-              <Link
-                className="button button-primary"
-                href={`/api/auth/signin/patreon?callbackUrl=${encodeURIComponent(
-                  `${ROUTES.resource(resource.slug)}?lang=${resource.activeLocale ?? "en"}`,
-                )}`}
-              >
-                Sign in with Patreon
-              </Link>
+              {!user ? (
+                <Link
+                  className="button button-primary"
+                  href={`/api/auth/signin/patreon?callbackUrl=${encodeURIComponent(
+                    `${ROUTES.resource(resource.slug)}?lang=${resource.activeLocale ?? "en"}`,
+                  )}`}
+                >
+                  Sign in with Patreon
+                </Link>
+              ) : null}
               <a
                 className="button button-secondary"
                 href={
@@ -190,7 +240,7 @@ export default async function ResourcePage({
               <MarkdownContent markdown={resource.description} />
             </section>
 
-            {resource.files.length ? (
+            {!isModule && canAccessDownloads && resource.files.length ? (
               <section className="content-section">
                 <h2>Files</h2>
                 <div className="file-list">
@@ -217,7 +267,7 @@ export default async function ResourcePage({
               </section>
             ) : null}
 
-            {resource.protectedDownloads?.length ? (
+            {canAccessDownloads && resource.protectedDownloads?.length ? (
               <section className="content-section">
                 <h2>Member downloads</h2>
                 <div className="file-list">
@@ -354,14 +404,6 @@ export default async function ResourcePage({
                 </div>
               ) : null}
             </dl>
-
-            {resource.manifestUrl ? (
-              <div className="manifest-block">
-                <span>Manifest URL</span>
-                <code>{resource.manifestUrl}</code>
-                <CopyButton value={resource.manifestUrl} />
-              </div>
-            ) : null}
 
             <div className="tag-list">
               {resource.tags.map((tag) => (
