@@ -59,7 +59,7 @@ the configured services.
 
 | Variable | Purpose |
 | --- | --- |
-| `NEXT_PUBLIC_SITE_URL` | Canonical public origin |
+| `NEXT_PUBLIC_SITE_URL` | Current deployment origin used by authentication and callbacks; Foundry distribution remains pinned to the production domain |
 | `NEXTAUTH_URL` | Auth.js callback origin |
 | `AUTH_SECRET` | Session encryption/signing secret |
 | `ADMIN_PASSWORD_HASH` | Scrypt hash for the shared administrator password |

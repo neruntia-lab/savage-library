@@ -8,7 +8,7 @@ import { NextRequest } from "next/server";
 import { CompatibilityBadge } from "../../../components/resources/CompatibilityBadge";
 import { ResourceGrid } from "../../../components/resources/ResourceGrid";
 import { CopyButton } from "../../../components/ui/CopyButton";
-import { ROUTES } from "../../../lib/config/site";
+import { foundryManifestUrl, ROUTES } from "../../../lib/config/site";
 import { formatBytes, formatDate } from "../../../lib/format";
 import { getResourceBySlug } from "../../../lib/repositories/resource-repository";
 import { getAuthorizedUser } from "../../../lib/services/auth";
@@ -69,15 +69,9 @@ export default async function ResourcePage({
   const canAccessDownloads =
     isPublic || Boolean(entitlement?.entitled);
   const isModule = resource.resourceType === "module";
-  const siteOrigin = (
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : "http://localhost:3000")
-  ).replace(/\/+$/, "");
   const publicManifestUrl =
     isModule && isPublic
-      ? `${siteOrigin}/api/foundry/modules/${encodeURIComponent(resource.slug)}/module.json`
+      ? foundryManifestUrl(resource.slug)
       : null;
   const hasCustomCover = Boolean(
     resource.coverUrl &&

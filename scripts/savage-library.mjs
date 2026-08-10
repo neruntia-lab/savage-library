@@ -10,6 +10,7 @@ import { upload } from "@vercel/blob/client";
 const command = process.argv[2];
 const cwd = process.cwd();
 const configPath = join(cwd, ".savage-library.json");
+const PRODUCTION_ORIGIN = "https://savage-library.vercel.app";
 
 if (!command || ["help", "--help", "-h"].includes(command)) {
   usage();
@@ -23,8 +24,11 @@ if (command === "login" || command === "link") {
   if (!site || !resourceId || !token) {
     fail("link requires --site, --resource, and --token (or SAVAGE_LIBRARY_TOKEN).");
   }
+  if (normalizeSite(site) !== PRODUCTION_ORIGIN) {
+    fail(`--site must be ${PRODUCTION_ORIGIN}; preview and development deployments are not supported.`);
+  }
   const config = {
-    site: site.replace(/\/+$/, ""),
+    site: PRODUCTION_ORIGIN,
     resourceId,
     token,
   };
@@ -44,6 +48,9 @@ if (command === "validate") {
   const config = JSON.parse(readFileSync(configPath, "utf8"));
   const token = process.env.SAVAGE_LIBRARY_TOKEN ?? config.token;
   if (!config.site || !config.resourceId || !token) fail("Publisher configuration is incomplete.");
+  if (normalizeSite(config.site) !== PRODUCTION_ORIGIN) {
+    fail(`Relink this module with --site ${PRODUCTION_ORIGIN}; preview and development deployments are not supported.`);
+  }
   const fileName = `${result.manifest.id}-${result.manifest.version}.zip`;
   const file = new File([result.bytes], fileName, { type: "application/zip" });
   console.log(`Uploading ${result.manifest.id} v${result.manifest.version}…`);
@@ -81,9 +88,11 @@ function packageModule(directory) {
   }
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(manifest.id ?? "")) fail("module.json has an invalid id.");
   if (!manifest.title?.trim()) fail("module.json is missing title.");
+  if (!manifest.description?.trim()) fail("module.json is missing description.");
   if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(manifest.version ?? "")) {
     fail("module.json version must be semantic, for example 1.2.0.");
   }
+  validateDistributionUrls(manifest);
 
   const ignored = new Set([
     ".git",
@@ -112,6 +121,33 @@ function packageModule(directory) {
     bytes,
     checksum: createHash("sha256").update(bytes).digest("hex"),
   };
+}
+
+function validateDistributionUrls(manifest) {
+  let page;
+  let updater;
+  try {
+    page = new URL(manifest.url);
+    updater = new URL(manifest.manifest);
+  } catch {
+    fail("module.json url and manifest must be valid HTTPS Savage Library URLs.");
+  }
+  if (page.origin !== PRODUCTION_ORIGIN || updater.origin !== PRODUCTION_ORIGIN) {
+    fail(`module.json url and manifest must use ${PRODUCTION_ORIGIN}, never a preview or development deployment.`);
+  }
+  const pageMatch = page.pathname.match(/^\/resources\/([^/]+)$/);
+  const updaterMatch = updater.pathname.match(/^\/api\/foundry\/modules\/([^/]+)\/module\.json$/);
+  if (!pageMatch || !updaterMatch || pageMatch[1] !== updaterMatch[1]) {
+    fail("module.json url and manifest must use the same exact Savage Library resource slug.");
+  }
+}
+
+function normalizeSite(value) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return "";
+  }
 }
 
 function readIgnore(directory) {

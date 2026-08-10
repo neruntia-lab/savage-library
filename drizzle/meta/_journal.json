@@ -43,6 +43,13 @@
       "when": 1785348000000,
       "tag": "0005_foundry_publisher",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786381200000,
+      "tag": "0006_canonical_foundry_manifests",
+      "breakpoints": true
     }
   ]
 }

@@ -11,6 +11,7 @@ import type {
 } from "../../lib/validation/resource";
 import type { EditingResource } from "./types";
 import { ModuleReleaseManager } from "./ModuleReleaseManager";
+import { foundryManifestUrl } from "../../lib/config/site";
 
 type PatreonTier = {
   id: string;
@@ -39,6 +40,9 @@ export function ResourceWorkspace({
   const [accessMode, setAccessMode] = useState<"public" | "patreon">(
     initialValue.accessMode,
   );
+  const [resourceType, setResourceType] = useState(initialValue.resourceType);
+  const [resourceSlug, setResourceSlug] = useState(initialValue.slug);
+  const [manifestValue, setManifestValue] = useState(initialValue.manifestUrl ?? "");
   const [dependencies, setDependencies] = useState(initialValue.dependencies);
   const [status, setStatus] = useState(
     editing ? "All changes saved." : "Start with a title. You can save a draft at any time.",
@@ -252,6 +256,7 @@ export function ResourceWorkspace({
                 ) {
                   slugInput.value = slugify(event.target.value);
                   slugInput.dataset.generated = "true";
+                  setResourceSlug(slugInput.value);
                 }
               }}
             />
@@ -263,6 +268,7 @@ export function ResourceWorkspace({
               hint="Lowercase letters, numbers, and hyphens."
               onChange={(event) => {
                 event.currentTarget.dataset.generated = "false";
+                setResourceSlug(event.currentTarget.value);
               }}
             />
           </div>
@@ -277,6 +283,9 @@ export function ResourceWorkspace({
                 ["class", "Class"],
                 ["subclass", "Subclass"],
               ]}
+              onChange={(event) =>
+                setResourceType(event.currentTarget.value as ResourceInput["resourceType"])
+              }
             />
             <SelectField
               label="Default language"
@@ -633,12 +642,23 @@ export function ResourceWorkspace({
             </fieldset>
           ) : null}
           <div className="form-grid form-grid-two">
-            <Field
-              label="Manifest URL"
-              name="manifestUrl"
-              value={initialValue.manifestUrl ?? ""}
-              type="url"
-            />
+            <label>
+              <span>Manifest URL</span>
+              <input
+                name="manifestUrl"
+                type="url"
+                value={
+                  resourceType === "module" && resourceSlug
+                    ? foundryManifestUrl(resourceSlug)
+                    : manifestValue
+                }
+                readOnly={resourceType === "module"}
+                onChange={(event) => setManifestValue(event.currentTarget.value)}
+              />
+              {resourceType === "module" ? (
+                <small>Generated from the stable production domain.</small>
+              ) : null}
+            </label>
             <Field
               label="License"
               name="licenseName"
@@ -1079,16 +1099,18 @@ function SelectField({
   name,
   value,
   options,
+  onChange,
 }: {
   label: string;
   name: string;
   value: string;
   options: Array<readonly [string, string]>;
+  onChange?: (event: React.ChangeEvent<HTMLSelectElement>) => void;
 }) {
   return (
     <label>
       <span>{label}</span>
-      <select name={name} defaultValue={value} required>
+      <select name={name} defaultValue={value} required onChange={onChange}>
         <option value="" disabled>
           Select…
         </option>
