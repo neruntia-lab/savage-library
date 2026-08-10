@@ -8,6 +8,16 @@ export const SITE_CONFIG = {
   supportEmail: "library@neruntia-lab.com",
 } as const;
 
+export const CANONICAL_SITE_ORIGIN = "https://savage-library.vercel.app";
+
+export function foundryManifestUrl(slug: string): string {
+  return `${CANONICAL_SITE_ORIGIN}/api/foundry/modules/${encodeURIComponent(slug)}/module.json`;
+}
+
+export function resourcePublicUrl(slug: string): string {
+  return `${CANONICAL_SITE_ORIGIN}/resources/${encodeURIComponent(slug)}`;
+}
+
 export const ROUTES = {
   home: "/",
   library: "/library",

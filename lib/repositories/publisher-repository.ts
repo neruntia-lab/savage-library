@@ -2,6 +2,7 @@ import { del, get, put, type PutBlobResult } from "@vercel/blob";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../db";
 import { privateBlobToken } from "../config/blob";
+import { foundryManifestUrl, resourcePublicUrl } from "../config/site";
 import {
   authors,
   changelogEntries,
@@ -132,6 +133,17 @@ async function createReleaseDraftFromBytes(input: {
   const bytes = input.bytes;
   const inspected = inspectFoundryModule(bytes, resource.foundryModuleId);
   const manifest = inspected.manifest;
+  const validationErrors = [...inspected.errors];
+  if (manifest) {
+    const expectedUrl = resourcePublicUrl(resource.slug);
+    const expectedManifest = foundryManifestUrl(resource.slug);
+    if (manifest.url !== expectedUrl) {
+      validationErrors.push(`module.json url must be ${expectedUrl}.`);
+    }
+    if (manifest.manifest !== expectedManifest) {
+      validationErrors.push(`module.json manifest must be ${expectedManifest}.`);
+    }
+  }
   const checksum = await sha256Hex(bytes);
   const duplicate = manifest
     ? await db
@@ -163,7 +175,7 @@ async function createReleaseDraftFromBytes(input: {
     }
     if (!duplicate[0].checksum && !duplicate[0].snapshot) {
       const now = new Date().toISOString();
-      const status = inspected.errors.length ? "failed" : "draft";
+      const status = validationErrors.length ? "failed" : "draft";
       const releaseQuery = db
         .update(resourceVersions)
         .set({
@@ -173,7 +185,7 @@ async function createReleaseDraftFromBytes(input: {
           isCurrent: false,
           releaseStatus: status,
           manifestSnapshot: JSON.stringify(manifest),
-          validationErrors: JSON.stringify(inspected.errors),
+          validationErrors: JSON.stringify(validationErrors),
           uploadSource: input.source,
           artifactChecksum: checksum,
           artifactSize: input.sizeBytes,
@@ -204,7 +216,7 @@ async function createReleaseDraftFromBytes(input: {
         id: duplicate[0].id,
         status,
         manifest,
-        errors: inspected.errors,
+        errors: validationErrors,
         reused: false,
       };
     }
@@ -213,7 +225,7 @@ async function createReleaseDraftFromBytes(input: {
 
   const versionId = input.versionId;
   const now = new Date().toISOString();
-  const status = inspected.errors.length ? "failed" : "draft";
+  const status = validationErrors.length ? "failed" : "draft";
   const version = manifest?.version ?? `invalid-${versionId.slice(0, 8)}`;
 
   const releaseQuery = db.insert(resourceVersions).values({
@@ -227,7 +239,7 @@ async function createReleaseDraftFromBytes(input: {
     releasedAt: now,
     releaseStatus: status,
     manifestSnapshot: manifest ? JSON.stringify(manifest) : null,
-    validationErrors: JSON.stringify(inspected.errors),
+    validationErrors: JSON.stringify(validationErrors),
     uploadSource: input.source,
     artifactChecksum: checksum,
     artifactSize: input.sizeBytes,
@@ -252,7 +264,7 @@ async function createReleaseDraftFromBytes(input: {
     updatedAt: now,
   });
   await db.batch([releaseQuery, fileQuery]);
-  return { id: versionId, status, manifest, errors: inspected.errors, reused: false };
+  return { id: versionId, status, manifest, errors: validationErrors, reused: false };
 }
 
 export async function listModuleReleases(resourceId: string) {

@@ -46,6 +46,10 @@ test("resource validation accepts normalized production input", () => {
   if (result.success) {
     assert.equal(result.data.slug, "test-module");
     assert.deepEqual(result.data.tagIds, ["tag-automation"]);
+    assert.equal(
+      result.data.manifestUrl,
+      "https://savage-library.vercel.app/api/foundry/modules/test-module/module.json",
+    );
   }
 });
 

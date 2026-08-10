@@ -6,6 +6,7 @@ import {
   type PricingType,
   type ResourceType,
 } from "../domain/resource";
+import { foundryManifestUrl } from "../config/site";
 
 export type ResourceInput = {
   title: string;
@@ -140,7 +141,7 @@ export function validateResourceInput(value: unknown): ValidationResult<Resource
   );
   const pricing = enumField(value.pricing, PRICING_TYPES, errors, "pricing");
 
-  const manifestUrl = optionalUrl(value.manifestUrl, errors, "manifestUrl");
+  const suppliedManifestUrl = optionalUrl(value.manifestUrl, errors, "manifestUrl");
   const projectUrl = optionalUrl(value.projectUrl, errors, "projectUrl");
   const parsedDependencies = dependencyArray(value.dependencies, errors);
   const defaultLocale =
@@ -207,7 +208,8 @@ export function validateResourceInput(value: unknown): ValidationResult<Resource
         optionalText(value.compatibilityNotes, 2_000) || undefined,
       pricing,
       priceLabel: optionalText(value.priceLabel, 80) || undefined,
-      manifestUrl,
+      manifestUrl:
+        resourceType === "module" ? foundryManifestUrl(slug) : suppliedManifestUrl,
       projectUrl,
       licenseName: optionalText(value.licenseName, 160) || undefined,
       installationInstructions:

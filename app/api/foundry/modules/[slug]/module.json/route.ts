@@ -1,9 +1,10 @@
 import { publicManifest, type FoundryManifest } from "../../../../../../lib/foundry/publisher";
+import { CANONICAL_SITE_ORIGIN } from "../../../../../../lib/config/site";
 import { getActiveFoundryRelease } from "../../../../../../lib/repositories/publisher-repository";
 
 type Context = { params: Promise<{ slug: string }> };
 
-export async function GET(request: Request, context: Context) {
+export async function GET(_request: Request, context: Context) {
   const { slug } = await context.params;
   const record = await getActiveFoundryRelease(slug);
   if (!record) return Response.json({ error: "Module not found." }, { status: 404 });
@@ -21,7 +22,7 @@ export async function GET(request: Request, context: Context) {
       : {}),
   };
   const manifest = publicManifest(snapshot, {
-    baseUrl: new URL(request.url).origin,
+    baseUrl: CANONICAL_SITE_ORIGIN,
     slug,
     versionId: record.release.id,
     description:

@@ -4236,8 +4236,10 @@ textarea:focus {
     width: 100%;
   }
 
-  .admin-resource-table th,
-  .admin-resource-table td {
+  .admin-resource-table.admin-data-table th,
+  .admin-resource-table.admin-data-table td {
+    max-width: none;
+    min-width: 0;
     width: 100%;
   }
 
@@ -4382,13 +4384,16 @@ textarea:focus {
   display: block;
 }
 
-.admin-resource-list .admin-row-actions .admin-more-button {
-  border-color: rgb(239 91 91 / 38%);
+.admin-resource-table .admin-more-button {
+  border-color: rgb(239 91 91 / 52%);
+  color: #ff8790;
 }
 
-.admin-resource-list .admin-row-actions .admin-more-button:hover {
+.admin-resource-table .admin-more-button:hover,
+.admin-resource-table .admin-more-button:focus-visible {
   background: rgb(239 91 91 / 8%);
-  border-color: rgb(239 91 91 / 68%);
+  border-color: rgb(239 91 91 / 82%);
+  color: var(--color-error);
 }
 
 @media (max-width: 820px) {

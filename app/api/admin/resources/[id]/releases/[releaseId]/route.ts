@@ -5,6 +5,7 @@ import {
   updateReleaseDraft,
 } from "../../../../../../../lib/repositories/publisher-repository";
 import { requireApiAdmin } from "../../../../../../../lib/services/auth";
+import { CANONICAL_SITE_ORIGIN } from "../../../../../../../lib/config/site";
 
 type Context = { params: Promise<{ id: string; releaseId: string }> };
 
@@ -17,8 +18,7 @@ export async function PATCH(request: Request, context: Context) {
   try {
     const action = body.action;
     if (action === "publish") {
-      const configuredOrigin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
-      await publishRelease(id, releaseId, configuredOrigin ?? new URL(request.url).origin);
+      await publishRelease(id, releaseId, CANONICAL_SITE_ORIGIN);
     }
     else if (action === "reject") await rejectRelease(id, releaseId);
     else if (action === "rollback") await rollbackRelease(id, releaseId);

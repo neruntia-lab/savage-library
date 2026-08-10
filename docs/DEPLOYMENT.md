@@ -3,7 +3,7 @@
 ## Before release
 
 - `ADMIN_EMAILS` contains only current administrators.
-- `NEXT_PUBLIC_SITE_URL` matches the final HTTPS origin.
+- `NEXT_PUBLIC_SITE_URL` matches the current deployment HTTPS origin for authentication and callbacks; Foundry manifests remain pinned in code to `https://savage-library.vercel.app`.
 - New schema migrations have been generated and inspected.
 - `npm run test:build` passes.
 - Resource attribution and license fields are complete.
