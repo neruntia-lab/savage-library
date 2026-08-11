@@ -22,6 +22,7 @@
 6. Add a version, dependency, changelog entry, and valid small upload.
 7. Publish the draft, download its file, and confirm the download count changes.
 8. Confirm `/sitemap.xml`, `/robots.txt`, and the social preview metadata.
+9. Confirm `/api/health` returns HTTP 200 and `{ "status": "ok" }`.
 
 ## Rollback
 

@@ -27,6 +27,7 @@ Savage Library is a Next.js 16 and React 19 application deployed on Vercel.
 | `/api/foundry/modules/[slug]/module.json` | Stable generated manifest for free modules | Public |
 | `/api/patreon/webhook` | Signed Patreon event receiver | Patreon signature |
 | `/api/cron/patreon` | Daily reconciliation | Cron bearer token |
+| `/api/health` | Non-sensitive database availability probe | Public |
 
 ## Boundaries
 
@@ -44,3 +45,7 @@ Public descriptions are sanitized Markdown. Private Blob destinations and
 Patreon-protected link destinations are resolved only by authorized server
 routes. Free Foundry modules use a stable production manifest generated from
 the active immutable release.
+
+The daily reconciliation also removes expired rate-limit records and one-time
+verification tokens. Successfully processed webhook delivery records are kept
+for 90 days; failed or pending deliveries remain available for diagnosis.

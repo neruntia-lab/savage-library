@@ -77,10 +77,9 @@ gates that must be completed.
   release publication/rollback, and protected downloads.
 - Add external error reporting and alerts for failed deployments, cron runs,
   webhook processing, SMTP delivery, Patreon refresh failures, and Blob errors.
-- Add a lightweight production health endpoint that checks database access and
-  reports integration state without exposing secrets.
-- Define retention periods for download audits, webhook deliveries, expired
-  verification tokens, and rate-limit rows, then add scheduled cleanup.
+- Define and approve retention periods for download audit records. Expired
+  verification tokens and rate-limit rows are now cleaned daily, and completed
+  webhook deliveries are retained for 90 days.
 - Add a content-security policy after verifying the directives required by
   Next.js, Auth.js, Patreon, and Vercel Blob.
 
@@ -102,3 +101,5 @@ gates that must be completed.
   Vercel/Neon/Blob architecture and corrected the release instructions.
 - Added public privacy and terms pages, footer links, sitemap entries, and HTTP
   coverage for the legal disclosures.
+- Added a non-sensitive database health endpoint and daily cleanup for expired
+  operational records.

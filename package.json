@@ -13,7 +13,7 @@
     "build": "next build",
     "build:vercel": "drizzle-kit migrate && next build",
     "start": "next start",
-    "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts tests/markdown.test.ts tests/patreon.test.ts tests/patreon-posts.test.ts tests/foundry-publisher.test.ts tests/webhook.test.ts",
+    "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts tests/markdown.test.ts tests/patreon.test.ts tests/patreon-posts.test.ts tests/foundry-publisher.test.ts tests/webhook.test.ts tests/maintenance.test.ts",
     "test:flows": "tsx --test tests/http-flows.test.ts",
     "test:build": "npm run build && npm test && npm run test:flows",
     "check:production": "node scripts/check-production-env.mjs",
