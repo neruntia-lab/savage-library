@@ -32,6 +32,10 @@ export function SiteFooter() {
         </nav>
         <div className="footer-meta">
           <p>Only authorized resources enter the archive.</p>
+          <nav aria-label="Legal information">
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/terms">Terms</Link>
+          </nav>
         </div>
       </div>
     </footer>

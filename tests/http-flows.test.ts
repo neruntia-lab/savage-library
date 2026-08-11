@@ -52,6 +52,8 @@ test("public pages load without the retired construction login", async () => {
   assert.doesNotMatch(html, /footer-seal/);
   assert.doesNotMatch(html, /href="\/admin"/);
   assert.doesNotMatch(html, /Site under construction/);
+  assert.match(html, /href="\/privacy"/);
+  assert.match(html, /href="\/terms"/);
 });
 
 test("home-to-library discovery flow renders searchable catalog content", async () => {
@@ -92,6 +94,8 @@ test("category and discovery metadata routes are available", async () => {
 
   const sitemap = await get("/sitemap.xml");
   assert.match(sitemap, /resources\/savage-craft/);
+  assert.match(sitemap, /\/privacy/);
+  assert.match(sitemap, /\/terms/);
   assert.doesNotMatch(sitemap, /\/news/);
 
   const robots = await get("/robots.txt");
@@ -100,6 +104,18 @@ test("category and discovery metadata routes are available", async () => {
   const removedNews = await fetch(`${origin}/news`, {
   });
   assert.equal(removedNews.status, 404);
+});
+
+test("legal disclosures are publicly available", async () => {
+  const privacy = await get("/privacy");
+  assert.match(privacy, /Privacy policy/);
+  assert.match(privacy, /Patreon account identifiers/);
+  assert.match(privacy, /library@neruntia-lab\.com/);
+
+  const terms = await get("/terms");
+  assert.match(terms, /Terms of service/);
+  assert.match(terms, /Licenses and permitted use/);
+  assert.match(terms, /unauthorized redistribution/);
 });
 
 async function get(pathname: string): Promise<string> {

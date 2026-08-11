@@ -45,10 +45,11 @@ gates that must be completed.
    verify denied anonymous access, denied non-entitled access, successful
    entitled Patreon access, successful complimentary access, audit recording,
    and destination secrecy. Remove or unpublish the test resource afterward.
-4. **Publish legal account-data pages.** Add a reviewed privacy policy and terms
-   of service covering Auth.js identities, Patreon membership data, download
-   audit records, email delivery, retention, deletion requests, and contact
-   information. Use these canonical URLs in the Patreon client configuration.
+4. **Review and approve the legal pages.** Draft privacy and terms pages now
+   cover Auth.js identities, Patreon membership data, download audit records,
+   email delivery, retention, deletion requests, and contact information. The
+   site owner should obtain any necessary legal review, then use `/privacy` and
+   `/terms` as the canonical Patreon client URLs.
 
 ## Required launch checks
 
@@ -99,3 +100,5 @@ gates that must be completed.
   the Patreon dashboard.
 - Replaced obsolete Cloudflare/R2 documentation with the deployed
   Vercel/Neon/Blob architecture and corrected the release instructions.
+- Added public privacy and terms pages, footer links, sitemap entries, and HTTP
+  coverage for the legal disclosures.
