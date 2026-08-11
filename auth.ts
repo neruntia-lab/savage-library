@@ -11,6 +11,13 @@ import {
   verificationTokens,
 } from "./db/schema";
 import { verifyScryptPassword } from "./lib/services/password";
+import { CANONICAL_SITE_ORIGIN } from "./lib/config/site";
+
+// Never let a stale Preview variable generate development OAuth callbacks on
+// the production deployment.
+if (process.env.VERCEL_ENV === "production") {
+  process.env.NEXTAUTH_URL = CANONICAL_SITE_ORIGIN;
+}
 
 type PatreonIdentity = {
   data: {

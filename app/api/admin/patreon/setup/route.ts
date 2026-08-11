@@ -4,6 +4,7 @@ import {
   storeCreatorCredentials,
 } from "../../../../../lib/services/creator-credentials";
 import { reconcilePatreon } from "../../../../../lib/services/patreon-sync";
+import { CANONICAL_SITE_ORIGIN } from "../../../../../lib/config/site";
 
 export async function POST(request: Request) {
   const auth = await requireApiAdmin();
@@ -47,9 +48,11 @@ export async function POST(request: Request) {
       scope: "creator",
     });
     const origin =
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      process.env.NEXTAUTH_URL ??
-      new URL(request.url).origin;
+      process.env.VERCEL_ENV === "production"
+        ? CANONICAL_SITE_ORIGIN
+        : process.env.NEXT_PUBLIC_SITE_URL ??
+          process.env.NEXTAUTH_URL ??
+          new URL(request.url).origin;
     const webhookId = await registerCreatorWebhook(accessToken, origin);
     const synchronized = await reconcilePatreon();
     return Response.json({ connected: true, webhookId, ...synchronized });

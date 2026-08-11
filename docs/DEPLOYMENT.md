@@ -2,8 +2,8 @@
 
 ## Before release
 
-- `ADMIN_EMAILS` contains only current administrators.
-- `NEXT_PUBLIC_SITE_URL` matches the current deployment HTTPS origin for authentication and callbacks; Foundry manifests remain pinned in code to `https://savage-library.vercel.app`.
+- `NEXT_PUBLIC_SITE_URL` and `NEXTAUTH_URL` both equal `https://savage-library.vercel.app` in Production.
+- `npm run check:production` passes with the Production environment values.
 - New schema migrations have been generated and inspected.
 - `npm run test:build` passes.
 - Resource attribution and license fields are complete.
@@ -25,10 +25,10 @@
 
 ## Rollback
 
-Deploy a previously saved Sites version. Do not reverse a production migration
-by deleting tables or columns. Use a forward migration that restores
-compatibility, then deploy the matching application version.
+Redeploy a previously healthy Vercel deployment or revert to a known-good Git
+commit. Do not reverse a production migration by deleting tables or columns.
+Use a forward migration that restores compatibility, then deploy the matching
+application version.
 
-R2 objects are not deleted automatically during a normal application rollback.
-Keep file metadata and object retention policies aligned before performing
-manual cleanup.
+Vercel Blob objects are not deleted automatically during a normal application
+rollback. Keep file metadata and Blob retention aligned before manual cleanup.

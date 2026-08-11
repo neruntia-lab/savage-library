@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import nodemailer from "nodemailer";
 import { getDb } from "../../db";
 import { verificationTokens } from "../../db/schema";
+import { CANONICAL_SITE_ORIGIN } from "../config/site";
 
 export async function sendComplimentaryInvite(email: string) {
   const server = process.env.EMAIL_SERVER;
@@ -17,9 +18,11 @@ export async function sendComplimentaryInvite(email: string) {
     expires,
   });
   const origin =
-    process.env.NEXTAUTH_URL ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    "http://localhost:3000";
+    process.env.VERCEL_ENV === "production"
+      ? CANONICAL_SITE_ORIGIN
+      : process.env.NEXTAUTH_URL ??
+        process.env.NEXT_PUBLIC_SITE_URL ??
+        "http://localhost:3000";
   const url = new URL("/api/auth/callback/email", origin);
   url.searchParams.set("callbackUrl", `${origin}/account`);
   url.searchParams.set("token", token);

@@ -2,48 +2,45 @@
 
 ## Runtime
 
-Savage Library is a TypeScript application built with Next.js-compatible React
-server components through Vinext and deployed as a Cloudflare Worker.
+Savage Library is a Next.js 16 and React 19 application deployed on Vercel.
 
-- Public pages are server rendered and cacheable.
-- Cloudflare D1 stores relational catalog, user, and analytics data.
-- Cloudflare R2 stores PDFs, Foundry packages, cover art, and manifests.
-- ChatGPT sign-in is optional for public browsing and required for account data.
-- Admin authorization is enforced server-side with an email allowlist.
+- Server components render public catalog and account pages.
+- Neon Postgres stores catalog, authentication, Patreon, audit, and release data.
+- Separate Vercel Blob stores hold public artwork and private downloadable files.
+- Auth.js provides administrator credentials, Patreon OAuth, and email magic links.
+- Patreon webhooks and a daily authenticated Vercel cron keep membership and post
+  import data synchronized.
 
 ## Route structure
 
 | Route | Purpose | Access |
 | --- | --- | --- |
-| `/` | Search-first home and featured resources | Public |
+| `/` | Home and featured resources | Public |
 | `/library` | URL-backed search, filters, sort, and pagination | Public |
-| `/resources/[slug]` | Resource metadata, files, installation, and changelog | Public |
-| `/categories/[slug]` | Modules, classes, subclasses, and PDFs | Public |
-| `/account` | Saved resources, download history, profile | Signed in |
-| `/admin` | Catalog management and download statistics | Admin |
-| `/api/resources` | Catalog query and resource creation | GET public, POST admin |
-| `/api/resources/[id]` | Resource update, publication, and deletion | Admin |
-| `/api/uploads` | Validated R2 uploads and file metadata | Admin |
-| `/api/downloads/[fileId]` | Rate-limited R2 download proxy and tracking | Public or signed in when restricted |
-| `/api/saved` | Save and unsave resources | Signed in |
+| `/resources/[slug]` | Catalog detail, compatibility, files, and releases | Public |
+| `/categories/[slug]` | Resource-category catalog | Public |
+| `/account` | Identity, Patreon linking, and effective access | Signed in |
+| `/admin` | Resource, taxonomy, appearance, membership, and Patreon management | Admin |
+| `/api/resources` | Public catalog query and protected resource creation | Mixed |
+| `/api/uploads` | Validated direct Vercel Blob upload authorization | Admin |
+| `/api/downloads/[fileId]` | Entitlement check, audit, and signed private download redirect | Mixed |
+| `/api/foundry/modules/[slug]/module.json` | Stable generated manifest for free modules | Public |
+| `/api/patreon/webhook` | Signed Patreon event receiver | Patreon signature |
+| `/api/cron/patreon` | Daily reconciliation | Cron bearer token |
 
 ## Boundaries
 
-- `app/` contains routes and presentation composition.
-- `components/` contains reusable interface pieces.
-- `lib/domain/` owns shared types and compatibility rules.
-- `lib/validation/` owns input and upload validation.
-- `lib/repositories/` owns all database access.
-- `lib/services/` coordinates auth, rate limits, files, and application use cases.
-- `db/schema.ts` is the normalized relational schema.
+- `app/` contains routes and server-rendered page composition.
+- `components/` contains client and server UI components.
+- `lib/domain/` owns shared resource and compatibility types.
+- `lib/validation/` validates resource, taxonomy, artwork, and upload input.
+- `lib/repositories/` owns database and Blob persistence.
+- `lib/services/` coordinates authorization, entitlements, synchronization,
+  sanitization, rate limiting, and application workflows.
+- `db/schema.ts` defines the relational schema; `drizzle/` contains forward-only
+  production migrations.
 
-Presentation code never reaches directly into D1 or R2. Route handlers validate
-inputs and then call service or repository functions. User-authored content is
-stored and rendered as plain text; HTML is not accepted.
-
-## Data relationships
-
-A resource belongs to one author, category, and game system. It can have many
-tags, compatible Foundry versions, historical versions, dependencies, files,
-and changelog entries. Downloads and saved resources join users to catalog
-records without duplicating shared metadata.
+Public descriptions are sanitized Markdown. Private Blob destinations and
+Patreon-protected link destinations are resolved only by authorized server
+routes. Free Foundry modules use a stable production manifest generated from
+the active immutable release.

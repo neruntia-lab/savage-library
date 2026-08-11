@@ -15,7 +15,7 @@ and publish without editing source files.
 - Vercel Blob with separate public-media and private-content stores
 - Auth.js sessions
 - Patreon API v2 OAuth and live membership entitlement checks
-- Vercel deployments, with `main` for production and `development` for preview
+- Vercel production deployments from `main`
 
 ## Local setup
 
@@ -81,17 +81,18 @@ the configured services.
 Register this callback URL in the Patreon developer portal:
 
 ```text
-https://YOUR-DOMAIN/api/auth/callback/patreon
+https://savage-library.vercel.app/api/auth/callback/patreon
 ```
 
 Also register the explicit account-linking callback:
 
 ```text
-https://YOUR-DOMAIN/api/account/link-patreon/callback
+https://savage-library.vercel.app/api/account/link-patreon/callback
 ```
 
-Use the stable `development` branch URL for preview credentials and the
-production domain for production credentials.
+Production OAuth callbacks must always use the canonical domain above. A
+preview environment requires a separate Patreon client and must never replace
+the Production `NEXTAUTH_URL` or `NEXT_PUBLIC_SITE_URL` values.
 
 ## Administration
 
@@ -131,9 +132,9 @@ URLs are never exposed through catalog responses.
 
 Administrators may grant selected tier-equivalent access to a verified website
 email account. An active Patreon membership permanently replaces an existing
-complimentary grant. Patreon post text is mirrored under `/news`; links prefixed
-with `[PAID]` are removed from public HTML and resolved only after an entitlement
-check.
+complimentary grant. Patreon posts are staged as catalog import candidates;
+links prefixed with `[PAID]` remain private and are applied to a resource only
+after administrator review and approval.
 
 ## Commands
 
@@ -144,6 +145,7 @@ npm run lint
 npm test
 npm run test:flows
 npm run test:build
+npm run check:production
 npm run db:generate
 npm run db:migrate
 npm run db:seed
@@ -164,7 +166,7 @@ For command-line uploads, rotate the module's CLI token in that panel and link
 the module directory once:
 
 ```powershell
-npm run publisher -- link --site https://your-site.example --resource RESOURCE_ID --token TOKEN
+npm run publisher -- link --site https://savage-library.vercel.app --resource RESOURCE_ID --token TOKEN
 npm run publisher -- validate
 npm run publisher -- release
 ```
@@ -178,12 +180,13 @@ draft and never change the active Foundry release.
 
 1. Connect Neon and both Blob stores to the Vercel project.
 2. Add environment values separately for Preview and Production.
-3. Push to `development` and verify the Vercel preview. Vercel applies pending
-   migrations and idempotently creates the bundled draft examples before each
-   build, using `DATABASE_URL_UNPOOLED` when available.
+3. Run `npm run check:production` against the Production environment, push the
+   reviewed commit to `main`, and confirm Vercel applies pending migrations and
+   completes the production build. Example content is seeded only through the
+   explicit `npm run db:seed` command.
 4. Test admin login, Patreon tier synchronization, public downloads, protected
    downloads, translations, uploads, preview, and publishing.
-5. Promote to `main` only after the preview is approved.
+5. Keep the last healthy Vercel deployment available as the rollback target.
 
 `Logo`, `Macros`, and `Mods` are intentionally excluded from source control.
 Only the optimized logo asset under `public/` is deployed.

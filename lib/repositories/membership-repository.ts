@@ -6,11 +6,14 @@ import {
   patreonMemberTiers,
   patreonMembers,
   patreonTiers,
+  syncStates,
   users,
+  webhookDeliveries,
+  integrationCredentials,
 } from "../../db/schema";
 
 export async function listMemberships() {
-  const [memberRows, grantRows, tierRows] = await Promise.all([
+  const [memberRows, grantRows, tierRows, syncRows, webhookRows, credentialRows] = await Promise.all([
     getDb().select().from(patreonMembers).orderBy(patreonMembers.displayName),
     getDb()
       .select({
@@ -22,6 +25,22 @@ export async function listMemberships() {
       .innerJoin(users, eq(users.id, manualGrants.userId))
       .orderBy(desc(manualGrants.createdAt)),
     getDb().select().from(patreonTiers).orderBy(patreonTiers.amountCents),
+    getDb().select().from(syncStates).where(eq(syncStates.id, "patreon")).limit(1),
+    getDb()
+      .select({
+        eventType: webhookDeliveries.eventType,
+        receivedAt: webhookDeliveries.receivedAt,
+        processedAt: webhookDeliveries.processedAt,
+        error: webhookDeliveries.error,
+      })
+      .from(webhookDeliveries)
+      .orderBy(desc(webhookDeliveries.receivedAt))
+      .limit(1),
+    getDb()
+      .select({ webhookId: integrationCredentials.webhookId })
+      .from(integrationCredentials)
+      .where(eq(integrationCredentials.id, "patreon-creator"))
+      .limit(1),
   ]);
   const memberTierRows = memberRows.length
     ? await getDb()
@@ -36,6 +55,14 @@ export async function listMemberships() {
         .where(inArray(manualGrantTiers.grantId, grantRows.map((g) => g.grant.id)))
     : [];
   return {
+    integration: {
+      connected: Boolean(credentialRows[0] || process.env.PATREON_CREATOR_ACCESS_TOKEN),
+      webhookConfigured: Boolean(
+        credentialRows[0]?.webhookId || process.env.PATREON_WEBHOOK_SECRET,
+      ),
+      sync: syncRows[0] ?? null,
+      lastWebhook: webhookRows[0] ?? null,
+    },
     tiers: tierRows,
     members: memberRows.map((member) => ({
       ...member,

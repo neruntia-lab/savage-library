@@ -22,9 +22,31 @@ type Candidate = {
   links: Array<{ id: string; label: string; role: string; destination: string }>;
 };
 type AdminResource = { id: string; title: string; slug: string };
+type IntegrationStatus = {
+  connected: boolean;
+  webhookConfigured: boolean;
+  sync: {
+    status: string;
+    lastSucceededAt: string | null;
+    lastError: string | null;
+    memberCount: number;
+    postCount: number;
+  } | null;
+  lastWebhook: {
+    eventType: string;
+    receivedAt: string;
+    processedAt: string | null;
+    error: string | null;
+  } | null;
+};
 
 export function MembershipManager({ onStatus }: { onStatus: (message: string) => void }) {
-  const [data, setData] = useState<{ tiers: Tier[]; members: Member[]; grants: Grant[] }>({ tiers: [], members: [], grants: [] });
+  const [data, setData] = useState<{
+    tiers: Tier[];
+    members: Member[];
+    grants: Grant[];
+    integration: IntegrationStatus | null;
+  }>({ tiers: [], members: [], grants: [], integration: null });
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
@@ -130,8 +152,28 @@ export function MembershipManager({ onStatus }: { onStatus: (message: string) =>
     </div>
     <section className="admin-panel patreon-settings">
       <div><p className="eyebrow">Campaign connection</p><h2>Patreon synchronization</h2><p>Refresh tiers, subscribers, and reviewable catalog imports.</p></div>
+      <div className="integration-health" aria-label="Patreon integration health">
+        <span className={`admin-status-pill ${data.integration?.connected ? "published" : "draft"}`}>
+          {data.integration?.connected ? "Creator connected" : "Creator disconnected"}
+        </span>
+        <span className={`admin-status-pill ${data.integration?.webhookConfigured ? "published" : "draft"}`}>
+          {data.integration?.webhookConfigured ? "Webhook configured" : "Webhook missing"}
+        </span>
+        <small>
+          {data.integration?.sync?.lastSucceededAt
+            ? `Last successful sync ${new Date(data.integration.sync.lastSucceededAt).toLocaleString()}`
+            : "No successful synchronization recorded."}
+        </small>
+        {data.integration?.sync?.lastError ? <small className="form-error">{data.integration.sync.lastError}</small> : null}
+        {data.integration?.lastWebhook ? (
+          <small>
+            Last webhook {data.integration.lastWebhook.eventType} received {new Date(data.integration.lastWebhook.receivedAt).toLocaleString()}
+            {data.integration.lastWebhook.error ? " · processing failed" : data.integration.lastWebhook.processedAt ? " · processed" : " · pending"}
+          </small>
+        ) : <small>No webhook delivery has been recorded.</small>}
+      </div>
       <div className="profile-actions">
-        <button className="button button-secondary" onClick={connectCreator} disabled={busy}>Connect creator account</button>
+        <button className="button button-secondary" onClick={connectCreator} disabled={busy}>{data.integration?.connected ? "Reconnect creator account" : "Connect creator account"}</button>
         <button className="button button-primary" onClick={synchronize} disabled={busy}>{busy ? "Working…" : "Synchronize Patreon"}</button>
       </div>
     </section>

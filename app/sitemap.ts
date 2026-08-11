@@ -5,11 +5,19 @@ import { listCatalog } from "../lib/repositories/resource-repository";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = await metadataOrigin();
-  const catalog = await listCatalog({
-    sort: "recently-updated",
-    page: 1,
-    pageSize: 48,
-  });
+  const resources: Awaited<ReturnType<typeof listCatalog>>["items"] = [];
+  let page = 1;
+  let totalPages = 1;
+  do {
+    const catalog = await listCatalog({
+      sort: "recently-updated",
+      page,
+      pageSize: 48,
+    });
+    resources.push(...catalog.items);
+    totalPages = catalog.pageCount;
+    page += 1;
+  } while (page <= totalPages);
 
   return [
     { url: origin, changeFrequency: "weekly", priority: 1 },
@@ -23,7 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.75,
     })),
-    ...catalog.items.map((resource) => ({
+    ...resources.map((resource) => ({
       url: `${origin}/resources/${resource.slug}`,
       lastModified: new Date(resource.updatedAt),
       changeFrequency: "monthly" as const,
