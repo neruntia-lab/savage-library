@@ -3642,6 +3642,14 @@ textarea:focus {
   border-color: rgb(216 181 106 / 55%);
 }
 
+.upload-card.uploading {
+  cursor: wait;
+}
+
+.upload-card.upload-error {
+  border-color: rgb(210 55 45 / 70%);
+}
+
 .upload-card > span:first-child {
   color: var(--color-text) !important;
   font-size: 0.8rem !important;
@@ -3671,11 +3679,13 @@ textarea:focus {
 
 .upload-progress {
   background: rgb(255 255 255 / 6%);
-  bottom: 0;
-  height: 3px;
-  left: 0;
-  position: absolute;
-  right: 0;
+  border-radius: 999px;
+  display: block;
+  height: 7px;
+  margin-top: 0.55rem;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
 }
 
 .upload-progress i {
@@ -3683,6 +3693,60 @@ textarea:focus {
   display: block;
   height: 100%;
   transition: width 180ms ease;
+}
+
+.upload-progress.saving i {
+  animation: upload-saving 1.1s ease-in-out infinite alternate;
+  width: 45% !important;
+}
+
+.upload-feedback {
+  background: rgb(255 255 255 / 3%);
+  border: 1px solid rgb(255 255 255 / 7%);
+  display: block;
+  margin-top: 0.75rem;
+  padding: 0.55rem;
+}
+
+.upload-feedback-row {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.upload-feedback-row strong {
+  font-size: 0.66rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-feedback-row em {
+  color: var(--color-primary);
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  font-style: normal;
+}
+
+.upload-feedback .upload-progress {
+  position: relative;
+}
+
+.upload-error-message {
+  color: #ff8b82 !important;
+  margin-top: 0.5rem;
+}
+
+@keyframes upload-saving {
+  from {
+    transform: translateX(-25%);
+  }
+
+  to {
+    transform: translateX(150%);
+  }
 }
 
 .admin-callout {

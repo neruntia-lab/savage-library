@@ -154,12 +154,41 @@ export async function recordUploadedBlob(
       .where(eq(resources.id, resource.id));
   }
 
-  const oldUrl = existingRows[0]?.storageUrl;
+  const resourceArtworkUrl =
+    input.kind === "cover"
+      ? resource.coverKey
+      : input.kind === "thumbnail"
+        ? resource.thumbnailKey
+        : input.kind === "icon"
+          ? resource.iconKey
+          : null;
+  const oldUrl = existingRows[0]?.storageUrl ?? resourceArtworkUrl;
   if (oldUrl && oldUrl !== input.blob.url) {
     await deleteBlobBestEffort(oldUrl);
   }
 
   return { id, storageKey: input.blob.pathname, resourceId: resource.id };
+}
+
+export async function recordResourceArtwork(input: Omit<UploadedBlobInput, "resourceVersionId"> & {
+  resourceId: string;
+}): Promise<{ id: string; storageKey: string; resourceId: string }> {
+  const current = await getDb()
+    .select({ id: resourceVersions.id })
+    .from(resourceVersions)
+    .where(
+      and(
+        eq(resourceVersions.resourceId, input.resourceId),
+        eq(resourceVersions.isCurrent, true),
+      ),
+    )
+    .limit(1);
+  if (!current[0]) throw new Error("The resource does not have a current version.");
+
+  return recordUploadedBlob({
+    ...input,
+    resourceVersionId: current[0].id,
+  });
 }
 
 export async function getResourceArtworkState(resourceId: string) {

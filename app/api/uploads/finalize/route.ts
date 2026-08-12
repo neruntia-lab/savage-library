@@ -1,9 +1,11 @@
-import { getResourceArtworkState, recordUploadedBlob } from "../../../../lib/repositories/file-repository";
+import { head } from "@vercel/blob";
+import { publicMediaBlobToken } from "../../../../lib/config/blob";
+import { getResourceArtworkState, recordResourceArtwork } from "../../../../lib/repositories/file-repository";
 import { requireApiAdmin } from "../../../../lib/services/auth";
 import { validateUploadMetadata } from "../../../../lib/validation/upload";
 
 type ArtworkFinalizeBody = {
-  resourceVersionId?: unknown;
+  resourceId?: unknown;
   kind?: unknown;
   locale?: unknown;
   originalName?: unknown;
@@ -22,8 +24,8 @@ export async function POST(request: Request) {
     !body ||
     (body.kind !== "cover" && body.kind !== "thumbnail" && body.kind !== "icon") ||
     body.locale !== "en" ||
-    typeof body.resourceVersionId !== "string" ||
-    !body.resourceVersionId ||
+    typeof body.resourceId !== "string" ||
+    !body.resourceId ||
     typeof body.originalName !== "string" ||
     typeof body.mimeType !== "string" ||
     typeof body.sizeBytes !== "number" ||
@@ -33,7 +35,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Artwork metadata is incomplete." }, { status: 400 });
   }
 
-  const expectedPrefix = `resource-files/${body.resourceVersionId}/`;
+  const expectedPrefix = `resource-artwork/${body.resourceId}/${body.kind}/`;
   let uploadUrl: URL;
   try {
     uploadUrl = new URL(body.url);
@@ -58,9 +60,22 @@ export async function POST(request: Request) {
     return Response.json({ error: validation.message }, { status: 400 });
   }
 
+  const token = publicMediaBlobToken();
+  if (!token) {
+    return Response.json({ error: "Public artwork storage is not configured." }, { status: 503 });
+  }
+
   try {
-    const stored = await recordUploadedBlob({
-      resourceVersionId: body.resourceVersionId,
+    const confirmedBlob = await head(body.url, { token });
+    if (
+      confirmedBlob.pathname !== body.pathname ||
+      confirmedBlob.size !== body.sizeBytes ||
+      confirmedBlob.contentType !== body.mimeType
+    ) {
+      throw new Error("The uploaded artwork could not be verified.");
+    }
+    const stored = await recordResourceArtwork({
+      resourceId: body.resourceId,
       kind: body.kind,
       locale: "en",
       originalName: body.originalName,
@@ -76,11 +91,12 @@ export async function POST(request: Request) {
       resourceId: stored.resourceId,
       kind: body.kind,
       url: body.url,
+      persisted: true,
       ...artwork,
     });
   } catch (error) {
     console.error("Resource artwork finalization failed", {
-      resourceVersionId: body.resourceVersionId,
+      resourceId: body.resourceId,
       kind: body.kind,
       error,
     });

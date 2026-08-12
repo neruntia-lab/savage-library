@@ -4,3 +4,7 @@ export function privateBlobToken(): string | undefined {
     process.env.BLOB_READ_WRITE_TOKEN
   );
 }
+
+export function publicMediaBlobToken(): string | undefined {
+  return process.env.PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN;
+}

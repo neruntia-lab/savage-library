@@ -25,6 +25,7 @@ const ALLOWED_KINDS = [
 
 type UploadPayload = {
   resourceVersionId: string;
+  resourceId?: string;
   kind: FileKind;
   locale: "en" | "es";
   originalName: string;
@@ -80,7 +81,11 @@ export async function POST(request: Request) {
       request,
       token,
       onBeforeGenerateToken: async (pathname) => {
-        if (!pathname.startsWith(`resource-files/${payload.resourceVersionId}/`)) {
+        const artworkKind = payload.kind === "cover" || payload.kind === "thumbnail" || payload.kind === "icon";
+        const expectedPrefix = artworkKind && payload.resourceId
+          ? `resource-artwork/${payload.resourceId}/${payload.kind}/`
+          : `resource-files/${payload.resourceVersionId}/`;
+        if (!pathname.startsWith(expectedPrefix)) {
           throw new Error("The upload path is invalid.");
         }
         return {
@@ -128,6 +133,7 @@ function parseUploadPayload(
   const input = value as Record<string, unknown>;
   const kind = input.kind;
   const locale = input.locale;
+  const isArtwork = kind === "cover" || kind === "thumbnail" || kind === "icon";
   if (
     typeof kind !== "string" ||
     !ALLOWED_KINDS.includes(kind as FileKind) ||
@@ -137,7 +143,8 @@ function parseUploadPayload(
     typeof input.originalName !== "string" ||
     typeof input.mimeType !== "string" ||
     typeof input.sizeBytes !== "number" ||
-    typeof input.uploadedBy !== "string"
+    typeof input.uploadedBy !== "string" ||
+    (isArtwork && (typeof input.resourceId !== "string" || !input.resourceId))
   ) {
     return { ok: false, error: "Upload metadata is incomplete." };
   }
@@ -154,6 +161,10 @@ function parseUploadPayload(
     ok: true,
     value: {
       resourceVersionId: input.resourceVersionId.slice(0, 160),
+      resourceId:
+        typeof input.resourceId === "string" && input.resourceId
+          ? input.resourceId.slice(0, 160)
+          : undefined,
       kind: kind as FileKind,
       locale,
       originalName: input.originalName.slice(0, 255),

@@ -21,6 +21,20 @@ type PatreonTier = {
   isPublished: boolean;
 };
 
+type ArtworkKind = "cover" | "thumbnail" | "icon";
+type ArtworkUploadState = {
+  phase: "idle" | "uploading" | "saving" | "complete" | "error";
+  progress: number;
+  fileName?: string;
+  error?: string;
+};
+
+const EMPTY_ARTWORK_UPLOAD: ArtworkUploadState = { phase: "idle", progress: 0 };
+
+function isArtworkKind(kind: FileKind): kind is ArtworkKind {
+  return kind === "cover" || kind === "thumbnail" || kind === "icon";
+}
+
 export function ResourceWorkspace({
   initialValue,
   facets,
@@ -33,6 +47,8 @@ export function ResourceWorkspace({
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const savingRef = useRef(false);
+  const artworkUploadActiveRef = useRef(false);
+  const temporaryArtworkUrls = useRef<Partial<Record<ArtworkKind, string>>>({});
   const editing = "id" in initialValue;
   const resourceId = editing ? initialValue.id : null;
   const resourceVersionId = editing ? initialValue.resourceVersionId : null;
@@ -56,10 +72,29 @@ export function ResourceWorkspace({
     thumbnailUrl: editing ? initialValue.thumbnailUrl ?? null : null,
     iconUrl: editing ? initialValue.iconUrl ?? null : null,
   });
+  const [artworkUploads, setArtworkUploads] = useState<
+    Record<ArtworkKind, ArtworkUploadState>
+  >({
+    cover: EMPTY_ARTWORK_UPLOAD,
+    thumbnail: EMPTY_ARTWORK_UPLOAD,
+    icon: EMPTY_ARTWORK_UPLOAD,
+  });
   const [useIconEverywhere, setUseIconEverywhere] = useState(
     initialValue.useIconEverywhere ?? false,
   );
   const [busy, setBusy] = useState(false);
+  const artworkUploadActive = Object.values(artworkUploads).some(
+    (item) => item.phase === "uploading" || item.phase === "saving",
+  );
+
+  useEffect(() => {
+    artworkUploadActiveRef.current = artworkUploadActive;
+  }, [artworkUploadActive]);
+
+  useEffect(() => {
+    const urls = temporaryArtworkUrls.current;
+    return () => Object.values(urls).forEach((url) => URL.revokeObjectURL(url));
+  }, []);
 
   useEffect(() => {
     if (!editing || changeVersion === 0) return;
@@ -80,7 +115,12 @@ export function ResourceWorkspace({
     autosave?: boolean;
     publish?: boolean;
   }) {
-    if (!formRef.current || savingRef.current) return;
+    if (!formRef.current || savingRef.current || artworkUploadActiveRef.current) {
+      if (artworkUploadActiveRef.current) {
+        setStatus("Wait for artwork uploads to finish before saving.");
+      }
+      return;
+    }
     savingRef.current = true;
     setBusy(true);
     setStatus(options?.autosave ? "Autosaving…" : options?.publish ? "Publishing…" : "Saving…");
@@ -134,21 +174,37 @@ export function ResourceWorkspace({
     file: File,
     targetLocale: "en" | "es" = locale,
   ): Promise<string | undefined> {
-    if (!resourceVersionId) {
+    const isArtwork = kind === "cover" || kind === "thumbnail" || kind === "icon";
+    if (!resourceVersionId || (isArtwork && !resourceId)) {
       setStatus("Save this draft before uploading files.");
       return undefined;
     }
     const uploadLocale = kind === "cover" || kind === "thumbnail" || kind === "icon" ? "en" : targetLocale;
     const key = `${uploadLocale}-${kind}`;
     const mimeType = normalizedMimeType(file);
+    if (isArtwork) {
+      const artworkKind = kind as ArtworkKind;
+      const previousUrl = temporaryArtworkUrls.current[artworkKind];
+      if (previousUrl) URL.revokeObjectURL(previousUrl);
+      const previewUrl = URL.createObjectURL(file);
+      temporaryArtworkUrls.current[artworkKind] = previewUrl;
+      setArtwork((current) => ({ ...current, [`${artworkKind}Url`]: previewUrl }));
+      setArtworkUploads((current) => ({
+        ...current,
+        [artworkKind]: { phase: "uploading", progress: 1, fileName: file.name },
+      }));
+    }
     setUploadProgress((current) => ({ ...current, [key]: 1 }));
     setStatus(`Uploading ${file.name}…`);
     try {
       const safeName = file.name
         .replace(/[^a-zA-Z0-9._-]+/g, "-")
         .slice(0, 120);
+      const pathname = isArtwork
+        ? `resource-artwork/${resourceId}/${kind}/${Date.now()}-${safeName}`
+        : `resource-files/${resourceVersionId}/${Date.now()}-${safeName}`;
       const blob = await upload(
-        `resource-files/${resourceVersionId}/${Date.now()}-${safeName}`,
+        pathname,
         file,
         {
           access:
@@ -162,6 +218,7 @@ export function ResourceWorkspace({
           multipart: file.size > 20 * 1024 * 1024,
           clientPayload: JSON.stringify({
             resourceVersionId,
+            resourceId: isArtwork ? resourceId : undefined,
             kind,
             locale: uploadLocale,
             originalName: file.name,
@@ -170,19 +227,37 @@ export function ResourceWorkspace({
             uploadedBy: "shared-admin",
           }),
           onUploadProgress(event) {
+            const percentage = Math.max(1, Math.round(event.percentage));
             setUploadProgress((current) => ({
               ...current,
-              [key]: Math.max(1, Math.round(event.percentage)),
+              [key]: percentage,
             }));
+            if (isArtwork) {
+              setArtworkUploads((current) => ({
+                ...current,
+                [kind as ArtworkKind]: {
+                  ...current[kind as ArtworkKind],
+                  progress: percentage,
+                },
+              }));
+            }
           },
         },
       );
-      if (kind === "cover" || kind === "thumbnail" || kind === "icon") {
+      if (isArtwork) {
+        setArtworkUploads((current) => ({
+          ...current,
+          [kind as ArtworkKind]: {
+            ...current[kind as ArtworkKind],
+            phase: "saving",
+            progress: 100,
+          },
+        }));
         const finalizeResponse = await fetch("/api/uploads/finalize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            resourceVersionId,
+            resourceId,
             kind,
             locale: "en",
             originalName: file.name,
@@ -198,6 +273,7 @@ export function ResourceWorkspace({
           coverUrl?: string | null;
           thumbnailUrl?: string | null;
           iconUrl?: string | null;
+          persisted?: boolean;
         };
         if (!finalizeResponse.ok) {
           throw new Error(finalized.error ?? "The artwork could not be saved.");
@@ -205,11 +281,26 @@ export function ResourceWorkspace({
         if (finalized.resourceId !== resourceId) {
           throw new Error("The artwork was saved to an unexpected resource.");
         }
+        if (!finalized.persisted) {
+          throw new Error("The artwork was not confirmed as saved.");
+        }
+        const temporaryUrl = temporaryArtworkUrls.current[kind as ArtworkKind];
+        if (temporaryUrl) URL.revokeObjectURL(temporaryUrl);
+        delete temporaryArtworkUrls.current[kind as ArtworkKind];
         setArtwork({
           coverUrl: finalized.coverUrl ?? null,
           thumbnailUrl: finalized.thumbnailUrl ?? null,
           iconUrl: finalized.iconUrl ?? null,
         });
+        setArtworkUploads((current) => ({
+          ...current,
+          [kind as ArtworkKind]: {
+            ...current[kind as ArtworkKind],
+            phase: "complete",
+            progress: 100,
+            error: undefined,
+          },
+        }));
       }
       setUploadProgress((current) => ({ ...current, [key]: 100 }));
       setStatus(`${file.name} uploaded.`);
@@ -222,6 +313,19 @@ export function ResourceWorkspace({
       setStatus(
         error instanceof Error ? error.message : "The upload could not complete.",
       );
+      if (isArtwork) {
+        const message =
+          error instanceof Error ? error.message : "The upload could not complete.";
+        setArtworkUploads((current) => ({
+          ...current,
+          [kind as ArtworkKind]: {
+            ...current[kind as ArtworkKind],
+            phase: "error",
+            progress: 0,
+            error: message,
+          },
+        }));
+      }
       return undefined;
     }
   }
@@ -562,9 +666,17 @@ export function ResourceWorkspace({
                     ? artwork.thumbnailUrl
                     : editing && kind === "icon"
                       ? artwork.iconUrl
-                    : null;
+                      : null;
+              const artworkState = isArtworkKind(kind)
+                ? artworkUploads[kind]
+                : null;
+              const uploadDisabled =
+                artworkState?.phase === "uploading" || artworkState?.phase === "saving";
               return (
-                <label className="upload-card" key={kind}>
+                <label
+                  className={`upload-card${uploadDisabled ? " uploading" : ""}${artworkState?.phase === "error" ? " upload-error" : ""}`}
+                  key={kind}
+                >
                   {artworkUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img className="upload-card-preview" src={artworkUrl} alt="" />
@@ -578,13 +690,53 @@ export function ResourceWorkspace({
                   <input
                     type="file"
                     accept={acceptForKind(kind)}
+                    disabled={uploadDisabled}
                     onChange={(event) => {
                       const file = event.currentTarget.files?.[0];
                       if (file) void uploadFile(kind, file);
+                      event.currentTarget.value = "";
                     }}
                   />
-                  {progress > 0 ? (
-                    <span className="upload-progress">
+                  {artworkState && artworkState.phase !== "idle" ? (
+                    <span className="upload-feedback" aria-live="polite">
+                      <span className="upload-feedback-row">
+                        <strong>{artworkState.fileName}</strong>
+                        <em>
+                          {artworkState.phase === "uploading"
+                            ? `${artworkState.progress}%`
+                            : artworkState.phase === "saving"
+                              ? "Saving image…"
+                              : artworkState.phase === "complete"
+                                ? "Saved"
+                                : "Not saved"}
+                        </em>
+                      </span>
+                      {(artworkState.phase === "uploading" || artworkState.phase === "saving") ? (
+                        <span
+                          className={`upload-progress${artworkState.phase === "saving" ? " saving" : ""}`}
+                          role="progressbar"
+                          aria-label={`Uploading ${artworkState.fileName ?? title}`}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={artworkState.phase === "uploading" ? artworkState.progress : undefined}
+                        >
+                          <i style={{ width: `${artworkState.progress}%` }} />
+                        </span>
+                      ) : null}
+                      {artworkState.error ? (
+                        <small className="upload-error-message">
+                          {artworkState.error} Select the file again to retry.
+                        </small>
+                      ) : null}
+                    </span>
+                  ) : progress > 0 ? (
+                    <span
+                      className="upload-progress"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={progress}
+                    >
                       <i style={{ width: `${progress}%` }} />
                     </span>
                   ) : null}
@@ -743,14 +895,14 @@ export function ResourceWorkspace({
             <button
               className="button button-secondary"
               type="submit"
-              disabled={busy}
+              disabled={busy || artworkUploadActive}
             >
               {busy ? "Saving…" : "Save draft"}
             </button>
             <button
               className="button button-primary"
               type="button"
-              disabled={busy}
+              disabled={busy || artworkUploadActive}
               onClick={() => void saveResource({ publish: true })}
             >
               Publish
