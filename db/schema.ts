@@ -104,6 +104,7 @@ export const resources = pgTable(
     priceLabel: text("price_label"),
     thumbnailKey: text("thumbnail_key"),
     coverKey: text("cover_key"),
+    iconKey: text("icon_key"),
     installationInstructions: text("installation_instructions"),
     licenseName: text("license_name"),
     licenseUrl: text("license_url"),

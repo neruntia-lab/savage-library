@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as ArtworkFinalizeBody | null;
   if (
     !body ||
-    (body.kind !== "cover" && body.kind !== "thumbnail") ||
+    (body.kind !== "cover" && body.kind !== "thumbnail" && body.kind !== "icon") ||
     body.locale !== "en" ||
     typeof body.resourceVersionId !== "string" ||
     !body.resourceVersionId ||

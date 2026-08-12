@@ -38,6 +38,11 @@ const FILE_RULES: Record<
     extensions: [".png", ".jpg", ".jpeg", ".webp"],
     mimeTypes: ["image/png", "image/jpeg", "image/webp"],
   },
+  icon: {
+    extensions: [".png", ".jpg", ".jpeg", ".webp"],
+    mimeTypes: ["image/png", "image/jpeg", "image/webp"],
+    maxBytes: MAX_DESCRIPTION_IMAGE_BYTES,
+  },
   descriptionImage: {
     extensions: [".png", ".jpg", ".jpeg", ".gif", ".webp"],
     mimeTypes: ["image/png", "image/jpeg", "image/gif", "image/webp"],

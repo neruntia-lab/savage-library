@@ -40,7 +40,7 @@ export default async function AdminPage() {
           </div>
           <Link
             className="button button-secondary button-small"
-            href="/api/auth/signout?callbackUrl=/"
+            href="/logout"
           >
             Sign out
           </Link>

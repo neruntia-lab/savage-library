@@ -34,6 +34,7 @@ export type FileKind =
   | "macro"
   | "cover"
   | "thumbnail"
+  | "icon"
   | "descriptionImage"
   | "manifest";
 
@@ -57,6 +58,7 @@ export type ResourceSummary = {
   priceLabel?: string | null;
   tags: NamedEntity[];
   thumbnailUrl?: string | null;
+  iconUrl?: string | null;
   isFeatured: boolean;
   downloadCount: number;
   popularityScore: number;

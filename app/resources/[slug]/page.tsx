@@ -10,20 +10,25 @@ import { ResourceGrid } from "../../../components/resources/ResourceGrid";
 import { CopyButton } from "../../../components/ui/CopyButton";
 import { foundryManifestUrl, ROUTES } from "../../../lib/config/site";
 import { formatBytes, formatDate } from "../../../lib/format";
-import { getResourceBySlug } from "../../../lib/repositories/resource-repository";
-import { getAuthorizedUser } from "../../../lib/services/auth";
+import { getResourceBySlug, getResourcePreview } from "../../../lib/repositories/resource-repository";
+import { getAuthorizedUser, requireAdminPage } from "../../../lib/services/auth";
 import { resolveEntitlement } from "../../../lib/services/entitlements";
 
 export const dynamic = "force-dynamic";
 
 type ResourcePageProps = {
   params: Promise<{ slug: string }>;
-  searchParams?: Promise<{ lang?: string; patreon?: string }>;
+  searchParams?: Promise<{ lang?: string; patreon?: string; preview?: string }>;
 };
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: ResourcePageProps): Promise<Metadata> {
+  const query = await searchParams;
+  if (query?.preview) {
+    return { title: "Draft preview", robots: { index: false, follow: false } };
+  }
   const { slug } = await params;
   const resource = await getResourceBySlug(slug);
   return resource
@@ -46,13 +51,19 @@ export default async function ResourcePage({
   const { slug } = await params;
   const query = await searchParams;
   const locale = query?.lang === "es" ? "es" : "en";
-  const resource = await getResourceBySlug(slug, locale);
+  const previewId = query?.preview;
+  if (previewId && !(await requireAdminPage())) notFound();
+  const resource = previewId
+    ? await getResourcePreview(previewId, locale)
+    : await getResourceBySlug(slug, locale);
   if (!resource) notFound();
+  if (previewId && resource.slug !== slug) notFound();
+  const isPreview = Boolean(previewId);
   const user =
-    resource.accessMode === "patreon" ? await getAuthorizedUser() : null;
+    resource.accessMode === "patreon" && !isPreview ? await getAuthorizedUser() : null;
   const requiredTierIds = resource.allowedPatreonTiers?.map((tier) => tier.id) ?? [];
   const entitlement =
-    resource.accessMode === "patreon"
+    resource.accessMode === "patreon" && !isPreview
       ? await (async () => {
           const requestHeaders = await headers();
           return resolveEntitlement({
@@ -67,21 +78,30 @@ export default async function ResourcePage({
       : null;
   const isPublic = resource.accessMode !== "patreon";
   const canAccessDownloads =
-    isPublic || Boolean(entitlement?.entitled);
+    isPreview || isPublic || Boolean(entitlement?.entitled);
   const isModule = resource.resourceType === "module";
   const publicManifestUrl =
     isModule && isPublic
       ? foundryManifestUrl(resource.slug)
       : null;
+  const artworkUrl = resource.iconUrl ?? resource.coverUrl ?? "/logo.png";
   const hasCustomCover = Boolean(
-    resource.coverUrl &&
-      !resource.coverUrl.endsWith("/logo.png") &&
-      !resource.coverUrl.endsWith("/savage-library-logo.svg"),
+    !artworkUrl.endsWith("/logo.png") &&
+      !artworkUrl.endsWith("/savage-library-logo.svg"),
   );
 
   return (
     <article className="section page-section">
       <div className="container">
+        {isPreview ? (
+          <div className="admin-preview-banner" role="status">
+            <span>Private draft preview</span>
+            <div>
+              <span>Downloads and manifests are disabled</span>
+              <Link href={`/admin/resources/${previewId}`}>Return to editor</Link>
+            </div>
+          </div>
+        ) : null}
         <nav className="breadcrumbs" aria-label="Breadcrumb">
           <Link href={ROUTES.library}>Library</Link>
           <span aria-hidden="true">/</span>
@@ -95,7 +115,7 @@ export default async function ResourcePage({
         <div className="resource-hero">
           <div className="resource-cover">
             <Image
-              src={resource.coverUrl ?? "/logo.png"}
+              src={artworkUrl}
               className={hasCustomCover ? "custom-artwork" : "fallback-artwork"}
               alt={`${resource.title} cover`}
               width={220}
@@ -122,7 +142,11 @@ export default async function ResourcePage({
               <span>{resource.pricing === "free" ? "Free" : resource.priceLabel ?? "Premium"}</span>
             </div>
             <div className="resource-actions">
-              {publicManifestUrl ? (
+              {isPreview && (publicManifestUrl || (!isModule && resource.files[0])) ? (
+                <button className="button button-primary" type="button" disabled>
+                  {isModule ? "Copy manifest link" : `Download ${resource.files[0]?.kind.toUpperCase()}`}
+                </button>
+              ) : publicManifestUrl ? (
                 <CopyButton value={publicManifestUrl} />
               ) : !isModule && canAccessDownloads && resource.files[0] ? (
                 <Link
@@ -150,13 +174,13 @@ export default async function ResourcePage({
             <span>Language</span>
             <Link
               className={resource.activeLocale === "en" ? "active" : ""}
-              href={`${ROUTES.resource(resource.slug)}?lang=en`}
+              href={`${ROUTES.resource(resource.slug)}?lang=en${previewId ? `&preview=${encodeURIComponent(previewId)}` : ""}`}
             >
               English
             </Link>
             <Link
               className={resource.activeLocale === "es" ? "active" : ""}
-              href={`${ROUTES.resource(resource.slug)}?lang=es`}
+              href={`${ROUTES.resource(resource.slug)}?lang=es${previewId ? `&preview=${encodeURIComponent(previewId)}` : ""}`}
             >
               Español
             </Link>
@@ -193,7 +217,7 @@ export default async function ResourcePage({
               ) : null}
             </div>
             <div className="patreon-access-actions">
-              {!user ? (
+              {!user && !isPreview ? (
                 <Link
                   className="button button-primary"
                   href={`/api/auth/signin/patreon?callbackUrl=${encodeURIComponent(
@@ -203,7 +227,11 @@ export default async function ResourcePage({
                   Sign in with Patreon
                 </Link>
               ) : null}
-              <a
+              {isPreview ? (
+                <button className="button button-secondary" type="button" disabled>
+                  View eligible tiers
+                </button>
+              ) : <a
                 className="button button-secondary"
                 href={
                   resource.allowedPatreonTiers?.[0]?.url ??
@@ -214,7 +242,7 @@ export default async function ResourcePage({
                 rel="noreferrer"
               >
                 View eligible tiers
-              </a>
+              </a>}
             </div>
           </section>
         ) : null}
@@ -249,12 +277,11 @@ export default async function ResourcePage({
                             : ""}
                         </span>
                       </div>
-                      <Link
-                        className="button button-secondary button-small"
-                        href={ROUTES.download(file.id)}
-                      >
-                        Download
-                      </Link>
+                      {isPreview ? (
+                        <button className="button button-secondary button-small" type="button" disabled>Download</button>
+                      ) : (
+                        <Link className="button button-secondary button-small" href={ROUTES.download(file.id)}>Download</Link>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -271,12 +298,11 @@ export default async function ResourcePage({
                         <strong>{file.label}</strong>
                         <span>{file.role.toUpperCase()} · Patreon membership required</span>
                       </div>
-                      <Link
-                        className="button button-secondary button-small"
-                        href={`/api/posts/links/${encodeURIComponent(file.id)}`}
-                      >
-                        Download
-                      </Link>
+                      {isPreview ? (
+                        <button className="button button-secondary button-small" type="button" disabled>Download</button>
+                      ) : (
+                        <Link className="button button-secondary button-small" href={`/api/posts/links/${encodeURIComponent(file.id)}`}>Download</Link>
+                      )}
                     </div>
                   ))}
                 </div>

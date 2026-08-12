@@ -118,6 +118,20 @@ test("legal disclosures are publicly available", async () => {
   assert.match(terms, /unauthorized redistribution/);
 });
 
+test("logout confirmation and draft previews fail safely", async () => {
+  const logout = await get("/logout");
+  assert.match(logout, /Sign out · Savage Library/);
+  assert.match(logout, /noindex, nofollow/);
+
+  const preview = await fetch(
+    `${origin}/resources/savage-craft?preview=resource-savage-craft`,
+    { redirect: "manual" },
+  );
+  const previewHtml = await preview.text();
+  assert.doesNotMatch(previewHtml, /Private draft preview/);
+  assert.doesNotMatch(previewHtml, /Downloads and manifests are disabled/);
+});
+
 async function get(pathname: string): Promise<string> {
   const response = await fetch(`${origin}${pathname}`);
   assert.equal(response.status, 200, `${pathname} should return HTTP 200`);

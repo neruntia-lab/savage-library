@@ -20,7 +20,7 @@ export function ResourceCard({ resource }: { resource: ResourceSummary }) {
       <div className="resource-card-top">
         <div className="resource-thumb" aria-hidden="true">
           <Image
-            src={resource.thumbnailUrl ?? "/savage-library-logo.svg"}
+            src={resource.thumbnailUrl ?? resource.iconUrl ?? "/savage-library-logo.svg"}
             alt=""
             width={52}
             height={52}

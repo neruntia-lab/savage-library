@@ -130,7 +130,7 @@ export function ResourceWorkspace({
       setStatus("Save this draft before uploading files.");
       return undefined;
     }
-    const uploadLocale = kind === "cover" || kind === "thumbnail" ? "en" : targetLocale;
+    const uploadLocale = kind === "cover" || kind === "thumbnail" || kind === "icon" ? "en" : targetLocale;
     const key = `${uploadLocale}-${kind}`;
     const mimeType = normalizedMimeType(file);
     setUploadProgress((current) => ({ ...current, [key]: 1 }));
@@ -146,6 +146,7 @@ export function ResourceWorkspace({
           access:
             kind === "cover" ||
             kind === "thumbnail" ||
+            kind === "icon" ||
             kind === "descriptionImage"
               ? "public"
               : "private",
@@ -168,7 +169,7 @@ export function ResourceWorkspace({
           },
         },
       );
-      if (kind === "cover" || kind === "thumbnail") {
+      if (kind === "cover" || kind === "thumbnail" || kind === "icon") {
         const finalizeResponse = await fetch("/api/uploads/finalize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -500,7 +501,7 @@ export function ResourceWorkspace({
           <SectionHeading
             eyebrow="Shared artwork and localized files"
             title="Files and artwork"
-            description="Cover and thumbnail artwork is shared by every language. Downloadable files use the selected language."
+            description="Resource icon, cover, and thumbnail artwork is shared by every language. Downloadable files use the selected language."
           />
           {!editing ? (
             <div className="admin-callout">
@@ -512,6 +513,7 @@ export function ResourceWorkspace({
               [
                 ["cover", "Cover image", "PNG, JPG or WebP"],
                 ["thumbnail", "Card thumbnail", "PNG, JPG or WebP"],
+                ["icon", "Resource icon", "Square PNG, JPG or WebP, up to 10 MB"],
                 ["module", "Foundry module", "ZIP, up to 250 MB"],
                 ["pdf", "PDF document", "PDF, up to 250 MB"],
                 ["macro", "Foundry macro", "JS or JSON, up to 250 MB"],
@@ -520,7 +522,7 @@ export function ResourceWorkspace({
             )
               .filter(([kind]) => !(editing && initialValue.resourceType === "module" && kind === "module"))
               .map(([kind, title, hint]) => {
-              const fileLocale = kind === "cover" || kind === "thumbnail" ? "en" : locale;
+              const fileLocale = kind === "cover" || kind === "thumbnail" || kind === "icon" ? "en" : locale;
               const key = `${fileLocale}-${kind}`;
               const progress = uploadProgress[key] ?? 0;
               const existingFile =
@@ -534,6 +536,8 @@ export function ResourceWorkspace({
                   ? initialValue.coverUrl
                   : editing && kind === "thumbnail"
                     ? initialValue.thumbnailUrl
+                    : editing && kind === "icon"
+                      ? initialValue.iconUrl
                     : null;
               return (
                 <label className="upload-card" key={kind}>
@@ -1141,6 +1145,7 @@ function acceptForKind(kind: FileKind): string {
   switch (kind) {
     case "cover":
     case "thumbnail":
+    case "icon":
       return ".png,.jpg,.jpeg,.webp";
     case "descriptionImage":
       return ".png,.jpg,.jpeg,.gif,.webp";

@@ -67,6 +67,22 @@ export async function getResourceBySlug(
   slug: string,
   requestedLocale?: "en" | "es",
 ): Promise<ResourceDetails | null> {
+  return getResourceDetails({ slug, requestedLocale, publishedOnly: true });
+}
+
+export async function getResourcePreview(
+  id: string,
+  requestedLocale?: "en" | "es",
+): Promise<ResourceDetails | null> {
+  return getResourceDetails({ id, requestedLocale, publishedOnly: false });
+}
+
+async function getResourceDetails(input: {
+  slug?: string;
+  id?: string;
+  requestedLocale?: "en" | "es";
+  publishedOnly: boolean;
+}): Promise<ResourceDetails | null> {
   try {
     await ensureSeedData();
     const db = getDb();
@@ -81,7 +97,12 @@ export async function getResourceBySlug(
       .innerJoin(authors, eq(resources.authorId, authors.id))
       .innerJoin(categories, eq(resources.categoryId, categories.id))
       .innerJoin(gameSystems, eq(resources.gameSystemId, gameSystems.id))
-      .where(and(eq(resources.slug, slug), eq(resources.isPublished, true)))
+      .where(
+        and(
+          input.id ? eq(resources.id, input.id) : eq(resources.slug, input.slug ?? ""),
+          input.publishedOnly ? eq(resources.isPublished, true) : undefined,
+        ),
+      )
       .limit(1);
 
     const row = rows[0];
@@ -90,17 +111,15 @@ export async function getResourceBySlug(
     const translationRows = await db
       .select()
       .from(resourceTranslations)
-      .where(
-        and(
-          eq(resourceTranslations.resourceId, row.resource.id),
-          eq(resourceTranslations.isPublished, true),
-        ),
-      );
+      .where(and(
+        eq(resourceTranslations.resourceId, row.resource.id),
+        input.publishedOnly ? eq(resourceTranslations.isPublished, true) : undefined,
+      ));
     const defaultLocale =
       row.resource.defaultLocale === "es" ? ("es" as const) : ("en" as const);
     const activeTranslation =
       translationRows.find(
-        (translation) => translation.locale === requestedLocale,
+        (translation) => translation.locale === input.requestedLocale,
       ) ??
       translationRows.find(
         (translation) => translation.locale === defaultLocale,
@@ -200,6 +219,7 @@ export async function getResourceBySlug(
         activeTranslation?.compatibilityNotes ??
         row.resource.compatibilityNotes,
       coverUrl: storageImageUrl(row.resource.coverKey),
+      iconUrl: storageImageUrl(row.resource.iconKey),
       installationInstructions:
         activeTranslation?.installationInstructions ??
         row.resource.installationInstructions,
@@ -246,7 +266,9 @@ export async function getResourceBySlug(
       protectedDownloads: protectedRows,
     };
   } catch {
-    return SEED_RESOURCES.find((resource) => resource.slug === slug) ?? null;
+    return input.publishedOnly && input.slug
+      ? SEED_RESOURCES.find((resource) => resource.slug === input.slug) ?? null
+      : null;
   }
 }
 
@@ -317,6 +339,7 @@ export async function listAdminResources(): Promise<
     accessMode: "public" | "patreon";
     defaultLocale: "en" | "es";
     thumbnailUrl: string | null;
+    iconUrl: string | null;
     revision: number;
     pendingReleaseCount: number;
   }>
@@ -338,6 +361,7 @@ export async function listAdminResources(): Promise<
         accessMode: resources.accessMode,
         defaultLocale: resources.defaultLocale,
         thumbnailKey: resources.thumbnailKey,
+        iconKey: resources.iconKey,
         revision: resources.revision,
         pendingReleaseCount: sql<number>`(
           select count(*)::int
@@ -356,11 +380,12 @@ export async function listAdminResources(): Promise<
       )
       .orderBy(desc(resources.updatedAt))
       .then((rows) =>
-        rows.map(({ thumbnailKey, ...row }) => ({
+        rows.map(({ thumbnailKey, iconKey, ...row }) => ({
           ...row,
           accessMode: row.accessMode as "public" | "patreon",
           defaultLocale: row.defaultLocale as "en" | "es",
           thumbnailUrl: storageImageUrl(thumbnailKey),
+          iconUrl: storageImageUrl(iconKey),
         })),
       );
   } catch {
@@ -378,6 +403,7 @@ export async function listAdminResources(): Promise<
       accessMode: "public" as const,
       defaultLocale: "en" as const,
       thumbnailUrl: resource.thumbnailUrl ?? null,
+      iconUrl: resource.iconUrl ?? null,
       revision: 1,
       pendingReleaseCount: 0,
     }));
@@ -392,6 +418,7 @@ export async function getAdminResource(
       resourceVersionId: string;
       coverUrl: string | null;
       thumbnailUrl: string | null;
+      iconUrl: string | null;
       files: Array<{
         id: string;
         kind: string;
@@ -493,6 +520,7 @@ export async function getAdminResource(
     id: resource.id,
     coverUrl: storageImageUrl(resource.coverKey),
     thumbnailUrl: storageImageUrl(resource.thumbnailKey),
+    iconUrl: storageImageUrl(resource.iconKey),
     resourceVersionId:
       versionRows.find((version) => version.isCurrent)?.id ?? "",
     files: fileRows.map((file) => ({
@@ -934,6 +962,7 @@ function mapSummary(
       slug: tag.slug,
     })),
     thumbnailUrl: storageImageUrl(row.resource.thumbnailKey),
+    iconUrl: storageImageUrl(row.resource.iconKey),
     isFeatured: row.resource.isFeatured,
     downloadCount: row.resource.downloadCount,
     popularityScore: row.resource.popularityScore,

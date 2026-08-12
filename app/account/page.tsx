@@ -53,7 +53,7 @@ export default async function AccountPage() {
                 </Link>
                 <Link
                   className="button button-secondary"
-                  href="/api/auth/signout?callbackUrl=/"
+                  href="/logout"
                 >
                   Disconnect
                 </Link>

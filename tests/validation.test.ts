@@ -134,6 +134,27 @@ test("description image validation accepts safe formats and enforces 10 MB", () 
   );
 });
 
+test("resource icon validation accepts safe raster images and rejects SVG", () => {
+  assert.deepEqual(
+    validateUploadMetadata({
+      name: "resource-icon.png",
+      type: "image/png",
+      size: 250_000,
+      kind: "icon",
+    }),
+    { valid: true, extension: ".png" },
+  );
+  assert.equal(
+    validateUploadMetadata({
+      name: "resource-icon.svg",
+      type: "image/svg+xml",
+      size: 10_000,
+      kind: "icon",
+    }).valid,
+    false,
+  );
+});
+
 test("hero image validation accepts a suitable wide WebP", () => {
   assert.deepEqual(
     validateHeroFileMetadata({

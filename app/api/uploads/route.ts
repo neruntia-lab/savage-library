@@ -18,6 +18,7 @@ const ALLOWED_KINDS = [
   "macro",
   "cover",
   "thumbnail",
+  "icon",
   "descriptionImage",
   "manifest",
 ] as const;
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
   const isMedia =
     payload.kind === "cover" ||
     payload.kind === "thumbnail" ||
+    payload.kind === "icon" ||
     payload.kind === "descriptionImage";
   const token = isMedia
     ? process.env.PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN

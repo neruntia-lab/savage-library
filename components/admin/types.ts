@@ -14,6 +14,7 @@ export type AdminResource = {
   accessMode?: "public" | "patreon";
   defaultLocale?: "en" | "es";
   thumbnailUrl?: string | null;
+  iconUrl?: string | null;
   revision?: number;
   pendingReleaseCount: number;
 };
@@ -23,6 +24,7 @@ export type EditingResource = ResourceInput & {
   resourceVersionId: string;
   coverUrl?: string | null;
   thumbnailUrl?: string | null;
+  iconUrl?: string | null;
   files: Array<{
     id: string;
     kind: string;

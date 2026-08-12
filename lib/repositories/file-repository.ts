@@ -39,7 +39,7 @@ export async function storeResourceFile(input: {
   extension: string;
   uploadedBy: AuthorizedUser;
 }): Promise<{ id: string; storageKey: string }> {
-  const isMedia = input.kind === "cover" || input.kind === "thumbnail";
+  const isMedia = input.kind === "cover" || input.kind === "thumbnail" || input.kind === "icon";
   const token = isMedia
     ? process.env.PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN
     : privateBlobToken();
@@ -77,6 +77,7 @@ export async function recordUploadedBlob(
       id: resources.id,
       coverKey: resources.coverKey,
       thumbnailKey: resources.thumbnailKey,
+      iconKey: resources.iconKey,
     })
     .from(resourceVersions)
     .innerJoin(resources, eq(resourceVersions.resourceId, resources.id))
@@ -113,7 +114,7 @@ export async function recordUploadedBlob(
       extension: input.extension,
       sizeBytes: input.sizeBytes,
       uploadedBy: input.uploadedBy,
-      isRestricted: input.kind !== "cover" && input.kind !== "thumbnail",
+      isRestricted: input.kind !== "cover" && input.kind !== "thumbnail" && input.kind !== "icon",
       createdAt: now,
       updatedAt: now,
     })
@@ -131,13 +132,15 @@ export async function recordUploadedBlob(
       },
     });
 
-  if (input.kind === "cover" || input.kind === "thumbnail") {
+  if (input.kind === "cover" || input.kind === "thumbnail" || input.kind === "icon") {
     await db
       .update(resources)
       .set({
         ...(input.kind === "cover"
           ? { coverKey: input.blob.url }
-          : { thumbnailKey: input.blob.url }),
+          : input.kind === "thumbnail"
+            ? { thumbnailKey: input.blob.url }
+            : { iconKey: input.blob.url }),
         updatedAt: now,
       })
       .where(eq(resources.id, resource.id));
