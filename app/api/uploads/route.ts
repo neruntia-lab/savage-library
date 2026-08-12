@@ -70,7 +70,11 @@ export async function POST(request: Request) {
     : privateBlobToken();
   if (!token) {
     return Response.json(
-      { error: "The selected file storage is not configured." },
+      {
+        error: isMedia
+          ? "Public artwork storage is not configured for this deployment."
+          : "Private file storage is not configured for this deployment.",
+      },
       { status: 503 },
     );
   }
