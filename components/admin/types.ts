@@ -15,6 +15,8 @@ export type AdminResource = {
   defaultLocale?: "en" | "es";
   thumbnailUrl?: string | null;
   iconUrl?: string | null;
+  cardArtworkUrl?: string | null;
+  useIconEverywhere?: boolean;
   revision?: number;
   pendingReleaseCount: number;
 };
@@ -25,6 +27,7 @@ export type EditingResource = ResourceInput & {
   coverUrl?: string | null;
   thumbnailUrl?: string | null;
   iconUrl?: string | null;
+  heroArtworkUrl?: string | null;
   files: Array<{
     id: string;
     kind: string;
@@ -72,5 +75,6 @@ export const EMPTY_RESOURCE: ResourceInput = {
     },
   },
   isFeatured: false,
+  useIconEverywhere: false,
   isPublished: false,
 };

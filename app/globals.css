@@ -4412,6 +4412,14 @@ textarea:focus {
   opacity: 0.55;
 }
 
+.featured-toggle.disabled {
+  opacity: 0.62;
+}
+
+.featured-toggle.disabled input {
+  cursor: not-allowed;
+}
+
 @media (max-width: 520px) {
   .logout-actions {
     align-items: stretch;

@@ -38,6 +38,7 @@ import type {
   ResourceSummary,
 } from "../domain/resource";
 import { filterCatalog } from "../services/catalog";
+import { resolveResourceArtwork } from "../services/resource-artwork";
 import type { ResourceInput } from "../validation/resource";
 
 export async function listCatalog(
@@ -209,6 +210,12 @@ async function getResourceDetails(input: {
       pageSize: 4,
     });
 
+    const artwork = {
+      coverUrl: storageImageUrl(row.resource.coverKey),
+      iconUrl: storageImageUrl(row.resource.iconKey),
+      thumbnailUrl: storageImageUrl(row.resource.thumbnailKey),
+      useIconEverywhere: row.resource.useIconEverywhere,
+    };
     return {
       ...mapSummary(row, tagRows.map((entry) => entry.tag)),
       title: activeTranslation?.title || row.resource.title,
@@ -218,8 +225,8 @@ async function getResourceDetails(input: {
       compatibilityNotes:
         activeTranslation?.compatibilityNotes ??
         row.resource.compatibilityNotes,
-      coverUrl: storageImageUrl(row.resource.coverKey),
-      iconUrl: storageImageUrl(row.resource.iconKey),
+      ...artwork,
+      ...resolveResourceArtwork(artwork),
       installationInstructions:
         activeTranslation?.installationInstructions ??
         row.resource.installationInstructions,
@@ -340,6 +347,8 @@ export async function listAdminResources(): Promise<
     defaultLocale: "en" | "es";
     thumbnailUrl: string | null;
     iconUrl: string | null;
+    cardArtworkUrl: string | null;
+    useIconEverywhere: boolean;
     revision: number;
     pendingReleaseCount: number;
   }>
@@ -362,6 +371,7 @@ export async function listAdminResources(): Promise<
         defaultLocale: resources.defaultLocale,
         thumbnailKey: resources.thumbnailKey,
         iconKey: resources.iconKey,
+        useIconEverywhere: resources.useIconEverywhere,
         revision: resources.revision,
         pendingReleaseCount: sql<number>`(
           select count(*)::int
@@ -380,13 +390,19 @@ export async function listAdminResources(): Promise<
       )
       .orderBy(desc(resources.updatedAt))
       .then((rows) =>
-        rows.map(({ thumbnailKey, iconKey, ...row }) => ({
+        rows.map(({ thumbnailKey, iconKey, useIconEverywhere, ...row }) => {
+          const artwork = {
+            thumbnailUrl: storageImageUrl(thumbnailKey),
+            iconUrl: storageImageUrl(iconKey),
+            useIconEverywhere,
+          };
+          return ({
           ...row,
           accessMode: row.accessMode as "public" | "patreon",
           defaultLocale: row.defaultLocale as "en" | "es",
-          thumbnailUrl: storageImageUrl(thumbnailKey),
-          iconUrl: storageImageUrl(iconKey),
-        })),
+          ...artwork,
+          ...resolveResourceArtwork(artwork),
+        });}),
       );
   } catch {
     return SEED_RESOURCES.map((resource) => ({
@@ -404,6 +420,8 @@ export async function listAdminResources(): Promise<
       defaultLocale: "en" as const,
       thumbnailUrl: resource.thumbnailUrl ?? null,
       iconUrl: resource.iconUrl ?? null,
+      cardArtworkUrl: resource.cardArtworkUrl ?? null,
+      useIconEverywhere: resource.useIconEverywhere ?? false,
       revision: 1,
       pendingReleaseCount: 0,
     }));
@@ -419,6 +437,7 @@ export async function getAdminResource(
       coverUrl: string | null;
       thumbnailUrl: string | null;
       iconUrl: string | null;
+      heroArtworkUrl: string | null;
       files: Array<{
         id: string;
         kind: string;
@@ -516,11 +535,16 @@ export async function getAdminResource(
     };
   };
 
-  return {
-    id: resource.id,
+  const artwork = {
     coverUrl: storageImageUrl(resource.coverKey),
     thumbnailUrl: storageImageUrl(resource.thumbnailKey),
     iconUrl: storageImageUrl(resource.iconKey),
+    useIconEverywhere: resource.useIconEverywhere,
+  };
+  return {
+    id: resource.id,
+    ...artwork,
+    ...resolveResourceArtwork(artwork),
     resourceVersionId:
       versionRows.find((version) => version.isCurrent)?.id ?? "",
     files: fileRows.map((file) => ({
@@ -566,6 +590,7 @@ export async function getAdminResource(
       es: translation("es"),
     },
     isFeatured: resource.isFeatured,
+    useIconEverywhere: resource.useIconEverywhere,
     isPublished: resource.isPublished,
   };
 }
@@ -603,6 +628,7 @@ export async function createResource(input: ResourceInput): Promise<string> {
     licenseName: input.licenseName,
     installationInstructions: input.installationInstructions,
     isFeatured: input.isFeatured,
+    useIconEverywhere: input.useIconEverywhere,
     isPublished: input.isPublished,
     publishedAt: input.isPublished ? now : null,
     createdAt: now,
@@ -669,6 +695,7 @@ export async function updateResource(
       licenseName: input.licenseName,
       installationInstructions: input.installationInstructions,
       isFeatured: input.isFeatured,
+      useIconEverywhere: input.useIconEverywhere,
       isPublished: input.isPublished,
       publishedAt: input.isPublished
         ? sql`COALESCE(${resources.publishedAt}, ${now})`
@@ -924,6 +951,11 @@ function mapSummary(
   },
   tagRows: Array<typeof tags.$inferSelect>,
 ): ResourceSummary {
+  const artwork = {
+    thumbnailUrl: storageImageUrl(row.resource.thumbnailKey),
+    iconUrl: storageImageUrl(row.resource.iconKey),
+    useIconEverywhere: row.resource.useIconEverywhere,
+  };
   return {
     id: row.resource.id,
     slug: row.resource.slug,
@@ -961,8 +993,8 @@ function mapSummary(
       name: tag.name,
       slug: tag.slug,
     })),
-    thumbnailUrl: storageImageUrl(row.resource.thumbnailKey),
-    iconUrl: storageImageUrl(row.resource.iconKey),
+    ...artwork,
+    ...resolveResourceArtwork(artwork),
     isFeatured: row.resource.isFeatured,
     downloadCount: row.resource.downloadCount,
     popularityScore: row.resource.popularityScore,

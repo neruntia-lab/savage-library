@@ -150,6 +150,7 @@ export async function approveImportCandidate(id: string) {
       es: { title: "", shortDescription: "", description: "", isPublished: false },
     },
     isFeatured: false,
+    useIconEverywhere: false,
     isPublished: false,
   };
   const input: ResourceInput = {

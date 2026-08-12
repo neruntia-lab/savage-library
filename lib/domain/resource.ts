@@ -59,6 +59,8 @@ export type ResourceSummary = {
   tags: NamedEntity[];
   thumbnailUrl?: string | null;
   iconUrl?: string | null;
+  useIconEverywhere?: boolean;
+  cardArtworkUrl?: string | null;
   isFeatured: boolean;
   downloadCount: number;
   popularityScore: number;
@@ -73,6 +75,7 @@ export type ResourceDetails = ResourceSummary & {
   description: string;
   compatibilityNotes?: string | null;
   coverUrl?: string | null;
+  heroArtworkUrl?: string | null;
   installationInstructions?: string | null;
   licenseName?: string | null;
   licenseUrl?: string | null;

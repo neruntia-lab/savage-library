@@ -1,0 +1,1 @@
+ALTER TABLE "resources" ADD COLUMN "use_icon_everywhere" boolean DEFAULT false NOT NULL;

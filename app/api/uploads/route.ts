@@ -93,6 +93,7 @@ export async function POST(request: Request) {
       onUploadCompleted: async ({ blob, tokenPayload }) => {
         const completed = parseUploadPayload(tokenPayload);
         if (!completed.ok) throw new Error(completed.error);
+        if (["cover", "thumbnail", "icon"].includes(completed.value.kind)) return;
         await recordUploadedBlob({
           ...completed.value,
           blob,

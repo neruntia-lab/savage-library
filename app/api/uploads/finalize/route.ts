@@ -1,4 +1,4 @@
-import { recordUploadedBlob } from "../../../../lib/repositories/file-repository";
+import { getResourceArtworkState, recordUploadedBlob } from "../../../../lib/repositories/file-repository";
 import { requireApiAdmin } from "../../../../lib/services/auth";
 import { validateUploadMetadata } from "../../../../lib/validation/upload";
 
@@ -70,8 +70,20 @@ export async function POST(request: Request) {
       uploadedBy: auth.user.id,
       blob: { url: body.url, pathname: body.pathname },
     });
-    return Response.json(stored);
+    const artwork = await getResourceArtworkState(stored.resourceId);
+    if (!artwork) throw new Error("The saved artwork could not be confirmed.");
+    return Response.json({
+      resourceId: stored.resourceId,
+      kind: body.kind,
+      url: body.url,
+      ...artwork,
+    });
   } catch (error) {
+    console.error("Resource artwork finalization failed", {
+      resourceVersionId: body.resourceVersionId,
+      kind: body.kind,
+      error,
+    });
     return Response.json(
       { error: error instanceof Error ? error.message : "Artwork could not be saved." },
       { status: 400 },

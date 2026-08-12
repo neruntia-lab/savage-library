@@ -32,7 +32,7 @@ export function AdminResourceList({
             <td className="admin-resource-identity-cell" data-label="Resource"><div className="admin-resource-identity">
               <div className="admin-resource-thumb">
                 <Image
-                  src={resource.thumbnailUrl ?? resource.iconUrl ?? "/savage-library-logo.svg"}
+                  src={resource.cardArtworkUrl ?? "/savage-library-logo.svg"}
                   alt=""
                   width={48}
                   height={58}

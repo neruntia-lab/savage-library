@@ -84,7 +84,7 @@ export default async function ResourcePage({
     isModule && isPublic
       ? foundryManifestUrl(resource.slug)
       : null;
-  const artworkUrl = resource.iconUrl ?? resource.coverUrl ?? "/logo.png";
+  const artworkUrl = resource.heroArtworkUrl ?? "/logo.png";
   const hasCustomCover = Boolean(
     !artworkUrl.endsWith("/logo.png") &&
       !artworkUrl.endsWith("/savage-library-logo.svg"),

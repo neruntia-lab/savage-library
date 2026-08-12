@@ -48,6 +48,7 @@ export type ResourceInput = {
     es: ResourceTranslationInput;
   };
   isFeatured: boolean;
+  useIconEverywhere: boolean;
   isPublished: boolean;
 };
 
@@ -225,6 +226,7 @@ export function validateResourceInput(value: unknown): ValidationResult<Resource
       patreonTierIds,
       translations,
       isFeatured: value.isFeatured === true,
+      useIconEverywhere: value.useIconEverywhere === true,
       isPublished: value.isPublished === true,
     },
   };

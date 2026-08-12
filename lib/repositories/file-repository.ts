@@ -18,6 +18,7 @@ import {
 } from "../../db/schema";
 import type { FileKind } from "../domain/resource";
 import type { AuthorizedUser } from "../services/auth";
+import { resolveResourceArtwork } from "../services/resource-artwork";
 
 export type UploadedBlobInput = {
   resourceVersionId: string;
@@ -38,7 +39,7 @@ export async function storeResourceFile(input: {
   file: File;
   extension: string;
   uploadedBy: AuthorizedUser;
-}): Promise<{ id: string; storageKey: string }> {
+}): Promise<{ id: string; storageKey: string; resourceId: string }> {
   const isMedia = input.kind === "cover" || input.kind === "thumbnail" || input.kind === "icon";
   const token = isMedia
     ? process.env.PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN
@@ -70,7 +71,7 @@ export async function storeResourceFile(input: {
 
 export async function recordUploadedBlob(
   input: UploadedBlobInput,
-): Promise<{ id: string; storageKey: string }> {
+): Promise<{ id: string; storageKey: string; resourceId: string }> {
   const db = getDb();
   const resourceRows = await db
     .select({
@@ -81,7 +82,14 @@ export async function recordUploadedBlob(
     })
     .from(resourceVersions)
     .innerJoin(resources, eq(resourceVersions.resourceId, resources.id))
-    .where(eq(resourceVersions.id, input.resourceVersionId))
+    .where(
+      and(
+        eq(resourceVersions.id, input.resourceVersionId),
+        input.kind === "cover" || input.kind === "thumbnail" || input.kind === "icon"
+          ? eq(resourceVersions.isCurrent, true)
+          : undefined,
+      ),
+    )
     .limit(1);
   const resource = resourceRows[0];
   if (!resource) throw new Error("Resource version not found.");
@@ -151,7 +159,23 @@ export async function recordUploadedBlob(
     await deleteBlobBestEffort(oldUrl);
   }
 
-  return { id, storageKey: input.blob.pathname };
+  return { id, storageKey: input.blob.pathname, resourceId: resource.id };
+}
+
+export async function getResourceArtworkState(resourceId: string) {
+  const rows = await getDb()
+    .select({
+      iconUrl: resources.iconKey,
+      coverUrl: resources.coverKey,
+      thumbnailUrl: resources.thumbnailKey,
+      useIconEverywhere: resources.useIconEverywhere,
+      updatedAt: resources.updatedAt,
+    })
+    .from(resources)
+    .where(eq(resources.id, resourceId))
+    .limit(1);
+  const artwork = rows[0];
+  return artwork ? { ...artwork, ...resolveResourceArtwork(artwork) } : null;
 }
 
 export async function getDownloadRecord(fileId: string) {

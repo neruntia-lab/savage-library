@@ -105,6 +105,7 @@ export const resources = pgTable(
     thumbnailKey: text("thumbnail_key"),
     coverKey: text("cover_key"),
     iconKey: text("icon_key"),
+    useIconEverywhere: boolean("use_icon_everywhere").notNull().default(false),
     installationInstructions: text("installation_instructions"),
     licenseName: text("license_name"),
     licenseUrl: text("license_url"),

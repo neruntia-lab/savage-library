@@ -51,6 +51,14 @@ export function ResourceWorkspace({
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>(
     {},
   );
+  const [artwork, setArtwork] = useState({
+    coverUrl: editing ? initialValue.coverUrl ?? null : null,
+    thumbnailUrl: editing ? initialValue.thumbnailUrl ?? null : null,
+    iconUrl: editing ? initialValue.iconUrl ?? null : null,
+  });
+  const [useIconEverywhere, setUseIconEverywhere] = useState(
+    initialValue.useIconEverywhere ?? false,
+  );
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -184,14 +192,30 @@ export function ResourceWorkspace({
             pathname: blob.pathname,
           }),
         });
-        const finalized = (await finalizeResponse.json().catch(() => ({}))) as { error?: string };
+        const finalized = (await finalizeResponse.json().catch(() => ({}))) as {
+          error?: string;
+          resourceId?: string;
+          coverUrl?: string | null;
+          thumbnailUrl?: string | null;
+          iconUrl?: string | null;
+        };
         if (!finalizeResponse.ok) {
           throw new Error(finalized.error ?? "The artwork could not be saved.");
         }
+        if (finalized.resourceId !== resourceId) {
+          throw new Error("The artwork was saved to an unexpected resource.");
+        }
+        setArtwork({
+          coverUrl: finalized.coverUrl ?? null,
+          thumbnailUrl: finalized.thumbnailUrl ?? null,
+          iconUrl: finalized.iconUrl ?? null,
+        });
       }
       setUploadProgress((current) => ({ ...current, [key]: 100 }));
       setStatus(`${file.name} uploaded.`);
-      router.refresh();
+      if (kind !== "cover" && kind !== "thumbnail" && kind !== "icon") {
+        router.refresh();
+      }
       return blob.url;
     } catch (error) {
       setUploadProgress((current) => ({ ...current, [key]: 0 }));
@@ -533,11 +557,11 @@ export function ResourceWorkspace({
                   : null;
               const artworkUrl =
                 editing && kind === "cover"
-                  ? initialValue.coverUrl
+                  ? artwork.coverUrl
                   : editing && kind === "thumbnail"
-                    ? initialValue.thumbnailUrl
+                    ? artwork.thumbnailUrl
                     : editing && kind === "icon"
-                      ? initialValue.iconUrl
+                      ? artwork.iconUrl
                     : null;
               return (
                 <label className="upload-card" key={kind}>
@@ -573,6 +597,28 @@ export function ResourceWorkspace({
               );
             })}
           </div> : null}
+          {editing ? (
+            <label className={`featured-toggle ${!artwork.iconUrl ? "disabled" : ""}`}>
+              <input
+                type="checkbox"
+                name="useIconEverywhere"
+                checked={useIconEverywhere}
+                disabled={!artwork.iconUrl}
+                onChange={(event) => {
+                  setUseIconEverywhere(event.currentTarget.checked);
+                  changed();
+                }}
+              />
+              <span>
+                <strong>Use resource icon everywhere</strong>
+                <small>
+                  {artwork.iconUrl
+                    ? "Override the card thumbnail and cover display with this icon. Uncheck to restore dedicated artwork."
+                    : "Upload and confirm a resource icon before enabling this option."}
+                </small>
+              </span>
+            </label>
+          ) : null}
         </section>
 
         <section className="admin-editor-section" id="access">
@@ -1026,6 +1072,7 @@ function buildPayload(
     patreonTierIds: formData.getAll("patreonTierIds"),
     translations,
     isFeatured: formData.get("isFeatured") === "on",
+    useIconEverywhere: formData.get("useIconEverywhere") === "on",
     isPublished,
   };
 }

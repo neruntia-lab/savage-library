@@ -17,6 +17,7 @@ import {
   validateHeroFileMetadata,
 } from "../lib/validation/hero-image";
 import { verifyScryptPassword } from "../lib/services/password";
+import { resolveResourceArtwork } from "../lib/services/resource-artwork";
 import {
   taxonomyError,
   validateTaxonomy,
@@ -46,6 +47,7 @@ test("resource validation accepts normalized production input", () => {
   if (result.success) {
     assert.equal(result.data.slug, "test-module");
     assert.deepEqual(result.data.tagIds, ["tag-automation"]);
+    assert.equal(result.data.useIconEverywhere, false);
     assert.equal(
       result.data.manifestUrl,
       "https://savage-library.vercel.app/api/foundry/modules/test-module/module.json",
@@ -132,6 +134,38 @@ test("description image validation accepts safe formats and enforces 10 MB", () 
     }).valid,
     false,
   );
+});
+
+test("resource validation preserves the icon-everywhere preference", () => {
+  const result = validateResourceInput({
+    ...validResource,
+    useIconEverywhere: true,
+  });
+  assert.equal(result.success, true);
+  if (result.success) assert.equal(result.data.useIconEverywhere, true);
+});
+
+test("resource artwork resolution restores dedicated images when override is off", () => {
+  const artwork = {
+    iconUrl: "https://example.com/icon.png",
+    coverUrl: "https://example.com/cover.png",
+    thumbnailUrl: "https://example.com/card.png",
+  };
+  assert.deepEqual(resolveResourceArtwork({ ...artwork, useIconEverywhere: false }), {
+    heroArtworkUrl: artwork.iconUrl,
+    cardArtworkUrl: artwork.thumbnailUrl,
+  });
+  assert.deepEqual(resolveResourceArtwork({ ...artwork, useIconEverywhere: true }), {
+    heroArtworkUrl: artwork.iconUrl,
+    cardArtworkUrl: artwork.iconUrl,
+  });
+  assert.deepEqual(resolveResourceArtwork({
+    coverUrl: artwork.coverUrl,
+    useIconEverywhere: true,
+  }), {
+    heroArtworkUrl: artwork.coverUrl,
+    cardArtworkUrl: "/savage-library-logo.svg",
+  });
 });
 
 test("resource icon validation accepts safe raster images and rejects SVG", () => {
