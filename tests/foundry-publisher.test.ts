@@ -6,6 +6,7 @@ import {
   publicManifest,
   sha256Hex,
 } from "../lib/foundry/publisher";
+import { publisherUploadError } from "../scripts/publisher-upload-errors.mjs";
 
 function moduleZip(
   manifest: Record<string, unknown>,
@@ -170,5 +171,20 @@ test("SHA-256 output is deterministic", async () => {
   assert.equal(
     await sha256Hex(new TextEncoder().encode("Savage Library")),
     "c25fbc6f2c417a2defa328cbdef32ef93535b95a6bb2253c187762e4e9c3d372",
+  );
+});
+
+test("publisher upload errors distinguish authentication and storage failures", () => {
+  assert.match(
+    publisherUploadError(new Error("Publisher token rejected.")),
+    /authentication was rejected/i,
+  );
+  assert.match(
+    publisherUploadError(new Error("Private module storage is unavailable.")),
+    /private module storage is unavailable/i,
+  );
+  assert.match(
+    publisherUploadError(new Error("fetch failed")),
+    /network connection/i,
   );
 });

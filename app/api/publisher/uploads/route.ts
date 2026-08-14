@@ -30,7 +30,16 @@ export async function POST(request: Request) {
 
   if (body.type === "blob.generate-client-token") {
     const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-    if (bearer && (await authenticatePublisherToken(payload.resourceId, bearer))) {
+    if (bearer) {
+      if (!(await authenticatePublisherToken(payload.resourceId, bearer))) {
+        return Response.json(
+          {
+            error:
+              "Publisher token rejected. Rotate the module publisher token and relink the CLI.",
+          },
+          { status: 401 },
+        );
+      }
       payload = { ...payload, source: "cli", uploadedBy: "publisher-cli" };
     } else {
       const auth = await requireApiAdmin();

@@ -6,6 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
 import { upload } from "@vercel/blob/client";
+import { publisherUploadError } from "./publisher-upload-errors.mjs";
 
 const command = process.argv[2];
 const cwd = process.cwd();
@@ -54,23 +55,27 @@ if (command === "validate") {
   const fileName = `${result.manifest.id}-${result.manifest.version}.zip`;
   const file = new File([result.bytes], fileName, { type: "application/zip" });
   console.log(`Uploading ${result.manifest.id} v${result.manifest.version}…`);
-  await upload(
-    `foundry-release-uploads/${config.resourceId}/${Date.now()}-${fileName}`,
-    file,
-    {
-      access: "private",
-      handleUploadUrl: `${config.site}/api/publisher/uploads`,
-      multipart: file.size > 20 * 1024 * 1024,
-      headers: { Authorization: `Bearer ${token}` },
-      clientPayload: JSON.stringify({
-        resourceId: config.resourceId,
-        originalName: fileName,
-        sizeBytes: file.size,
-        source: "cli",
-        uploadedBy: "publisher-cli",
-      }),
-    },
-  );
+  try {
+    await upload(
+      `foundry-release-uploads/${config.resourceId}/${Date.now()}-${fileName}`,
+      file,
+      {
+        access: "private",
+        handleUploadUrl: `${config.site}/api/publisher/uploads`,
+        multipart: file.size > 20 * 1024 * 1024,
+        headers: { Authorization: `Bearer ${token}` },
+        clientPayload: JSON.stringify({
+          resourceId: config.resourceId,
+          originalName: fileName,
+          sizeBytes: file.size,
+          source: "cli",
+          uploadedBy: "publisher-cli",
+        }),
+      },
+    );
+  } catch (error) {
+    fail(publisherUploadError(error));
+  }
   console.log("Release uploaded as a draft.");
   console.log(`${config.site}/admin/resources/${config.resourceId}#module-releases`);
 } else {
