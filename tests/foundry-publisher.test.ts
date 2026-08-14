@@ -7,6 +7,7 @@ import {
   sha256Hex,
 } from "../lib/foundry/publisher";
 import {
+  isFinalizedRelease,
   isPublisherToken,
   publisherUploadError,
 } from "../scripts/publisher-upload-errors.mjs";
@@ -208,4 +209,9 @@ test("publisher token format rejects Blob credentials and malformed values", () 
   assert.equal(isPublisherToken(`slp_${"a".repeat(64)}`), true);
   assert.equal(isPublisherToken("vercel_blob_rw_example"), false);
   assert.equal(isPublisherToken("slp_too-short"), false);
+});
+
+test("release confirmation waits for the Blob callback checksum", () => {
+  assert.equal(isFinalizedRelease({ status: "draft", checksum: null }), false);
+  assert.equal(isFinalizedRelease({ status: "draft", checksum: "abc123" }), true);
 });

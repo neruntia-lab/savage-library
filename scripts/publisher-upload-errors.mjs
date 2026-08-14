@@ -48,3 +48,7 @@ export function publisherUploadError(error) {
 export function isPublisherToken(value) {
   return typeof value === "string" && /^slp_[0-9a-f]{64}$/i.test(value);
 }
+
+export function isFinalizedRelease(value) {
+  return Boolean(value && typeof value === "object" && value.checksum);
+}

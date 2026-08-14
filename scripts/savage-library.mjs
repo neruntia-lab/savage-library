@@ -6,7 +6,11 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
 import { upload } from "@vercel/blob/client";
-import { isPublisherToken, publisherUploadError } from "./publisher-upload-errors.mjs";
+import {
+  isFinalizedRelease,
+  isPublisherToken,
+  publisherUploadError,
+} from "./publisher-upload-errors.mjs";
 
 const command = process.argv[2];
 const cwd = process.cwd();
@@ -239,7 +243,7 @@ async function waitForDraft(site, token, metadata) {
   let latest;
   for (let attempt = 0; attempt < 8; attempt += 1) {
     latest = await publisherRequest(`${site}/api/publisher/releases/status`, token, metadata);
-    if (latest.release) return latest;
+    if (isFinalizedRelease(latest.release)) return latest;
     await new Promise((resolve) => setTimeout(resolve, 750));
   }
   return latest;
