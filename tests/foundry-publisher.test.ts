@@ -6,7 +6,10 @@ import {
   publicManifest,
   sha256Hex,
 } from "../lib/foundry/publisher";
-import { publisherUploadError } from "../scripts/publisher-upload-errors.mjs";
+import {
+  isPublisherToken,
+  publisherUploadError,
+} from "../scripts/publisher-upload-errors.mjs";
 
 function moduleZip(
   manifest: Record<string, unknown>,
@@ -187,4 +190,22 @@ test("publisher upload errors distinguish authentication and storage failures", 
     publisherUploadError(new Error("fetch failed")),
     /network connection/i,
   );
+  assert.match(
+    publisherUploadError(new Error("module_resource_mismatch")),
+    /different Foundry module/i,
+  );
+  assert.match(
+    publisherUploadError(new Error("version_conflict")),
+    /new semantic version/i,
+  );
+  assert.match(
+    publisherUploadError(new Error("Vercel Blob: Failed to retrieve the client token")),
+    /preflight passed/i,
+  );
+});
+
+test("publisher token format rejects Blob credentials and malformed values", () => {
+  assert.equal(isPublisherToken(`slp_${"a".repeat(64)}`), true);
+  assert.equal(isPublisherToken("vercel_blob_rw_example"), false);
+  assert.equal(isPublisherToken("slp_too-short"), false);
 });

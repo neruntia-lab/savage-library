@@ -19,7 +19,16 @@ export async function POST(request: Request, context: Context) {
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   let uploadedBy = "publisher-cli";
   let source: "admin" | "cli" = "cli";
-  if (!bearer || !(await authenticatePublisherToken(id, bearer))) {
+  if (bearer && !(await authenticatePublisherToken(id, bearer))) {
+    return Response.json(
+      {
+        code: "publisher_token_invalid",
+        error: "The publisher token is invalid or has been rotated.",
+      },
+      { status: 401 },
+    );
+  }
+  if (!bearer) {
     const auth = await requireApiAdmin();
     if (!auth.ok) return auth.response;
     uploadedBy = auth.user.id;

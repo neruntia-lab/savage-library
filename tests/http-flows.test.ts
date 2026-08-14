@@ -132,6 +132,20 @@ test("logout confirmation and draft previews fail safely", async () => {
   assert.doesNotMatch(previewHtml, /Downloads and manifests are disabled/);
 });
 
+test("publisher verification requires a module-scoped bearer token", async () => {
+  const response = await fetch(`${origin}/api/publisher/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      resourceId: "resource-id",
+      moduleId: "example-module",
+    }),
+  });
+  assert.equal(response.status, 401);
+  const body = (await response.json()) as { code?: string };
+  assert.equal(body.code, "publisher_token_invalid");
+});
+
 async function get(pathname: string): Promise<string> {
   const response = await fetch(`${origin}${pathname}`);
   assert.equal(response.status, 200, `${pathname} should return HTTP 200`);

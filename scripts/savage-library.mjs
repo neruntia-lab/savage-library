@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
 import { upload } from "@vercel/blob/client";
-import { publisherUploadError } from "./publisher-upload-errors.mjs";
+import { isPublisherToken, publisherUploadError } from "./publisher-upload-errors.mjs";
 
 const command = process.argv[2];
 const cwd = process.cwd();
@@ -18,6 +18,8 @@ if (!command || ["help", "--help", "-h"].includes(command)) {
   process.exit(0);
 }
 
+const result = packageModule(cwd);
+
 if (command === "login" || command === "link") {
   const site = option("--site");
   const resourceId = option("--resource");
@@ -28,17 +30,36 @@ if (command === "login" || command === "link") {
   if (normalizeSite(site) !== PRODUCTION_ORIGIN) {
     fail(`--site must be ${PRODUCTION_ORIGIN}; preview and development deployments are not supported.`);
   }
+  if (!isPublisherToken(token)) {
+    fail("The publisher token is malformed. Use the one-time slp_ token from this module resource; do not use a Vercel Blob token.");
+  }
+  let verified;
+  try {
+    verified = await publisherRequest(`${PRODUCTION_ORIGIN}/api/publisher/verify`, token, {
+      resourceId,
+      moduleId: result.manifest.id,
+      version: result.manifest.version,
+      checksum: result.checksum,
+      sizeBytes: result.bytes.length,
+    });
+  } catch (error) {
+    fail(publisherUploadError(error));
+  }
+  const expectedSlug = distributionSlug(result.manifest);
+  if (verified.resource.slug !== expectedSlug) {
+    fail(`The resource slug is "${verified.resource.slug}", but module.json uses "${expectedSlug}".`);
+  }
   const config = {
     site: PRODUCTION_ORIGIN,
     resourceId,
     token,
   };
   writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
+  console.log(`Verified ${verified.resource.title} (${verified.resource.moduleId}).`);
   console.log(`Linked ${cwd} to Savage Library resource ${resourceId}.`);
   process.exit(0);
 }
 
-const result = packageModule(cwd);
 if (command === "validate") {
   console.log(`Valid ${result.manifest.title} v${result.manifest.version}`);
   console.log(`Module: ${result.manifest.id}`);
@@ -52,6 +73,26 @@ if (command === "validate") {
   if (normalizeSite(config.site) !== PRODUCTION_ORIGIN) {
     fail(`Relink this module with --site ${PRODUCTION_ORIGIN}; preview and development deployments are not supported.`);
   }
+  if (!isPublisherToken(token)) {
+    fail("The saved publisher token is malformed. Rotate the module token and run link again; do not use a Vercel Blob token.");
+  }
+  let verified;
+  try {
+    verified = await publisherRequest(`${config.site}/api/publisher/verify`, token, {
+      resourceId: config.resourceId,
+      moduleId: result.manifest.id,
+      version: result.manifest.version,
+      checksum: result.checksum,
+      sizeBytes: result.bytes.length,
+    });
+  } catch (error) {
+    fail(publisherUploadError(error));
+  }
+  const expectedSlug = distributionSlug(result.manifest);
+  if (verified.resource.slug !== expectedSlug) {
+    fail(`The linked resource slug is "${verified.resource.slug}", but module.json uses "${expectedSlug}".`);
+  }
+  console.log(`Publisher verified for ${verified.resource.title}; private storage is ready.`);
   const fileName = `${result.manifest.id}-${result.manifest.version}.zip`;
   const file = new File([result.bytes], fileName, { type: "application/zip" });
   console.log(`Uploading ${result.manifest.id} v${result.manifest.version}…`);
@@ -74,7 +115,29 @@ if (command === "validate") {
       },
     );
   } catch (error) {
-    fail(publisherUploadError(error));
+    try {
+      await publisherRequest(`${config.site}/api/publisher/verify`, token, {
+        resourceId: config.resourceId,
+        moduleId: result.manifest.id,
+        version: result.manifest.version,
+        checksum: result.checksum,
+        sizeBytes: result.bytes.length,
+      });
+    } catch (diagnosticError) {
+      fail(publisherUploadError(diagnosticError));
+    }
+    fail(`The direct Blob upload failed after publisher authentication and storage checks passed. ${publisherUploadError(error)}`);
+  }
+  const status = await waitForDraft(config.site, token, {
+    resourceId: config.resourceId,
+    moduleId: result.manifest.id,
+    version: result.manifest.version,
+    checksum: result.checksum,
+  });
+  if (!status.release) fail("The upload completed, but Savage Library did not create the release draft.");
+  if (status.release.checksum !== result.checksum) fail("The created release draft checksum does not match the uploaded archive.");
+  if (status.release.status === "failed" || status.release.errors?.length) {
+    fail(`Savage Library created a failed release: ${(status.release.errors ?? []).join("; ")}`);
   }
   console.log("Release uploaded as a draft.");
   console.log(`${config.site}/admin/resources/${config.resourceId}#module-releases`);
@@ -145,6 +208,41 @@ function validateDistributionUrls(manifest) {
   if (!pageMatch || !updaterMatch || pageMatch[1] !== updaterMatch[1]) {
     fail("module.json url and manifest must use the same exact Savage Library resource slug.");
   }
+}
+
+function distributionSlug(manifest) {
+  return new URL(manifest.manifest).pathname.split("/").at(-2);
+}
+
+async function publisherRequest(url, token, body) {
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    throw new Error(`network_error: ${error instanceof Error ? error.message : "request failed"}`);
+  }
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.ok === false) {
+    throw new Error(`${payload.code ?? `http_${response.status}`}: ${payload.error ?? response.statusText}`);
+  }
+  return payload;
+}
+
+async function waitForDraft(site, token, metadata) {
+  let latest;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    latest = await publisherRequest(`${site}/api/publisher/releases/status`, token, metadata);
+    if (latest.release) return latest;
+    await new Promise((resolve) => setTimeout(resolve, 750));
+  }
+  return latest;
 }
 
 function normalizeSite(value) {

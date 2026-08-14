@@ -1,4 +1,4 @@
-import { del, get, put, type PutBlobResult } from "@vercel/blob";
+import { del, get, list, put, type PutBlobResult } from "@vercel/blob";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../db";
 import { privateBlobToken } from "../config/blob";
@@ -27,16 +27,177 @@ export async function authenticatePublisherToken(resourceId: string, token: stri
   return Boolean(rows[0]?.hash && rows[0].hash === (await hashPublisherToken(token)));
 }
 
+export type PublisherVerificationCode =
+  | "publisher_token_invalid"
+  | "module_resource_mismatch"
+  | "resource_not_found"
+  | "version_conflict"
+  | "private_storage_missing"
+  | "private_storage_rejected";
+
+export class PublisherVerificationError extends Error {
+  constructor(
+    public readonly code: PublisherVerificationCode,
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "PublisherVerificationError";
+  }
+}
+
+export async function verifyPublisherConfiguration(input: {
+  resourceId: string;
+  token: string;
+  moduleId: string;
+  version?: string;
+  checksum?: string;
+  checkStorage?: boolean;
+}) {
+  const rows = await getDb()
+    .select({
+      id: resources.id,
+      title: resources.title,
+      slug: resources.slug,
+      resourceType: resources.resourceType,
+      foundryModuleId: resources.foundryModuleId,
+      accessMode: resources.accessMode,
+      isPublished: resources.isPublished,
+      publisherTokenHash: resources.publisherTokenHash,
+    })
+    .from(resources)
+    .where(eq(resources.id, input.resourceId))
+    .limit(1);
+  const resource = rows[0];
+  if (!resource || resource.resourceType !== "module") {
+    throw new PublisherVerificationError(
+      "resource_not_found",
+      404,
+      "The linked module resource was not found.",
+    );
+  }
+  if (
+    !resource.publisherTokenHash ||
+    resource.publisherTokenHash !== (await hashPublisherToken(input.token))
+  ) {
+    throw new PublisherVerificationError(
+      "publisher_token_invalid",
+      401,
+      "The publisher token is invalid or has been rotated.",
+    );
+  }
+  if (resource.foundryModuleId && resource.foundryModuleId !== input.moduleId) {
+    throw new PublisherVerificationError(
+      "module_resource_mismatch",
+      403,
+      `This resource belongs to module id "${resource.foundryModuleId}".`,
+    );
+  }
+  if (input.version) {
+    const existing = await getDb()
+      .select({ checksum: resourceVersions.artifactChecksum })
+      .from(resourceVersions)
+      .where(
+        and(
+          eq(resourceVersions.resourceId, resource.id),
+          eq(resourceVersions.version, input.version),
+        ),
+      )
+      .limit(1);
+    if (
+      existing[0]?.checksum &&
+      input.checksum &&
+      existing[0].checksum !== input.checksum
+    ) {
+      throw new PublisherVerificationError(
+        "version_conflict",
+        409,
+        `Version ${input.version} already exists with different contents.`,
+      );
+    }
+  }
+  if (input.checkStorage !== false) {
+    const token = privateBlobToken();
+    if (!token) {
+      throw new PublisherVerificationError(
+        "private_storage_missing",
+        503,
+        "Private module storage is not configured.",
+      );
+    }
+    try {
+      await list({ token, limit: 1, prefix: `foundry-release-uploads/${resource.id}/` });
+    } catch {
+      throw new PublisherVerificationError(
+        "private_storage_rejected",
+        503,
+        "Private module storage rejected the configured credential.",
+      );
+    }
+  }
+  return {
+    id: resource.id,
+    title: resource.title,
+    slug: resource.slug,
+    moduleId: resource.foundryModuleId ?? input.moduleId,
+    accessMode: resource.accessMode,
+    isPublished: resource.isPublished,
+    storageReady: input.checkStorage !== false ? (true as const) : undefined,
+  };
+}
+
+export async function getPublisherReleaseStatus(input: {
+  resourceId: string;
+  token: string;
+  moduleId: string;
+  version: string;
+  checksum: string;
+}) {
+  const resource = await verifyPublisherConfiguration({
+    ...input,
+    checkStorage: false,
+  });
+  const rows = await getDb()
+    .select({
+      id: resourceVersions.id,
+      status: resourceVersions.releaseStatus,
+      checksum: resourceVersions.artifactChecksum,
+      errors: resourceVersions.validationErrors,
+    })
+    .from(resourceVersions)
+    .where(
+      and(
+        eq(resourceVersions.resourceId, input.resourceId),
+        eq(resourceVersions.version, input.version),
+      ),
+    )
+    .limit(1);
+  const release = rows[0];
+  return {
+    resource,
+    release: release
+      ? {
+          id: release.id,
+          status: release.status,
+          checksum: release.checksum,
+          errors: JSON.parse(release.errors || "[]") as string[],
+        }
+      : null,
+  };
+}
+
 export async function rotatePublisherToken(resourceId: string) {
   const token = `slp_${crypto.randomUUID().replaceAll("-", "")}${crypto.randomUUID().replaceAll("-", "")}`;
-  await getDb()
+  const updated = await getDb()
     .update(resources)
     .set({
       publisherTokenHash: await hashPublisherToken(token),
       publisherTokenCreatedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(resources.id, resourceId));
+    .where(and(eq(resources.id, resourceId), eq(resources.resourceType, "module")))
+    .returning({ id: resources.id });
+  if (!updated[0]) throw new Error("Module resource not found.");
   return token;
 }
 
