@@ -9,6 +9,7 @@ import { AppearanceSettings } from "./AppearanceSettings";
 import { TaxonomyManager } from "./TaxonomyManager";
 import type { AdminResource } from "./types";
 import { MembershipManager } from "./MembershipManager";
+import { CliTokenManager } from "./CliTokenManager";
 
 export function AdminDashboard({
   initialResources,
@@ -26,7 +27,7 @@ export function AdminDashboard({
     "all" | "published" | "draft" | "patreon"
   >("all");
   const [activePanel, setActivePanel] = useState<
-    "resources" | "metadata" | "appearance" | "patreon"
+    "resources" | "metadata" | "appearance" | "patreon" | "cli"
   >("resources");
 
   const visibleResources = useMemo(() => {
@@ -146,6 +147,9 @@ export function AdminDashboard({
           >
             Patreon
           </TabButton>
+          <TabButton active={activePanel === "cli"} onClick={() => setActivePanel("cli")}>
+            CLI Access
+          </TabButton>
         </div>
         <Link className="button button-primary" href="/admin/resources/new">
           + Add content
@@ -203,8 +207,10 @@ export function AdminDashboard({
           initialAppearance={initialAppearance}
           onStatus={setStatus}
         />
-      ) : (
+      ) : activePanel === "patreon" ? (
         <MembershipManager onStatus={setStatus} />
+      ) : (
+        <CliTokenManager onStatus={setStatus} />
       )}
     </>
   );

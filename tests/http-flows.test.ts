@@ -106,6 +106,18 @@ test("category and discovery metadata routes are available", async () => {
   assert.equal(removedNews.status, 404);
 });
 
+test("publisher catalog orchestration rejects missing administrator credentials", async () => {
+  const verify = await fetch(`${origin}/api/publisher/admin/verify`, { method: "POST" });
+  assert.equal(verify.status, 401);
+  assert.equal((await verify.json()).code, "admin_cli_token_invalid");
+  const catalog = await fetch(`${origin}/api/publisher/catalog`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ module: {}, resource: {} }),
+  });
+  assert.equal(catalog.status, 401);
+});
+
 test("legal disclosures are publicly available", async () => {
   const privacy = await get("/privacy");
   assert.match(privacy, /Privacy policy/);

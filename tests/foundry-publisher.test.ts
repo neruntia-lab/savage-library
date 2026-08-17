@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import AdmZip from "adm-zip";
 import {
   inspectFoundryModule,
@@ -11,6 +15,59 @@ import {
   isPublisherToken,
   publisherUploadError,
 } from "../scripts/publisher-upload-errors.mjs";
+import {
+  createPublisherConfig,
+  distributionUrls,
+  inferSystem,
+  isAdminToken,
+  validatePublisherConfig,
+} from "../scripts/publisher-config.mjs";
+
+test("creates deterministic tracked catalog metadata and production URLs", () => {
+  const manifest = {
+    id: "example-module",
+    title: "Example Module",
+    description: "<p>A useful module.</p>",
+    relationships: { systems: [{ id: "dnd5e" }] },
+    url: "https://example.com/source",
+  };
+  const config = createPublisherConfig(manifest);
+  assert.equal(config.resource.system, "dnd5e");
+  assert.equal(config.resource.projectUrl, manifest.url);
+  assert.deepEqual(validatePublisherConfig(config), []);
+  assert.deepEqual(distributionUrls("example-module"), {
+    url: "https://savage-library.vercel.app/resources/example-module",
+    manifest: "https://savage-library.vercel.app/api/foundry/modules/example-module/module.json",
+  });
+});
+
+test("admin token validation and system inference fail safely", () => {
+  assert.equal(isAdminToken(`sla_${"a".repeat(64)}`), true);
+  assert.equal(isAdminToken(`slp_${"a".repeat(64)}`), false);
+  assert.equal(inferSystem({ relationships: { systems: [{ id: "a" }, { id: "b" }] } }), "system-agnostic");
+  assert.ok(validatePublisherConfig({ schemaVersion: 1, resource: {} }).length > 0);
+});
+
+test("CLI init creates tracked metadata, stable URLs, and a secret ignore rule", () => {
+  const directory = mkdtempSync(join(tmpdir(), "savage-cli-"));
+  try {
+    writeFileSync(join(directory, "module.json"), JSON.stringify({
+      id: "cli-example",
+      title: "CLI Example",
+      description: "A complete CLI test module.",
+      version: "1.0.0",
+      url: "https://example.com/project",
+    }));
+    execFileSync(process.execPath, [join(process.cwd(), "scripts/savage-library.mjs"), "init"], { cwd: directory });
+    const manifest = JSON.parse(readFileSync(join(directory, "module.json"), "utf8"));
+    const config = JSON.parse(readFileSync(join(directory, "savage-library.json"), "utf8"));
+    assert.equal(manifest.manifest, "https://savage-library.vercel.app/api/foundry/modules/cli-example/module.json");
+    assert.equal(config.resource.projectUrl, "https://example.com/project");
+    assert.match(readFileSync(join(directory, ".gitignore"), "utf8"), /^\.savage-library\.json$/m);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 function moduleZip(
   manifest: Record<string, unknown>,

@@ -1,5 +1,5 @@
 import { del, get, list, put, type PutBlobResult } from "@vercel/blob";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "../../db";
 import { privateBlobToken } from "../config/blob";
 import { foundryManifestUrl, resourcePublicUrl } from "../config/site";
@@ -8,6 +8,7 @@ import {
   changelogEntries,
   files,
   resources,
+  resourceTranslations,
   resourceVersions,
 } from "../../db/schema";
 import {
@@ -497,6 +498,7 @@ export async function publishRelease(
   resourceId: string,
   releaseId: string,
   siteOrigin: string,
+  options: { publishCatalog?: boolean } = {},
 ) {
   const db = getDb();
   const rows = await db
@@ -516,7 +518,7 @@ export async function publishRelease(
   if (row.resource.accessMode !== "public") {
     throw new Error("Paid modules cannot publish a public Foundry manifest in this release.");
   }
-  if (!row.resource.isPublished) {
+  if (!row.resource.isPublished && !options.publishCatalog) {
     throw new Error("Publish the catalog resource before activating its Foundry release.");
   }
   if (
@@ -588,9 +590,16 @@ export async function publishRelease(
         foundryVerified: row.release.foundryVerified,
         foundryMaximum: row.release.foundryMaximum,
         manifestUrl,
+        isPublished: options.publishCatalog ? true : row.resource.isPublished,
+        publishedAt: options.publishCatalog
+          ? sql`COALESCE(${resources.publishedAt}, ${now})`
+          : row.resource.publishedAt,
         updatedAt: now,
       })
       .where(eq(resources.id, resourceId));
+  const translationQuery = options.publishCatalog
+    ? db.update(resourceTranslations).set({ isPublished: true, updatedAt: now }).where(and(eq(resourceTranslations.resourceId, resourceId), eq(resourceTranslations.locale, row.resource.defaultLocale)))
+    : null;
   if (row.release.changelogSummary || row.release.changelogDetails) {
     const changelogQuery = db.insert(changelogEntries).values({
         id: crypto.randomUUID(),
@@ -601,9 +610,9 @@ export async function publishRelease(
         createdAt: now,
         updatedAt: now,
       });
-    await db.batch([supersedeQuery, publishQuery, resourceQuery, changelogQuery]);
+    await db.batch([supersedeQuery, publishQuery, resourceQuery, ...(translationQuery ? [translationQuery] : []), changelogQuery]);
   } else {
-    await db.batch([supersedeQuery, publishQuery, resourceQuery]);
+    await db.batch([supersedeQuery, publishQuery, resourceQuery, ...(translationQuery ? [translationQuery] : [])]);
   }
 }
 

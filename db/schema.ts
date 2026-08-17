@@ -460,6 +460,27 @@ export const verificationTokens = pgTable(
   ],
 );
 
+export const adminCliTokens = pgTable(
+  "admin_cli_tokens",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    tokenPrefix: text("token_prefix").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    scopes: text("scopes").notNull(),
+    createdBy: text("created_by").notNull(),
+    expiresAt: text("expires_at"),
+    lastUsedAt: text("last_used_at"),
+    revokedAt: text("revoked_at"),
+    revocationReason: text("revocation_reason"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("admin_cli_tokens_hash_unique").on(table.tokenHash),
+    index("admin_cli_tokens_active_idx").on(table.revokedAt, table.expiresAt),
+  ],
+);
+
 export const manualGrants = pgTable(
   "manual_grants",
   {

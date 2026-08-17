@@ -64,6 +64,13 @@
       "when": 1786498965751,
       "tag": "0008_daffy_shotgun",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786948968439,
+      "tag": "0009_rare_mesmero",
+      "breakpoints": true
     }
   ]
 }
