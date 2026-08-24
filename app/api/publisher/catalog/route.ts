@@ -12,6 +12,7 @@ export async function POST(request: Request) {
     const result = await synchronizePublisherCatalog({
       module: manifestData as never,
       resource: body.resource as never,
+      release: body.release,
       expectedRevision: typeof body.expectedRevision === "number" ? body.expectedRevision : undefined,
       needsPublisherToken: body.needsPublisherToken === true,
       canCreate: auth.credential.scopes.includes("resource:create"),

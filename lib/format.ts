@@ -7,6 +7,15 @@ export function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
+export function formatLongDate(value: string): string {
+  return new Intl.DateTimeFormat("en", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(value));
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1_024) return `${bytes} B`;
   const units = ["KB", "MB", "GB"];

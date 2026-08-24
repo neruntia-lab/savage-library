@@ -181,6 +181,23 @@ credential and is ignored by Git. Add one filename or directory per line to
 creates a draft; explicitly authorized `release --publish` atomically publishes
 the free catalog resource and release, then verifies the live manifest and ZIP.
 
+Updates to an existing module must include concise website patch notes in the
+tracked configuration. The version must match `module.json`, and every entry
+states only the user-visible result:
+
+```json
+{
+  "release": {
+    "version": "3.10.0",
+    "changes": [
+      "Added playlist synchronization.",
+      "Fixed scene audio playback.",
+      "Improved volume controls."
+    ]
+  }
+}
+```
+
 ## Deployment
 
 1. Connect Neon and both Blob stores to the Vercel project.

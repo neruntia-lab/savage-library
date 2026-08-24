@@ -3642,6 +3642,25 @@ textarea:focus {
   border-color: rgb(216 181 106 / 55%);
 }
 
+.changelog section > .patch-note-heading {
+  justify-content: flex-start;
+  gap: 0.4rem;
+}
+
+.patch-note-heading time {
+  color: var(--color-text);
+  font-size: 0.82rem;
+}
+
+.patch-note-list {
+  margin: 0.55rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.patch-note-list li + li {
+  margin-top: 0.25rem;
+}
+
 .upload-card.uploading {
   cursor: wait;
 }
@@ -4930,6 +4949,11 @@ textarea:focus {
   .history-list > div {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .changelog section > .patch-note-heading {
+    align-items: center;
+    flex-direction: row;
   }
 
   .file-row .button {

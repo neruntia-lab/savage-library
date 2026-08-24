@@ -9,10 +9,11 @@ import { CompatibilityBadge } from "../../../components/resources/CompatibilityB
 import { ResourceGrid } from "../../../components/resources/ResourceGrid";
 import { CopyButton } from "../../../components/ui/CopyButton";
 import { foundryManifestUrl, ROUTES } from "../../../lib/config/site";
-import { formatBytes, formatDate } from "../../../lib/format";
+import { formatBytes, formatDate, formatLongDate } from "../../../lib/format";
 import { getResourceBySlug, getResourcePreview } from "../../../lib/repositories/resource-repository";
 import { getAuthorizedUser, requireAdminPage } from "../../../lib/services/auth";
 import { resolveEntitlement } from "../../../lib/services/entitlements";
+import { parseReleaseNotes } from "../../../lib/validation/release-notes";
 
 export const dynamic = "force-dynamic";
 
@@ -341,18 +342,34 @@ export default async function ResourcePage({
               <details className="disclosure">
                 <summary>Changelog ({resource.changelog.length})</summary>
                 <div className="changelog">
-                  {resource.changelog.map((entry) => (
-                    <section key={entry.id}>
-                      <div>
-                        <strong>v{entry.version}</strong>
-                        <time dateTime={entry.publishedAt}>
-                          {formatDate(entry.publishedAt)}
-                        </time>
-                      </div>
-                      <h3>{entry.summary}</h3>
-                      {entry.details ? <p>{entry.details}</p> : null}
-                    </section>
-                  ))}
+                  {resource.changelog.map((entry) => {
+                    const changes = parseReleaseNotes(entry.summary, entry.details);
+                    return (
+                      <section key={entry.id}>
+                        {changes ? (
+                          <>
+                            <div className="patch-note-heading">
+                              <time dateTime={entry.publishedAt}>{formatLongDate(entry.publishedAt)}</time>
+                              <span aria-hidden="true">-</span>
+                              <strong>v{entry.version}</strong>
+                            </div>
+                            <ul className="patch-note-list">
+                              {changes.map((change) => <li key={change}>{change}</li>)}
+                            </ul>
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              <strong>v{entry.version}</strong>
+                              <time dateTime={entry.publishedAt}>{formatDate(entry.publishedAt)}</time>
+                            </div>
+                            <h3>{entry.summary}</h3>
+                            {entry.details ? <p>{entry.details}</p> : null}
+                          </>
+                        )}
+                      </section>
+                    );
+                  })}
                 </div>
               </details>
             ) : null}

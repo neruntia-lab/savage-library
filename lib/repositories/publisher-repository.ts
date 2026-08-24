@@ -18,6 +18,7 @@ import {
   type FoundryManifest,
   sha256Hex,
 } from "../foundry/publisher";
+import { parseReleaseNotes, serializeReleaseNotes, validateReleaseNotes } from "../validation/release-notes";
 
 export async function authenticatePublisherToken(resourceId: string, token: string) {
   const rows = await getDb()
@@ -64,6 +65,8 @@ export async function verifyPublisherConfiguration(input: {
       foundryModuleId: resources.foundryModuleId,
       accessMode: resources.accessMode,
       isPublished: resources.isPublished,
+      currentVersion: resources.currentVersion,
+      activeReleaseId: resources.activeReleaseId,
       publisherTokenHash: resources.publisherTokenHash,
     })
     .from(resources)
@@ -143,6 +146,8 @@ export async function verifyPublisherConfiguration(input: {
     moduleId: resource.foundryModuleId ?? input.moduleId,
     accessMode: resource.accessMode,
     isPublished: resource.isPublished,
+    currentVersion: resource.currentVersion,
+    hasActiveRelease: Boolean(resource.activeReleaseId),
     storageReady: input.checkStorage !== false ? (true as const) : undefined,
   };
 }
@@ -532,6 +537,10 @@ export async function publishRelease(
   if (Array.isArray(validationErrors) && validationErrors.length) {
     throw new Error("Resolve the release validation errors before publishing.");
   }
+  const isModuleUpdate = Boolean(row.resource.activeReleaseId) || row.resource.currentVersion !== row.release.version;
+  if (isModuleUpdate && !parseReleaseNotes(row.release.changelogSummary, row.release.changelogDetails)) {
+    throw new Error("Existing module updates require concise structured patch notes before publishing.");
+  }
   const artifacts = await db
     .select({ id: files.id })
     .from(files)
@@ -614,6 +623,35 @@ export async function publishRelease(
   } else {
     await db.batch([supersedeQuery, publishQuery, resourceQuery, ...(translationQuery ? [translationQuery] : [])]);
   }
+}
+
+export async function attachPublisherReleaseNotes(input: {
+  resourceId: string;
+  releaseId: string;
+  version: string;
+  release: unknown;
+}) {
+  const validation = validateReleaseNotes(input.release, input.version);
+  if (!validation.success) throw new Error(validation.errors.join(" "));
+  const result = await getDb()
+    .update(resourceVersions)
+    .set({
+      changelogSummary: "Patch notes",
+      changelogDetails: serializeReleaseNotes(validation.data.changes),
+      releasedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
+    .where(
+      and(
+        eq(resourceVersions.id, input.releaseId),
+        eq(resourceVersions.resourceId, input.resourceId),
+        eq(resourceVersions.version, input.version),
+        eq(resourceVersions.releaseStatus, "draft"),
+      ),
+    )
+    .returning({ id: resourceVersions.id });
+  if (!result[0]) throw new Error("Matching release draft not found.");
+  return { releaseId: result[0].id, changes: validation.data.changes };
 }
 
 export async function rejectRelease(resourceId: string, releaseId: string) {

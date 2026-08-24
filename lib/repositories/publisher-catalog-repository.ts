@@ -5,6 +5,7 @@ import { CANONICAL_SITE_ORIGIN, foundryManifestUrl } from "../config/site";
 import { getAdminResource, createResource, updateResource } from "./resource-repository";
 import { publishRelease, rotatePublisherToken } from "./publisher-repository";
 import { validateResourceInput, type ResourceInput } from "../validation/resource";
+import { validateReleaseNotes, type ReleaseNotes } from "../validation/release-notes";
 
 type CatalogConfig = {
   slug?: string;
@@ -42,6 +43,7 @@ export class PublisherCatalogError extends Error {
 export async function synchronizePublisherCatalog(input: {
   module: ModuleMetadata;
   resource: CatalogConfig;
+  release?: unknown;
   expectedRevision?: number;
   needsPublisherToken?: boolean;
   canCreate: boolean;
@@ -51,7 +53,7 @@ export async function synchronizePublisherCatalog(input: {
   const slug = input.resource.slug?.trim() || input.module.id;
   const normalizedTitle = (input.resource.title?.trim() || input.module.title).toLowerCase();
   const matches = await db
-    .select({ id: resources.id, foundryModuleId: resources.foundryModuleId, slug: resources.slug, title: resources.title, revision: resources.revision })
+    .select({ id: resources.id, foundryModuleId: resources.foundryModuleId, slug: resources.slug, title: resources.title, revision: resources.revision, currentVersion: resources.currentVersion, activeReleaseId: resources.activeReleaseId })
     .from(resources)
     .where(or(eq(resources.foundryModuleId, input.module.id), eq(resources.slug, slug), sql`lower(${resources.title}) = ${normalizedTitle}`));
   const unique = Array.from(new Map(matches.map((row) => [row.id, row])).values());
@@ -59,6 +61,13 @@ export async function synchronizePublisherCatalog(input: {
 
   let resourceId = unique[0]?.id;
   let created = false;
+  let releaseNotes: ReleaseNotes | undefined;
+  const requiresPatchNotes = Boolean(unique[0]?.activeReleaseId) || Boolean(unique[0] && unique[0].currentVersion !== input.module.version);
+  if (requiresPatchNotes || input.release !== undefined) {
+    const notes = validateReleaseNotes(input.release, input.module.version);
+    if (!notes.success) throw new PublisherCatalogError("release_notes_invalid", 400, notes.errors.join(" "));
+    releaseNotes = notes.data;
+  }
   if (!resourceId && !input.canCreate) throw new PublisherCatalogError("scope_missing", 403, "This token cannot create catalog resources.");
   if (resourceId && !input.canUpdate) throw new PublisherCatalogError("scope_missing", 403, "This token cannot update catalog resources.");
   if (unique[0]?.foundryModuleId && unique[0].foundryModuleId !== input.module.id) {
@@ -120,7 +129,7 @@ export async function synchronizePublisherCatalog(input: {
   await db.update(resources).set({ foundryModuleId: input.module.id, manifestUrl: foundryManifestUrl(slug), updatedAt: new Date().toISOString() }).where(eq(resources.id, resourceId));
   const current = await db.select({ revision: resources.revision, title: resources.title, slug: resources.slug }).from(resources).where(eq(resources.id, resourceId)).limit(1);
   const publisherToken = input.needsPublisherToken || created ? await rotatePublisherToken(resourceId) : undefined;
-  return { resourceId, ...current[0], created, publisherToken, reviewUrl: `${CANONICAL_SITE_ORIGIN}/admin/resources/${resourceId}#module-releases` };
+  return { resourceId, ...current[0], created, requiresPatchNotes, releaseNotes, publisherToken, reviewUrl: `${CANONICAL_SITE_ORIGIN}/admin/resources/${resourceId}#module-releases` };
 }
 
 export async function publishPublisherCatalogRelease(resourceId: string, releaseId: string) {

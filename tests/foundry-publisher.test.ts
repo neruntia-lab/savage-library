@@ -22,6 +22,12 @@ import {
   isAdminToken,
   validatePublisherConfig,
 } from "../scripts/publisher-config.mjs";
+import {
+  parseReleaseNotes,
+  serializeReleaseNotes,
+  validateReleaseNotes,
+} from "../lib/validation/release-notes";
+import { formatLongDate } from "../lib/format";
 
 test("creates deterministic tracked catalog metadata and production URLs", () => {
   const manifest = {
@@ -46,6 +52,45 @@ test("admin token validation and system inference fail safely", () => {
   assert.equal(isAdminToken(`slp_${"a".repeat(64)}`), false);
   assert.equal(inferSystem({ relationships: { systems: [{ id: "a" }, { id: "b" }] } }), "system-agnostic");
   assert.ok(validatePublisherConfig({ schemaVersion: 1, resource: {} }).length > 0);
+});
+
+test("requires concise release notes for existing module updates", () => {
+  const valid = {
+    version: "3.10.0",
+    changes: ["Added playlist synchronization.", "Fixed scene audio playback."],
+  };
+  assert.equal(validateReleaseNotes(valid, "3.10.0").success, true);
+  const config = createPublisherConfig({ id: "example", title: "Example", description: "Example module." });
+  assert.deepEqual(validatePublisherConfig(config, "1.0.0", false), []);
+  assert.ok(validatePublisherConfig(config, "1.0.0", true).some((error) => error.includes("required")));
+  assert.ok(validatePublisherConfig({ ...config, release: { ...valid, version: "3.9.0" } }, "3.10.0", true).some((error) => error.includes("must match")));
+});
+
+test("rejects empty, duplicate, long, and indirect patch notes", () => {
+  const result = validateReleaseNotes({
+    version: "2.0.0",
+    changes: [
+      "",
+      "Fixed audio playback.",
+      "Fixed audio playback.",
+      `Added ${"x".repeat(170)}.`,
+      "Refactored the audio service.",
+    ],
+  }, "2.0.0");
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.ok(result.errors.some((error) => error.includes("empty")));
+    assert.ok(result.errors.some((error) => error.includes("duplicates")));
+    assert.ok(result.errors.some((error) => error.includes("160")));
+    assert.ok(result.errors.some((error) => error.includes("must begin")));
+  }
+});
+
+test("serializes and parses structured patch notes without changing legacy entries", () => {
+  const details = serializeReleaseNotes(["Added a new control.", "Improved mobile playback."]);
+  assert.deepEqual(parseReleaseNotes("Patch notes", details), ["Added a new control.", "Improved mobile playback."]);
+  assert.equal(parseReleaseNotes("Compatibility update", details), null);
+  assert.equal(formatLongDate("2026-08-24T12:00:00.000Z"), "August 24, 2026");
 });
 
 test("CLI init creates tracked metadata, stable URLs, and a secret ignore rule", () => {

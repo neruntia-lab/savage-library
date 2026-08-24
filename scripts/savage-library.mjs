@@ -49,12 +49,14 @@ function ensureSecretIgnored() { const path = join(cwd, ".gitignore"); const exi
 async function release(result, catalog, publish) {
   let link = readJson(linkPath, null);
   const adminToken = process.env.SAVAGE_LIBRARY_ADMIN_TOKEN ?? readCredential();
+  let catalogResource;
   if (adminToken) {
     if (!isAdminToken(adminToken)) fail("The saved administrator credential is malformed. Run logout, then login with a new token.");
     let synced;
-    try { synced = await apiRequest(`${PRODUCTION_ORIGIN}/api/publisher/catalog`, adminToken, { module: result.manifest, resource: catalog.resource, expectedRevision: link?.revision, needsPublisherToken: !link?.token || link.moduleId !== result.manifest.id }); }
+    try { synced = await apiRequest(`${PRODUCTION_ORIGIN}/api/publisher/catalog`, adminToken, { module: result.manifest, resource: catalog.resource, release: catalog.release, expectedRevision: link?.revision, needsPublisherToken: !link?.token || link.moduleId !== result.manifest.id }); }
     catch (error) { fail(cliError(error)); }
     const resource = synced.resource;
+    catalogResource = resource;
     link = { site: PRODUCTION_ORIGIN, resourceId: resource.resourceId, moduleId: result.manifest.id, revision: resource.revision, token: resource.publisherToken ?? link?.token };
     if (!link.token) fail("Catalog synchronization succeeded but no module upload token is available. Remove .savage-library.json and retry.");
     writeFileSync(linkPath, `${JSON.stringify(link, null, 2)}\n`, { mode: 0o600 });
@@ -65,6 +67,7 @@ async function release(result, catalog, publish) {
   let verified;
   try { verified = await apiRequest(`${PRODUCTION_ORIGIN}/api/publisher/verify`, token, metadata(link.resourceId, result)); }
   catch (error) { fail(publisherUploadError(error)); }
+  if (!adminToken && verified.resource.hasActiveRelease) fail("Existing module updates require an administrator login so patch notes can be saved. Run login first.");
   if (verified.resource.slug !== catalog.resource.slug) fail(`The linked resource slug is "${verified.resource.slug}", but ${CONFIG_FILE} uses "${catalog.resource.slug}".`);
   console.log(`Publisher verified for ${verified.resource.title}; private storage is ready.`);
   const fileName = `${result.manifest.id}-${result.manifest.version}.zip`;
@@ -75,7 +78,20 @@ async function release(result, catalog, publish) {
   const status = await waitForDraft(token, metadata(link.resourceId, result));
   if (!status.release || status.release.checksum !== result.checksum) fail("Savage Library did not confirm a matching release draft.");
   if (status.release.status === "failed" || status.release.errors?.length) fail(`Savage Library created a failed release: ${(status.release.errors ?? []).join("; ")}`);
+  if (catalogResource?.requiresPatchNotes || catalog.release) {
+    try {
+      await apiRequest(`${PRODUCTION_ORIGIN}/api/publisher/catalog/release-notes`, adminToken, {
+        resourceId: link.resourceId,
+        releaseId: status.release.id,
+        version: result.manifest.version,
+        release: catalog.release,
+      });
+    } catch (error) {
+      fail(`The release draft was uploaded, but its required patch notes could not be saved. ${cliError(error)}`);
+    }
+  }
   console.log(`Release ${result.manifest.version} uploaded as a draft.`);
+  if (catalog.release?.changes?.length) printPatchNotes(result.manifest.version, catalog.release.changes);
   console.log(`${PRODUCTION_ORIGIN}/admin/resources/${link.resourceId}#module-releases`);
   if (publish) {
     let published;
@@ -95,7 +111,7 @@ function readManifest(path, validateUrls) {
   if (validateUrls) validateDistributionUrls(value);
   return value;
 }
-function readCatalogConfig() { if (!existsSync(catalogPath)) fail(`Run savage-library init first, then review ${CONFIG_FILE}.`); const value = readJson(catalogPath, null); const errors = validatePublisherConfig(value); if (errors.length) fail(errors.join(" ")); return value; }
+function readCatalogConfig() { if (!existsSync(catalogPath)) fail(`Run savage-library init first, then review ${CONFIG_FILE}.`); const value = readJson(catalogPath, null); const errors = validatePublisherConfig(value, manifest.version); if (errors.length) fail(errors.join(" ")); return value; }
 function packageModule(directory, moduleManifest) {
   const ignored = new Set([".git", ".next", "node_modules", LINK_FILE, CONFIG_FILE, ".savageignore", `${moduleManifest.id}.zip`, `${moduleManifest.id}-${moduleManifest.version}.zip`, ...readIgnore(directory)]);
   const zip = new AdmZip(); zip.addLocalFolder(directory, moduleManifest.id, (path) => { const relative = path.replaceAll("\\", "/").replace(/^\.\//, ""); return ![...ignored].some((entry) => relative === entry || relative.endsWith(`/${entry}`) || relative.startsWith(`${entry}/`) || relative.includes(`/${entry}/`)); });
@@ -103,7 +119,8 @@ function packageModule(directory, moduleManifest) {
 }
 function validateDistributionUrls(value) { let page; let updater; try { page = new URL(value.url); updater = new URL(value.manifest); } catch { fail("module.json url and manifest must be valid Savage Library production URLs."); } const pageMatch = page.pathname.match(/^\/resources\/([^/]+)$/); const updaterMatch = updater.pathname.match(/^\/api\/foundry\/modules\/([^/]+)\/module\.json$/); if (page.origin !== PRODUCTION_ORIGIN || updater.origin !== PRODUCTION_ORIGIN || !pageMatch || !updaterMatch || pageMatch[1] !== updaterMatch[1]) fail("module.json url and manifest must use the same stable savage-library.vercel.app resource slug."); }
 function distributionSlug(value) { return new URL(value.manifest).pathname.split("/").at(-2); }
-function printValidation(result, catalog) { console.log(`Valid ${result.manifest.title} v${result.manifest.version}`); console.log(`Catalog: ${catalog.resource.slug}`); console.log(`Archive: ${(result.bytes.length / 1024 / 1024).toFixed(2)} MB`); console.log(`SHA-256: ${result.checksum}`); }
+function printValidation(result, catalog) { console.log(`Valid ${result.manifest.title} v${result.manifest.version}`); console.log(`Catalog: ${catalog.resource.slug}`); console.log(`Archive: ${(result.bytes.length / 1024 / 1024).toFixed(2)} MB`); console.log(`SHA-256: ${result.checksum}`); if (catalog.release?.changes?.length) printPatchNotes(result.manifest.version, catalog.release.changes); }
+function printPatchNotes(version, changes) { console.log(`Patch notes for v${version}:`); changes.forEach((change) => console.log(`- ${change}`)); }
 async function legacyLink(moduleManifest) { const site = option("--site"); const resourceId = option("--resource"); const token = option("--token") ?? process.env.SAVAGE_LIBRARY_TOKEN; if (!site || !resourceId || !isPublisherToken(token) || new URL(site).origin !== PRODUCTION_ORIGIN) fail(`link requires --site ${PRODUCTION_ORIGIN}, --resource ID, and a valid slp_ token.`); const result = packageModule(cwd, moduleManifest); const verified = await apiRequest(`${PRODUCTION_ORIGIN}/api/publisher/verify`, token, metadata(resourceId, result)); writeFileSync(linkPath, `${JSON.stringify({ site: PRODUCTION_ORIGIN, resourceId, moduleId: moduleManifest.id, token }, null, 2)}\n`, { mode: 0o600 }); console.log(`Linked ${verified.resource.title}.`); }
 async function verifyPublished(result, manifestUrl) { const response = await fetch(manifestUrl, { cache: "no-store" }); const body = await response.json().catch(() => null); if (!response.ok || body?.id !== result.manifest.id || body?.version !== result.manifest.version || typeof body?.download !== "string") fail("Publication completed, but the stable manifest did not return the expected release."); const zipResponse = await fetch(body.download); if (!zipResponse.ok) fail("The published module download could not be retrieved."); const bytes = Buffer.from(await zipResponse.arrayBuffer()); if (createHash("sha256").update(bytes).digest("hex") !== result.checksum) fail("The published module checksum does not match the local archive."); const zip = new AdmZip(bytes); if (!zip.getEntry(`${result.manifest.id}/module.json`)) fail("The published ZIP does not contain the expected top-level module.json."); }
 function metadata(resourceId, result) { return { resourceId, moduleId: result.manifest.id, version: result.manifest.version, checksum: result.checksum, sizeBytes: result.bytes.length }; }

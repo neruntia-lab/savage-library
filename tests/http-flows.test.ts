@@ -116,6 +116,12 @@ test("publisher catalog orchestration rejects missing administrator credentials"
     body: JSON.stringify({ module: {}, resource: {} }),
   });
   assert.equal(catalog.status, 401);
+  const notes = await fetch(`${origin}/api/publisher/catalog/release-notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  assert.equal(notes.status, 401);
 });
 
 test("legal disclosures are publicly available", async () => {
