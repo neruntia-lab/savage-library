@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { upload } from "@vercel/blob/client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CatalogFacets, FileKind, ResourceType } from "../../lib/domain/resource";
@@ -230,36 +231,45 @@ export function ResourceCreationWizard({
     }
   }
 
+  const uploadBusy = Object.values(uploads).some((item) => item.phase === "uploading" || item.phase === "saving");
+
   return (
-    <div className="creation-wizard">
-      <header className="wizard-header">
-        <div><p className="eyebrow">Guided setup</p><h1>{resource ? draft.title : "Add content"}</h1><p>{status}</p></div>
-        <ol className="wizard-stepper" aria-label="Content creation progress">
+    <div className="admin-workspace wizard-workspace">
+      <aside className="admin-editor-nav wizard-progress-nav">
+        <Link href="/admin" className="admin-back-link">← Content library</Link>
+        <p className="eyebrow">Guided setup</p>
+        <h1>{resource ? draft.title : "Add content"}</h1>
+        <nav aria-label="Content creation progress">
+          <ol className="wizard-stepper">
           {WIZARD_STEPS.map((label, index) => {
             const number = index + 1;
             return <li key={label} className={number === step ? "current" : number < step ? "complete" : ""} aria-current={number === step ? "step" : undefined}><span>{number < step ? "✓" : number}</span><small>{label}</small></li>;
           })}
-        </ol>
-      </header>
+          </ol>
+        </nav>
+        <div className="admin-save-state" aria-live="polite"><span className={!busy && !dirty ? "saved" : ""} />{status}</div>
+      </aside>
 
-      <main className="wizard-card">
+      <div className="admin-workspace-form wizard-form">
+        <div className="wizard-mobile-progress" aria-label={`Step ${step} of ${WIZARD_STEPS.length}: ${WIZARD_STEPS[step - 1]}`}>
+          <span>Step {step} of {WIZARD_STEPS.length}</span><strong>{WIZARD_STEPS[step - 1]}</strong><i><b style={{ width: `${(step / WIZARD_STEPS.length) * 100}%` }} /></i>
+        </div>
         {step === 1 ? <ChooseStep draft={draft} errors={errors} onChange={change} /> : null}
         {step === 2 ? <DescribeStep draft={draft} errors={errors} primary={primaryLocale} secondary={secondaryLocale} showSecond={showSecondLanguage} setShowSecond={setShowSecondLanguage} changeTranslation={changeTranslation} upload={(file) => uploadFile("descriptionImage", file)} uploadState={uploads.descriptionImage} /> : null}
         {step === 3 ? <OrganizeStep draft={draft} facets={facets} errors={errors} tagQuery={tagQuery} setTagQuery={setTagQuery} visibleTags={visibleTags} onChange={change} /> : null}
         {step === 4 && resource ? <ReleaseStep draft={draft} resource={resource} uploads={uploads} onChange={change} uploadFile={uploadFile} /> : null}
         {step === 5 ? <AccessStep draft={draft} tiers={tiers} errors={errors} onChange={change} /> : null}
         {step === 6 && resource ? <ReviewStep resource={resource} checks={checks} /> : null}
-      </main>
-
-      <footer className="wizard-actions">
-        <button type="button" className="button button-secondary" disabled={busy || step === 1} onClick={() => setStep((current) => Math.max(1, current - 1))}>Back</button>
+        <div className="admin-editor-actions wizard-actions">
         <span aria-live="polite">{busy ? "Saving…" : dirty ? "Unsaved changes" : "Saved"}</span>
         <div>
+          {step > 1 ? <button type="button" className="button button-secondary" disabled={busy} onClick={() => setStep((current) => Math.max(1, current - 1))}>Back</button> : null}
           {step === 1 ? <button type="button" className="button button-primary" disabled={busy} onClick={() => void createDraft()}>Continue</button> : null}
-          {step > 1 && step < 6 ? <button type="button" className="button button-primary" disabled={busy || Object.values(uploads).some((item) => item.phase === "uploading" || item.phase === "saving")} onClick={() => void saveStep(step + 1)}>Save and continue</button> : null}
+          {step > 1 && step < 6 ? <button type="button" className="button button-primary" disabled={busy || uploadBusy} onClick={() => void saveStep(step + 1)}>Save and continue</button> : null}
           {step === 6 ? <><button type="button" className="button button-secondary" disabled={busy} onClick={() => void finish(false)}>Save as draft</button><button type="button" className="button button-primary" disabled={busy || checks.some((item) => item.level === "required")} onClick={() => void finish(true)}>Publish</button></> : null}
         </div>
-      </footer>
+        </div>
+      </div>
     </div>
   );
 }
