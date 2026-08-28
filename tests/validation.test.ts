@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   sanitizePlainText,
   validateResourceInput,
+  type ResourceInput,
 } from "../lib/validation/resource";
 import {
   MAX_DESCRIPTION_IMAGE_BYTES,
@@ -22,6 +23,7 @@ import {
   createWizardDraftInput,
   wizardContentChecks,
   wizardSlug,
+  wizardStepErrors,
 } from "../lib/services/resource-wizard";
 import {
   taxonomyError,
@@ -313,4 +315,57 @@ test("content wizard publication checks enforce type-specific delivery", () => {
     hasValidatedModuleRelease: true,
   });
   assert.equal(ready.some((check) => check.level === "required"), false);
+});
+
+test("content wizard blocks incomplete required fields on their own step", () => {
+  const resource: ResourceInput = {
+    ...validResource,
+    resourceType: "module",
+    compatibilityStatus: "verified",
+    pricing: "free",
+    defaultLocale: "en" as const,
+    accessMode: "public" as const,
+    patreonTierIds: [],
+    translations: {
+      en: { title: "", shortDescription: "short", description: "", isPublished: false },
+      es: { title: "", shortDescription: "", description: "", isPublished: false },
+    },
+    useIconEverywhere: false,
+  };
+  const capabilities = { hasPrimaryFile: false, hasValidatedModuleRelease: false };
+  assert.deepEqual(wizardStepErrors(resource, 2, capabilities), {
+    enTitle: "Enter a public title with at least two characters.",
+    enShortDescription: "Enter a short description with at least 10 characters.",
+  });
+  assert.equal(
+    wizardStepErrors(resource, 4, capabilities).release,
+    "Upload a valid Foundry module ZIP before continuing.",
+  );
+});
+
+test("content wizard enforces conditional class and Patreon requirements", () => {
+  const resource: ResourceInput = {
+    ...validResource,
+    resourceType: "subclass" as const,
+    compatibilityStatus: "verified",
+    pricing: "premium",
+    className: "",
+    subclassName: "",
+    defaultLocale: "en" as const,
+    accessMode: "patreon" as const,
+    patreonTierIds: [],
+    translations: {
+      en: { title: "Test", shortDescription: "A complete summary.", description: "", isPublished: false },
+      es: { title: "", shortDescription: "", description: "", isPublished: false },
+    },
+    useIconEverywhere: false,
+  };
+  const capabilities = { hasPrimaryFile: false, hasValidatedModuleRelease: false };
+  assert.deepEqual(wizardStepErrors(resource, 3, capabilities), {
+    className: "Enter the parent class.",
+    subclassName: "Enter the subclass name.",
+  });
+  assert.deepEqual(wizardStepErrors(resource, 5, capabilities), {
+    patreonTierIds: "Choose at least one Patreon tier.",
+  });
 });

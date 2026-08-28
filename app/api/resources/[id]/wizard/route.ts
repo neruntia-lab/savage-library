@@ -7,6 +7,7 @@ import {
 import { requireApiAdmin } from "../../../../../lib/services/auth";
 import { getResourcePublicationChecks, publishResourceWithDelivery } from "../../../../../lib/services/resource-publication";
 import { validateResourceInput } from "../../../../../lib/validation/resource";
+import { wizardStepErrors } from "../../../../../lib/services/resource-wizard";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -30,6 +31,12 @@ export async function PUT(request: Request, context: RouteContext) {
   if (await resourceSlugExists(validation.data.slug, id))
     return Response.json({ errors: { slug: "That URL slug is already in use." } }, { status: 409 });
   const step = typeof payload?.step === "number" ? payload.step : 2;
+  const currentStep = Math.max(1, Math.min(5, step - 1));
+  const readiness = await getResourcePublicationChecks(id);
+  if (!readiness) return Response.json({ error: "Resource not found." }, { status: 404 });
+  const stepErrors = wizardStepErrors(validation.data, currentStep, readiness.capabilities);
+  if (Object.keys(stepErrors).length)
+    return Response.json({ errors: stepErrors }, { status: 400 });
   const updated = await updateResource(id, validation.data);
   if (!updated) return Response.json({ error: "Resource not found." }, { status: 404 });
   await setResourceSetupState(id, { status: "in_progress", step });

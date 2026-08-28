@@ -19,6 +19,7 @@ export async function getResourcePublicationChecks(resourceId: string) {
   return {
     resource,
     releases,
+    capabilities: { hasPrimaryFile, hasValidatedModuleRelease },
     checks: wizardContentChecks(resource, { hasPrimaryFile, hasValidatedModuleRelease }),
   };
 }
