@@ -3,6 +3,8 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 
+const SIGN_IN_TIMEOUT_MS = 15_000;
+
 export function AdminLoginForm() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState("");
@@ -12,19 +14,45 @@ export function AdminLoginForm() {
     event.preventDefault();
     setBusy(true);
     setStatus("Opening the archive…");
-    const result = await signIn("admin-password", {
-      password,
-      callbackUrl: "/admin",
-      redirect: false,
-    });
+    let timeout: ReturnType<typeof setTimeout> | undefined;
 
-    if (result?.ok) {
-      window.location.assign(result.url ?? "/admin");
-      return;
+    try {
+      const result = await Promise.race([
+        signIn("admin-password", {
+          password,
+          callbackUrl: "/admin",
+          redirect: false,
+        }),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error("sign-in-timeout")),
+            SIGN_IN_TIMEOUT_MS,
+          );
+        }),
+      ]);
+
+      if (result?.ok) {
+        window.location.assign(result.url ?? "/admin");
+        return;
+      }
+
+      if (result?.status === 429 || result?.error === "RateLimited") {
+        setStatus("Too many attempts. Wait a few minutes and try again.");
+      } else if (result && result.status >= 500) {
+        setStatus("The sign-in service is unavailable. Please try again.");
+      } else {
+        setStatus("That password was not accepted.");
+      }
+    } catch (error) {
+      setStatus(
+        error instanceof Error && error.message === "sign-in-timeout"
+          ? "Sign-in took too long. Check your connection and try again."
+          : "The sign-in request failed. Check your connection and try again.",
+      );
+    } finally {
+      if (timeout) clearTimeout(timeout);
+      setBusy(false);
     }
-
-    setBusy(false);
-    setStatus("That password was not accepted.");
   }
 
   return (

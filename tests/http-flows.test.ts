@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
+import { scryptSync } from "node:crypto";
 import path from "node:path";
 import { after, before, test } from "node:test";
 
 const port = 31_000 + (process.pid % 1_000);
 const origin = `http://localhost:${port}`;
+const testAdminPassword = "http-flow-admin-password";
+const testAdminSalt = "http-flow-admin-salt";
+const testAdminHash = `scrypt$${testAdminSalt}$${scryptSync(testAdminPassword, testAdminSalt, 64).toString("hex")}`;
 let server: ChildProcess;
 let serverOutput = "";
 
@@ -21,7 +25,12 @@ before(async () => {
     ],
     {
       cwd: process.cwd(),
-      env: process.env,
+      env: {
+        ...process.env,
+        AUTH_SECRET: "http-flow-test-auth-secret-not-for-production",
+        ADMIN_PASSWORD_HASH: testAdminHash,
+        NEXTAUTH_URL: origin,
+      },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     },
@@ -148,6 +157,72 @@ test("logout confirmation and draft previews fail safely", async () => {
   const previewHtml = await preview.text();
   assert.doesNotMatch(previewHtml, /Private draft preview/);
   assert.doesNotMatch(previewHtml, /Downloads and manifests are disabled/);
+});
+
+test("admin credentials callback handles invalid passwords without a server error", async () => {
+  const csrfResponse = await fetch(`${origin}/api/auth/csrf`);
+  assert.equal(csrfResponse.status, 200);
+  const csrf = (await csrfResponse.json()) as { csrfToken: string };
+  const cookies = csrfResponse.headers
+    .getSetCookie()
+    .map((cookie) => cookie.split(";", 1)[0])
+    .join("; ");
+
+  const response = await fetch(`${origin}/api/auth/callback/admin-password`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Cookie: cookies,
+    },
+    body: new URLSearchParams({
+      csrfToken: csrf.csrfToken,
+      password: "definitely-not-the-admin-password",
+      callbackUrl: `${origin}/admin`,
+      json: "true",
+    }),
+  });
+
+  assert.notEqual(response.status, 500);
+  const result = (await response.json()) as { url?: string };
+  assert.match(result.url ?? "", /error=CredentialsSignin/);
+});
+
+test("admin credentials callback creates an administrator session", async () => {
+  const csrfResponse = await fetch(`${origin}/api/auth/csrf`);
+  const csrf = (await csrfResponse.json()) as { csrfToken: string };
+  const csrfCookies = csrfResponse.headers
+    .getSetCookie()
+    .map((cookie) => cookie.split(";", 1)[0]);
+
+  const response = await fetch(`${origin}/api/auth/callback/admin-password`, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Cookie: csrfCookies.join("; "),
+    },
+    body: new URLSearchParams({
+      csrfToken: csrf.csrfToken,
+      password: testAdminPassword,
+      callbackUrl: `${origin}/admin`,
+      json: "true",
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  const result = (await response.json()) as { url?: string };
+  assert.equal(result.url, `${origin}/admin`);
+  const sessionCookies = response.headers
+    .getSetCookie()
+    .map((cookie) => cookie.split(";", 1)[0]);
+  const sessionResponse = await fetch(`${origin}/api/auth/session`, {
+    headers: { Cookie: [...csrfCookies, ...sessionCookies].join("; ") },
+  });
+  const session = (await sessionResponse.json()) as {
+    user?: { role?: string };
+  };
+  assert.equal(session.user?.role, "admin");
 });
 
 test("publisher verification requires a module-scoped bearer token", async () => {
