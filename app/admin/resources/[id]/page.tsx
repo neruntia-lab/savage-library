@@ -28,5 +28,6 @@ export default async function EditResourcePage({
     listPatreonTiers().catch(() => []),
   ]);
   if (!resource) notFound();
+  if (resource.setupStatus === "in_progress") redirect(`/admin/resources/${id}/setup`);
   return <ResourceWorkspace initialValue={resource} facets={facets} tiers={tiers} />;
 }

@@ -78,24 +78,24 @@ export function AdminResourceList({
                   resource.isPublished ? "published" : "draft"
                 }`}
               >
-                {resource.isPublished ? "Published" : "Draft"}
+                {resource.setupStatus === "in_progress" ? "Setup incomplete" : resource.isPublished ? "Published" : "Draft"}
               </span>
               <small>{resource.downloadCount.toLocaleString()} downloads</small>
             </td>
             <td data-label="Actions"><div className="admin-row-actions">
               <Link
                 className="button button-secondary button-small"
-                href={`/admin/resources/${resource.id}`}
+                href={resource.setupStatus === "in_progress" ? `/admin/resources/${resource.id}/setup` : `/admin/resources/${resource.id}`}
               >
-                Edit
+                {resource.setupStatus === "in_progress" ? "Continue setup" : "Edit"}
               </Link>
-              <button
+              {resource.setupStatus !== "in_progress" ? <button
                 className="button button-secondary button-small"
                 type="button"
                 onClick={() => onPublicationToggle(resource)}
               >
                 {resource.isPublished ? "Unpublish" : "Publish"}
-              </button>
+              </button> : null}
               <button
                 className="admin-more-button"
                 type="button"

@@ -133,6 +133,17 @@ test("publisher catalog orchestration rejects missing administrator credentials"
   assert.equal(notes.status, 401);
 });
 
+test("content wizard APIs require administrator authentication", async () => {
+  const create = await fetch(`${origin}/api/resources/wizard`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title: "Test", resourceType: "pdf" }),
+  });
+  assert.equal(create.status, 401);
+  const resume = await fetch(`${origin}/api/resources/resource-id/wizard`);
+  assert.equal(resume.status, 401);
+});
+
 test("legal disclosures are publicly available", async () => {
   const privacy = await get("/privacy");
   assert.match(privacy, /Privacy policy/);

@@ -409,6 +409,7 @@ export function ResourceWorkspace({
               options={[
                 ["module", "Foundry module"],
                 ["pdf", "PDF"],
+                ["macro", "Macro"],
                 ["class", "Class"],
                 ["subclass", "Subclass"],
               ]}

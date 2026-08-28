@@ -19,6 +19,8 @@ export type AdminResource = {
   useIconEverywhere?: boolean;
   revision?: number;
   pendingReleaseCount: number;
+  setupStatus?: "in_progress" | "complete";
+  setupStep?: number;
 };
 
 export type EditingResource = ResourceInput & {
@@ -41,6 +43,9 @@ export type EditingResource = ResourceInput & {
     isCurrent: boolean;
     releasedAt: string;
   }>;
+  setupStatus?: "in_progress" | "complete";
+  setupStep?: number;
+  setupCompletedAt?: string | null;
 };
 
 export const EMPTY_RESOURCE: ResourceInput = {

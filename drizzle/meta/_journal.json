@@ -71,6 +71,13 @@
       "when": 1786948968439,
       "tag": "0009_rare_mesmero",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787883665533,
+      "tag": "0010_friendly_selene",
+      "breakpoints": true
     }
   ]
 }

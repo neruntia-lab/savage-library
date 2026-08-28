@@ -5,6 +5,7 @@ import {
 } from "../../../../lib/repositories/resource-repository";
 import { deleteResourceAndFiles } from "../../../../lib/services/resource-admin";
 import { requireApiAdmin } from "../../../../lib/services/auth";
+import { getResourcePublicationChecks, publishResourceWithDelivery } from "../../../../lib/services/resource-publication";
 import { validateResourceInput } from "../../../../lib/validation/resource";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -70,6 +71,12 @@ export async function PATCH(request: Request, context: RouteContext) {
       if (!resource) {
         return Response.json({ error: "Resource not found." }, { status: 404 });
       }
+      if (resource.setupStatus === "in_progress") {
+        return Response.json(
+          { error: "Finish the guided setup before publishing this resource." },
+          { status: 400 },
+        );
+      }
       const validation = validateResourceInput({
         ...resource,
         isPublished: true,
@@ -83,8 +90,20 @@ export async function PATCH(request: Request, context: RouteContext) {
           { status: 400 },
         );
       }
+      const readiness = await getResourcePublicationChecks(id);
+      const required = readiness?.checks.filter((check) => check.level === "required") ?? [];
+      if (required.length) {
+        return Response.json(
+          { error: "Complete the required delivery items before publishing.", checks: readiness?.checks },
+          { status: 400 },
+        );
+      }
     }
-    const updated = await setResourcePublication(id, payload.isPublished);
+    if (payload.isPublished) {
+      await publishResourceWithDelivery(id);
+      return Response.json({ id, isPublished: true });
+    }
+    const updated = await setResourcePublication(id, false);
     return updated
       ? Response.json({ id, isPublished: payload.isPublished })
       : Response.json({ error: "Resource not found." }, { status: 404 });

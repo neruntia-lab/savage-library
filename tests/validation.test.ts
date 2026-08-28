@@ -19,6 +19,11 @@ import {
 import { verifyScryptPassword } from "../lib/services/password";
 import { resolveResourceArtwork } from "../lib/services/resource-artwork";
 import {
+  createWizardDraftInput,
+  wizardContentChecks,
+  wizardSlug,
+} from "../lib/services/resource-wizard";
+import {
   taxonomyError,
   validateTaxonomy,
 } from "../lib/validation/taxonomy";
@@ -261,4 +266,51 @@ test("taxonomy errors identify duplicate slugs without leaking details", () => {
     taxonomyError(new Error("database unavailable"), "updated"),
     "The taxonomy entry could not be updated.",
   );
+});
+
+test("content wizard generates stable slugs and safe taxonomy defaults", () => {
+  assert.equal(wizardSlug("  Savage Théâtre: Tools!  "), "savage-theatre-tools");
+  const draft = createWizardDraftInput({
+    title: "Savage Theatre",
+    slug: "savage-theatre",
+    resourceType: "module",
+    defaultLocale: "en",
+    facets: {
+      authors: [{ id: "author-savage", name: "Savage Library", slug: "savage-library" }],
+      categories: [{ id: "category-modules", name: "Foundry VTT Modules", slug: "foundry-modules" }],
+      gameSystems: [{ id: "system-dnd5e", name: "D&D 5e", slug: "dnd5e" }],
+      tags: [], foundryVersions: [], moduleVersions: [], classes: [],
+    },
+  });
+  assert.equal(draft.categoryId, "category-modules");
+  assert.equal(draft.authorId, "author-savage");
+  assert.equal(draft.gameSystemId, "system-dnd5e");
+  assert.equal(draft.isPublished, false);
+});
+
+test("content wizard publication checks enforce type-specific delivery", () => {
+  const moduleValidation = validateResourceInput({
+    ...validResource,
+    defaultLocale: "en",
+    accessMode: "public",
+    patreonTierIds: [],
+    translations: {
+      en: { title: "Test Module", shortDescription: "A complete module description.", description: "Details", isPublished: false },
+      es: { title: "", shortDescription: "", description: "", isPublished: false },
+    },
+    isPublished: false,
+    useIconEverywhere: false,
+  });
+  assert.equal(moduleValidation.success, true);
+  if (!moduleValidation.success) return;
+  const blocked = wizardContentChecks(moduleValidation.data, {
+    hasPrimaryFile: false,
+    hasValidatedModuleRelease: false,
+  });
+  assert.ok(blocked.some((check) => check.level === "required" && /module ZIP/.test(check.message)));
+  const ready = wizardContentChecks(moduleValidation.data, {
+    hasPrimaryFile: false,
+    hasValidatedModuleRelease: true,
+  });
+  assert.equal(ready.some((check) => check.level === "required"), false);
 });

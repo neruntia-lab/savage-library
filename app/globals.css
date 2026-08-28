@@ -5470,3 +5470,162 @@ textarea:focus {
     max-width: 240px;
   }
 }
+/* Guided content creation */
+.creation-wizard {
+  width: min(1120px, calc(100% - 32px));
+  margin: 34px auto 120px;
+}
+
+.wizard-header {
+  display: grid;
+  gap: 28px;
+  margin-bottom: 24px;
+}
+
+.wizard-header h1 { margin: 4px 0; }
+.wizard-header > div > p:last-child { color: var(--color-muted); }
+
+.wizard-stepper {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.wizard-stepper li {
+  min-width: 0;
+  border-top: 2px solid var(--color-border);
+  padding-top: 10px;
+  color: var(--color-muted);
+}
+
+.wizard-stepper li span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 7px;
+  border: 1px solid currentColor;
+}
+
+.wizard-stepper li small { display: block; line-height: 1.25; }
+.wizard-stepper li.current { color: var(--color-gold); border-color: var(--color-gold); }
+.wizard-stepper li.complete { color: #46c995; border-color: #46c995; }
+
+.wizard-card {
+  min-height: 520px;
+  padding: clamp(22px, 4vw, 52px);
+  border: 1px solid var(--color-border);
+  background: var(--color-panel);
+}
+
+.wizard-card section { display: grid; gap: 28px; }
+.wizard-section-heading { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: start; }
+.wizard-section-heading > span { color: var(--color-gold); font: 700 0.76rem/1 var(--font-sans); letter-spacing: 0.16em; }
+.wizard-section-heading h2 { margin: 0 0 6px; }
+.wizard-section-heading p { margin: 0; color: var(--color-muted); }
+
+.wizard-type-grid,
+.wizard-access-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.wizard-type-grid label,
+.wizard-access-grid label,
+.wizard-tier-grid label {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-panel) 72%, black);
+  cursor: pointer;
+}
+
+.wizard-type-grid label.selected,
+.wizard-access-grid label.selected,
+.wizard-tier-grid label.selected,
+.wizard-tag-grid label.selected { border-color: var(--color-gold); background: rgba(189, 137, 64, 0.08); }
+.wizard-type-grid input,
+.wizard-access-grid input,
+.wizard-tier-grid input { width: auto; justify-self: start; }
+.wizard-type-grid span,
+.wizard-access-grid span,
+.wizard-tier-grid span { color: var(--color-muted); font-size: 0.82rem; }
+
+.wizard-language-fields { display: grid; gap: 18px; }
+.wizard-description { min-height: 230px; }
+.wizard-secondary-toggle { display: flex !important; align-items: center; gap: 10px; }
+.wizard-secondary-toggle input { width: auto !important; }
+.wizard-advanced { border: 1px solid var(--color-border); padding: 16px; }
+.wizard-advanced summary { color: var(--color-gold); cursor: pointer; font-weight: 700; }
+.wizard-advanced[open] summary { margin-bottom: 18px; }
+
+.wizard-tag-grid,
+.wizard-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.wizard-tag-grid label { padding: 10px 12px; border: 1px solid var(--color-border); cursor: pointer; }
+.wizard-tag-grid input { width: auto !important; margin-right: 8px; }
+
+.wizard-primary-upload { max-width: 540px; }
+.wizard-artwork-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.wizard-artwork-grid > div { display: grid; gap: 8px; }
+.wizard-artwork-grid img { width: 100%; height: 160px; object-fit: contain; border: 1px solid var(--color-border); background: #0c0d10; }
+.wizard-upload { position: relative; display: grid !important; gap: 6px; padding: 18px; border: 1px dashed var(--color-border); cursor: pointer; overflow: hidden; }
+.wizard-upload:hover { border-color: var(--color-gold); }
+.wizard-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.wizard-upload > span { color: var(--color-muted); font-size: 0.8rem; }
+.wizard-upload.complete { border-color: #46c995; }
+.wizard-upload.error { border-color: #d95252; }
+.wizard-warning { padding: 16px; border: 1px solid #d95252; color: #ffaaaa; background: rgba(180, 32, 32, 0.08); }
+
+.wizard-check-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.wizard-check-list { padding: 18px; border: 1px solid var(--color-border); }
+.wizard-check-list h3 { margin-top: 0; font-size: 1rem; }
+.wizard-check-list p { display: grid; grid-template-columns: 20px 1fr; gap: 8px; align-items: start; }
+.wizard-check-list.required { border-color: #d95252; }
+.wizard-check-list.confirmed { border-color: #46c995; }
+.wizard-preview iframe { width: 100%; min-height: 720px; border: 1px solid var(--color-border); background: #08090b; }
+
+.wizard-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-top: 0;
+  background: rgba(10, 11, 14, 0.96);
+  backdrop-filter: blur(12px);
+}
+.wizard-actions > span { color: var(--color-muted); }
+.wizard-actions > div { display: flex; gap: 10px; }
+.field-error { color: #ff8f8f !important; }
+
+@media (max-width: 760px) {
+  .creation-wizard { width: min(100% - 20px, 680px); margin-top: 18px; }
+  .wizard-stepper { grid-template-columns: repeat(6, 38px); overflow-x: auto; justify-content: space-between; }
+  .wizard-stepper li small { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .wizard-card { min-height: 440px; padding: 20px 14px; }
+  .wizard-type-grid,
+  .wizard-access-grid,
+  .wizard-artwork-grid,
+  .wizard-check-columns { grid-template-columns: 1fr; }
+  .wizard-actions { grid-template-columns: 1fr 1fr; }
+  .wizard-actions > span { grid-column: 1 / -1; grid-row: 1; }
+  .wizard-actions > button { grid-column: 1; }
+  .wizard-actions > div { grid-column: 2; display: grid; }
+  .wizard-actions .button { width: 100%; min-width: 0; }
+  .wizard-preview iframe { min-height: 560px; }
+}

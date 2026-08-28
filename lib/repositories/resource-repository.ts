@@ -6,6 +6,7 @@ import {
   eq,
   inArray,
   like,
+  ne,
   or,
   sql,
   type SQL,
@@ -351,6 +352,8 @@ export async function listAdminResources(): Promise<
     useIconEverywhere: boolean;
     revision: number;
     pendingReleaseCount: number;
+    setupStatus: "in_progress" | "complete";
+    setupStep: number;
   }>
 > {
   try {
@@ -373,6 +376,8 @@ export async function listAdminResources(): Promise<
         iconKey: resources.iconKey,
         useIconEverywhere: resources.useIconEverywhere,
         revision: resources.revision,
+        setupStatus: resources.setupStatus,
+        setupStep: resources.setupStep,
         pendingReleaseCount: sql<number>`(
           select count(*)::int
           from resource_versions as pending_release
@@ -390,7 +395,7 @@ export async function listAdminResources(): Promise<
       )
       .orderBy(desc(resources.updatedAt))
       .then((rows) =>
-        rows.map(({ thumbnailKey, iconKey, useIconEverywhere, ...row }) => {
+        rows.map(({ thumbnailKey, iconKey, useIconEverywhere, setupStatus, ...row }) => {
           const artwork = {
             thumbnailUrl: storageImageUrl(thumbnailKey),
             iconUrl: storageImageUrl(iconKey),
@@ -398,6 +403,7 @@ export async function listAdminResources(): Promise<
           };
           return ({
           ...row,
+          setupStatus: setupStatus === "in_progress" ? ("in_progress" as const) : ("complete" as const),
           accessMode: row.accessMode as "public" | "patreon",
           defaultLocale: row.defaultLocale as "en" | "es",
           ...artwork,
@@ -422,8 +428,10 @@ export async function listAdminResources(): Promise<
       iconUrl: resource.iconUrl ?? null,
       cardArtworkUrl: resource.cardArtworkUrl ?? null,
       useIconEverywhere: resource.useIconEverywhere ?? false,
-      revision: 1,
-      pendingReleaseCount: 0,
+          revision: 1,
+          pendingReleaseCount: 0,
+          setupStatus: "complete" as const,
+          setupStep: 1,
     }));
   }
 }
@@ -451,6 +459,9 @@ export async function getAdminResource(
         isCurrent: boolean;
         releasedAt: string;
       }>;
+      setupStatus: "in_progress" | "complete";
+      setupStep: number;
+      setupCompletedAt: string | null;
     })
   | null
 > {
@@ -592,7 +603,71 @@ export async function getAdminResource(
     isFeatured: resource.isFeatured,
     useIconEverywhere: resource.useIconEverywhere,
     isPublished: resource.isPublished,
+    setupStatus: resource.setupStatus as "in_progress" | "complete",
+    setupStep: resource.setupStep,
+    setupCompletedAt: resource.setupCompletedAt,
   };
+}
+
+export async function setResourceSetupState(
+  id: string,
+  input: { step?: number; status?: "in_progress" | "complete" },
+): Promise<boolean> {
+  const now = new Date().toISOString();
+  const status = input.status;
+  const result = await getDb()
+    .update(resources)
+    .set({
+      ...(typeof input.step === "number"
+        ? { setupStep: Math.max(1, Math.min(6, Math.trunc(input.step))) }
+        : {}),
+      ...(status
+        ? {
+            setupStatus: status,
+            setupCompletedAt: status === "complete" ? now : null,
+          }
+        : {}),
+      updatedAt: now,
+    })
+    .where(eq(resources.id, id))
+    .returning({ id: resources.id });
+  return Boolean(result[0]);
+}
+
+export async function resourceSlugExists(
+  slug: string,
+  excludeId?: string,
+): Promise<boolean> {
+  const conditions = [eq(resources.slug, slug)];
+  if (excludeId) conditions.push(ne(resources.id, excludeId));
+  const rows = await getDb()
+    .select({ id: resources.id })
+    .from(resources)
+    .where(and(...conditions))
+    .limit(1);
+  return Boolean(rows[0]);
+}
+
+export async function hasCurrentResourceFile(
+  resourceId: string,
+  kind: "pdf" | "macro",
+): Promise<boolean> {
+  const rows = await getDb()
+    .select({ id: files.id })
+    .from(files)
+    .innerJoin(
+      resourceVersions,
+      eq(files.resourceVersionId, resourceVersions.id),
+    )
+    .where(
+      and(
+        eq(resourceVersions.resourceId, resourceId),
+        eq(resourceVersions.isCurrent, true),
+        eq(files.kind, kind),
+      ),
+    )
+    .limit(1);
+  return Boolean(rows[0]);
 }
 
 export async function createResource(input: ResourceInput): Promise<string> {
