@@ -49,57 +49,41 @@ after(() => {
   server?.kill();
 });
 
-test("public pages load without the retired construction login", async () => {
+test("public pages show the bilingual maintenance screen", async () => {
   const home = await fetch(origin);
   assert.equal(home.status, 200);
   const html = await home.text();
   assert.match(html, /Savage Library/);
-  assert.match(html, /Open navigation menu/);
-  assert.match(html, /aria-controls="mobile-navigation"/);
-  assert.match(html, /aria-label="Mobile navigation"/);
-  assert.match(html, /Patreon access/);
-  assert.doesNotMatch(html, /footer-seal/);
-  assert.doesNotMatch(html, /href="\/admin"/);
-  assert.doesNotMatch(html, /Site under construction/);
-  assert.match(html, /href="\/privacy"/);
-  assert.match(html, /href="\/terms"/);
+  assert.match(html, /The archive is being refined\./);
+  assert.match(html, /Estamos mejorando el archivo\./);
+  assert.match(html, /will bring it back online as soon as possible/);
+  assert.doesNotMatch(html, /Search the archive/);
 });
 
-test("home-to-library discovery flow renders searchable catalog content", async () => {
+test("public catalog routes remain unavailable during maintenance", async () => {
   const home = await get("/");
   assert.match(home, /Savage Library/);
-  assert.match(home, /Search the archive/);
-  assert.match(home, /Foundry VTT Modules/);
+  assert.match(home, /The archive is being refined\./);
 
   const library = await get(
     "/library?q=crafting&type=module&system=dnd5e&foundry=13&sort=most-downloaded",
   );
-  assert.match(library, /Savage Craft/);
-  assert.match(library, /matching/);
-  assert.match(library, /Filters.*\(4\)/);
-  assert.match(library, /filter-advanced is-open/);
-  assert.doesNotMatch(library, /Vanguard Class/);
+  assert.match(library, /Estamos mejorando el archivo\./);
+  assert.doesNotMatch(library, /Savage Craft/);
 
   const tagSearch = await get("/library?q=Automation");
-  assert.match(tagSearch, /Savage Craft/);
+  assert.match(tagSearch, /The archive is being refined\./);
 });
 
-test("resource detail flow exposes attribution, compatibility, and manifest actions", async () => {
+test("public resource routes show maintenance instead of catalog data", async () => {
   const details = await get("/resources/savage-craft");
-  assert.match(details, /José Felipe/);
-  assert.match(details, /Foundry support/);
-  assert.match(details, /Installation instructions/);
-  assert.match(details, /Copy manifest/);
-  assert.match(details, /api\/foundry\/modules\/savage-craft\/module\.json/);
-  assert.match(details, /All rights reserved/);
-  assert.doesNotMatch(details, /<h2>Files<\/h2>/);
-  assert.doesNotMatch(details, /Download module/i);
+  assert.match(details, /The archive is being refined\./);
+  assert.doesNotMatch(details, /Installation instructions/);
 });
 
 test("category and discovery metadata routes are available", async () => {
   const category = await get("/categories/foundry-modules");
-  assert.match(category, /Foundry VTT Modules/);
-  assert.match(category, /Savage Training/);
+  assert.match(category, /Estamos mejorando el archivo\./);
 
   const sitemap = await get("/sitemap.xml");
   assert.match(sitemap, /resources\/savage-craft/);
@@ -110,9 +94,9 @@ test("category and discovery metadata routes are available", async () => {
   const robots = await get("/robots.txt");
   assert.match(robots, /Disallow: \/admin/);
 
-  const removedNews = await fetch(`${origin}/news`, {
-  });
-  assert.equal(removedNews.status, 404);
+  const removedNews = await fetch(`${origin}/news`);
+  assert.equal(removedNews.status, 200);
+  assert.match(await removedNews.text(), /The archive is being refined\./);
 });
 
 test("publisher catalog orchestration rejects missing administrator credentials", async () => {
@@ -144,21 +128,17 @@ test("content wizard APIs require administrator authentication", async () => {
   assert.equal(resume.status, 401);
 });
 
-test("legal disclosures are publicly available", async () => {
+test("legal pages also show maintenance while static metadata remains available", async () => {
   const privacy = await get("/privacy");
-  assert.match(privacy, /Privacy policy/);
-  assert.match(privacy, /Patreon account identifiers/);
-  assert.match(privacy, /library@neruntia-lab\.com/);
+  assert.match(privacy, /The archive is being refined\./);
 
   const terms = await get("/terms");
-  assert.match(terms, /Terms of service/);
-  assert.match(terms, /Licenses and permitted use/);
-  assert.match(terms, /unauthorized redistribution/);
+  assert.match(terms, /Estamos mejorando el archivo\./);
 });
 
-test("logout confirmation and draft previews fail safely", async () => {
+test("public logout and preview routes show maintenance", async () => {
   const logout = await get("/logout");
-  assert.match(logout, /Sign out · Savage Library/);
+  assert.match(logout, /The archive is being refined\./);
   assert.match(logout, /noindex, nofollow/);
 
   const preview = await fetch(

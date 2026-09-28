@@ -5815,6 +5815,162 @@ textarea:focus {
   margin-top: 0.2rem;
 }
 
+/* Public maintenance screen */
+body:has(.maintenance-page) .skip-link,
+body:has(.maintenance-page) .site-header,
+body:has(.maintenance-page) .site-footer {
+  display: none;
+}
+
+body:has(.maintenance-page) #main-content {
+  min-height: 100vh;
+}
+
+.maintenance-page {
+  align-items: center;
+  display: grid;
+  isolation: isolate;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: clamp(1.25rem, 5vw, 4rem);
+  position: relative;
+}
+
+.maintenance-page::before,
+.maintenance-page::after {
+  border: 1px solid rgb(216 181 106 / 14%);
+  content: "";
+  height: min(48vw, 560px);
+  pointer-events: none;
+  position: absolute;
+  transform: rotate(45deg);
+  width: min(48vw, 560px);
+  z-index: -1;
+}
+
+.maintenance-page::before {
+  right: -20vw;
+  top: -22vw;
+}
+
+.maintenance-page::after {
+  bottom: -22vw;
+  left: -20vw;
+}
+
+.maintenance-grid {
+  background-image:
+    linear-gradient(rgb(216 181 106 / 4%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(216 181 106 / 4%) 1px, transparent 1px);
+  background-size: 64px 64px;
+  inset: 0;
+  mask-image: radial-gradient(circle at center, black, transparent 72%);
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+
+.maintenance-panel {
+  background:
+    radial-gradient(circle at 12% 0, rgb(188 44 0 / 11%), transparent 17rem),
+    linear-gradient(145deg, rgb(255 255 255 / 3%), transparent 52%),
+    var(--color-surface);
+  border: 1px solid rgb(216 181 106 / 22%);
+  box-shadow: var(--shadow-panel);
+  margin: 0 auto;
+  max-width: 760px;
+  padding: clamp(2rem, 7vw, 5rem);
+  position: relative;
+  text-align: center;
+}
+
+.maintenance-panel::before {
+  background: linear-gradient(90deg, var(--color-ember), var(--color-gold), transparent);
+  content: "";
+  height: 1px;
+  left: 14%;
+  opacity: 0.78;
+  position: absolute;
+  top: 0;
+  width: 72%;
+}
+
+.maintenance-mark {
+  align-items: center;
+  background: radial-gradient(circle, rgb(188 44 0 / 17%), transparent 67%);
+  display: flex;
+  justify-content: center;
+  margin: 0 auto 2rem;
+  min-height: 106px;
+}
+
+.maintenance-mark img {
+  filter: drop-shadow(0 12px 26px rgb(0 0 0 / 52%));
+  height: 84px;
+  width: auto;
+}
+
+.maintenance-panel .eyebrow {
+  justify-content: center;
+  margin-bottom: 1.2rem;
+}
+
+.maintenance-panel h1,
+.maintenance-panel h2 {
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-weight: 500;
+  margin: 0;
+}
+
+.maintenance-panel h1 {
+  font-size: clamp(2.9rem, 7vw, 5.3rem);
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+}
+
+.maintenance-intro,
+.maintenance-translation > p:last-child {
+  color: var(--color-text-muted);
+  font-size: clamp(1rem, 2vw, 1.1rem);
+  line-height: 1.75;
+  margin: 1.5rem auto 0;
+  max-width: 56ch;
+}
+
+.maintenance-rule {
+  background: linear-gradient(90deg, transparent, rgb(216 181 106 / 48%), transparent);
+  height: 1px;
+  margin: clamp(2.5rem, 6vw, 4rem) auto;
+  width: min(100%, 460px);
+}
+
+.maintenance-translation .eyebrow {
+  color: var(--color-text-subtle);
+  margin-bottom: 0.85rem;
+}
+
+.maintenance-panel h2 {
+  color: var(--color-gold-bright);
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+@media (max-width: 620px) {
+  .maintenance-page {
+    padding: 1rem;
+  }
+
+  .maintenance-panel {
+    padding: 2.5rem 1.5rem;
+  }
+
+  .maintenance-panel h1 {
+    font-size: clamp(2.65rem, 14vw, 3.65rem);
+  }
+}
+
 @media (max-width: 960px) {
   .wizard-mobile-progress {
     background: #151419;
