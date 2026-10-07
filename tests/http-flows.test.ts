@@ -13,6 +13,8 @@ let server: ChildProcess;
 let serverOutput = "";
 
 before(async () => {
+  const testEnvironment = { ...process.env };
+  delete testEnvironment.VERCEL;
   server = spawn(
     process.execPath,
     [
@@ -26,7 +28,8 @@ before(async () => {
     {
       cwd: process.cwd(),
       env: {
-        ...process.env,
+        ...testEnvironment,
+        SAVAGE_LIBRARY_LOCAL_PREVIEW: "1",
         AUTH_SECRET: "http-flow-test-auth-secret-not-for-production",
         ADMIN_PASSWORD_HASH: testAdminHash,
         NEXTAUTH_URL: origin,
@@ -110,13 +113,14 @@ test("category and discovery metadata routes are available", async () => {
   const robots = await get("/robots.txt");
   assert.match(robots, /Disallow: \/admin/);
 
-  const removedNews = await fetch(`${origin}/news`, {
-  });
+  const removedNews = await fetch(`${origin}/news`, {});
   assert.equal(removedNews.status, 404);
 });
 
 test("publisher catalog orchestration rejects missing administrator credentials", async () => {
-  const verify = await fetch(`${origin}/api/publisher/admin/verify`, { method: "POST" });
+  const verify = await fetch(`${origin}/api/publisher/admin/verify`, {
+    method: "POST",
+  });
   assert.equal(verify.status, 401);
   assert.equal((await verify.json()).code, "admin_cli_token_invalid");
   const catalog = await fetch(`${origin}/api/publisher/catalog`, {
@@ -234,6 +238,29 @@ test("admin credentials callback creates an administrator session", async () => 
     user?: { role?: string };
   };
   assert.equal(session.user?.role, "admin");
+  const headers = { Cookie: [...csrfCookies, ...sessionCookies].join("; ") };
+  const taxonomy = await fetch(`${origin}/api/taxonomy`, { headers });
+  assert.equal(taxonomy.status, 200);
+  assert.ok((await taxonomy.json()).facets.categories.length > 0);
+  const releases = await fetch(
+    `${origin}/api/admin/resources/resource-savage-craft/releases`,
+    { headers },
+  );
+  assert.equal(releases.status, 200);
+  assert.deepEqual((await releases.json()).releases, []);
+  const preview = await fetch(
+    `${origin}/admin/resources/resource-savage-craft/preview`,
+    { headers },
+  );
+  assert.equal(preview.status, 200);
+  assert.equal(preview.headers.get("X-Frame-Options"), "SAMEORIGIN");
+  assert.equal(
+    preview.headers.get("Content-Security-Policy"),
+    "frame-ancestors 'self'",
+  );
+  const previewPage = await fetch(`${origin}/resources/savage-craft?preview=resource-savage-craft`, { headers });
+  assert.equal(previewPage.status, 200);
+  assert.match(await previewPage.text(), /Private draft preview/);
 });
 
 test("publisher verification requires a module-scoped bearer token", async () => {

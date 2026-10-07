@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchApi } from "../../lib/client/request";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { CatalogFacets } from "../../lib/domain/resource";
@@ -60,7 +61,7 @@ export function AdminDashboard({
   );
 
   async function refreshResources() {
-    const response = await fetch("/api/resources?admin=1");
+    const response = await fetchApi("/api/resources?admin=1");
     if (!response.ok) return;
     const body = (await response.json()) as { resources: AdminResource[] };
     setResources(body.resources);
@@ -70,7 +71,7 @@ export function AdminDashboard({
     setStatus(
       resource.isPublished ? "Returning entry to draft…" : "Publishing entry…",
     );
-    const response = await fetch(`/api/resources/${resource.id}`, {
+    const response = await fetchApi(`/api/resources/${resource.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isPublished: !resource.isPublished }),
@@ -95,7 +96,7 @@ export function AdminDashboard({
     if (confirmed !== resource.title) return;
 
     setStatus(`Deleting ${resource.title}…`);
-    const response = await fetch(`/api/resources/${resource.id}`, {
+    const response = await fetchApi(`/api/resources/${resource.id}`, {
       method: "DELETE",
     });
     setStatus(
@@ -213,54 +214,6 @@ export function AdminDashboard({
         <CliTokenManager onStatus={setStatus} />
       )}
     </>
-  );
-}
-
-// Kept as a compact fallback for deployments that only configure tier sync.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function PatreonSettings({
-  onStatus,
-}: {
-  onStatus: (message: string) => void;
-}) {
-  const [busy, setBusy] = useState(false);
-
-  async function sync() {
-    setBusy(true);
-    onStatus("Synchronizing Patreon tiers…");
-    const response = await fetch("/api/admin/patreon/tiers", { method: "POST" });
-    const body = (await response.json().catch(() => ({}))) as {
-      count?: number;
-      error?: string;
-    };
-    onStatus(
-      response.ok
-        ? `${body.count ?? 0} Patreon tiers synchronized.`
-        : body.error ?? "Patreon could not be synchronized.",
-    );
-    setBusy(false);
-  }
-
-  return (
-    <section className="admin-panel patreon-settings">
-      <div>
-        <p className="eyebrow">Membership connection</p>
-        <h2>Patreon access</h2>
-        <p>
-          Refresh the available campaign tiers before assigning them to protected
-          resources. Membership is checked live whenever a protected file is
-          downloaded.
-        </p>
-      </div>
-      <button
-        type="button"
-        className="button button-primary"
-        onClick={sync}
-        disabled={busy}
-      >
-        {busy ? "Synchronizing…" : "Synchronize tiers"}
-      </button>
-    </section>
   );
 }
 

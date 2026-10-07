@@ -1,14 +1,17 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
+import { requestJson } from "../../lib/client/request";
+import { EMPTY_UPLOAD, isArtworkKind } from "../../lib/client/resource-upload";
+import { buildResourcePayload } from "../../lib/client/resource-form";
+import { useResourceUploads } from "./useResourceUploads";
+import { TranslationFields } from "./TranslationFields";
+import { DependenciesEditor } from "./DependenciesEditor";
+import { Field, TextArea, SelectField, SectionHeading } from "./EditorFields";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { CatalogFacets, FileKind } from "../../lib/domain/resource";
-import type {
-  ResourceInput,
-  ResourceTranslationInput,
-} from "../../lib/validation/resource";
+import type { ResourceInput } from "../../lib/validation/resource";
 import type { EditingResource } from "./types";
 import { ModuleReleaseManager } from "./ModuleReleaseManager";
 import { foundryManifestUrl } from "../../lib/config/site";
@@ -20,20 +23,6 @@ type PatreonTier = {
   amountCents: number;
   isPublished: boolean;
 };
-
-type ArtworkKind = "cover" | "thumbnail" | "icon";
-type ArtworkUploadState = {
-  phase: "idle" | "uploading" | "saving" | "complete" | "error";
-  progress: number;
-  fileName?: string;
-  error?: string;
-};
-
-const EMPTY_ARTWORK_UPLOAD: ArtworkUploadState = { phase: "idle", progress: 0 };
-
-function isArtworkKind(kind: FileKind): kind is ArtworkKind {
-  return kind === "cover" || kind === "thumbnail" || kind === "icon";
-}
 
 export function ResourceWorkspace({
   initialValue,
@@ -47,8 +36,9 @@ export function ResourceWorkspace({
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const savingRef = useRef(false);
+  const changeCounterRef = useRef(0);
+  const lastAttemptRef = useRef(-1);
   const artworkUploadActiveRef = useRef(false);
-  const temporaryArtworkUrls = useRef<Partial<Record<ArtworkKind, string>>>({});
   const editing = "id" in initialValue;
   const resourceId = editing ? initialValue.id : null;
   const resourceVersionId = editing ? initialValue.resourceVersionId : null;
@@ -58,55 +48,84 @@ export function ResourceWorkspace({
   );
   const [resourceType, setResourceType] = useState(initialValue.resourceType);
   const [resourceSlug, setResourceSlug] = useState(initialValue.slug);
-  const [manifestValue, setManifestValue] = useState(initialValue.manifestUrl ?? "");
+  const [manifestValue, setManifestValue] = useState(
+    initialValue.manifestUrl ?? "",
+  );
   const [dependencies, setDependencies] = useState(initialValue.dependencies);
   const [status, setStatus] = useState(
-    editing ? "All changes saved." : "Start with a title. You can save a draft at any time.",
+    editing
+      ? "All changes saved."
+      : "Start with a title. You can save a draft at any time.",
   );
   const [changeVersion, setChangeVersion] = useState(0);
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>(
-    {},
-  );
-  const [artwork, setArtwork] = useState({
-    coverUrl: editing ? initialValue.coverUrl ?? null : null,
-    thumbnailUrl: editing ? initialValue.thumbnailUrl ?? null : null,
-    iconUrl: editing ? initialValue.iconUrl ?? null : null,
-  });
-  const [artworkUploads, setArtworkUploads] = useState<
-    Record<ArtworkKind, ArtworkUploadState>
-  >({
-    cover: EMPTY_ARTWORK_UPLOAD,
-    thumbnail: EMPTY_ARTWORK_UPLOAD,
-    icon: EMPTY_ARTWORK_UPLOAD,
+  const [localArtwork, setArtwork] = useState({
+    coverUrl: editing ? (initialValue.coverUrl ?? null) : null,
+    thumbnailUrl: editing ? (initialValue.thumbnailUrl ?? null) : null,
+    iconUrl: editing ? (initialValue.iconUrl ?? null) : null,
   });
   const [useIconEverywhere, setUseIconEverywhere] = useState(
     initialValue.useIconEverywhere ?? false,
   );
   const [busy, setBusy] = useState(false);
-  const artworkUploadActive = Object.values(artworkUploads).some(
-    (item) => item.phase === "uploading" || item.phase === "saving",
+  const fileUploads = useResourceUploads({
+    resourceId,
+    resourceVersionId,
+    onStatus: setStatus,
+    onPreview: (kind, url) =>
+      setArtwork((current) => ({ ...current, [`${kind}Url`]: url })),
+    onArtwork: (confirmed, kind) =>
+      setArtwork((current) => ({
+        ...current,
+        [`${kind}Url`]: confirmed[`${kind}Url`],
+      })),
+  });
+  const artworkUploads = {
+    cover: fileUploads.uploads.cover ?? EMPTY_UPLOAD,
+    thumbnail: fileUploads.uploads.thumbnail ?? EMPTY_UPLOAD,
+    icon: fileUploads.uploads.icon ?? EMPTY_UPLOAD,
+  };
+  const artworkUploadActive = fileUploads.busy;
+  const uploadProgress = Object.fromEntries(
+    Object.entries(fileUploads.uploads).map(([key, state]) => [
+      key,
+      state.progress,
+    ]),
   );
+
+  const artwork = Object.fromEntries(
+    (["cover", "thumbnail", "icon"] as const).map((kind) => [
+      `${kind}Url`,
+      fileUploads.uploads[kind]
+        ? localArtwork[`${kind}Url`]
+        : editing
+          ? (initialValue[`${kind}Url`] ?? null)
+          : null,
+    ]),
+  ) as typeof localArtwork;
 
   useEffect(() => {
     artworkUploadActiveRef.current = artworkUploadActive;
   }, [artworkUploadActive]);
 
   useEffect(() => {
-    const urls = temporaryArtworkUrls.current;
-    return () => Object.values(urls).forEach((url) => URL.revokeObjectURL(url));
-  }, []);
-
-  useEffect(() => {
-    if (!editing || changeVersion === 0) return;
+    if (
+      !editing ||
+      changeVersion === 0 ||
+      busy ||
+      artworkUploadActive ||
+      lastAttemptRef.current === changeCounterRef.current
+    )
+      return;
     const timer = window.setTimeout(() => {
       void saveResource({ autosave: true });
     }, 1800);
     return () => window.clearTimeout(timer);
     // The counter deliberately snapshots the latest uncontrolled form values.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [changeVersion]);
+  }, [changeVersion, busy, artworkUploadActive]);
 
   function changed() {
+    changeCounterRef.current += 1;
     setStatus("Unsaved changes");
     setChangeVersion((value) => value + 1);
   }
@@ -115,17 +134,29 @@ export function ResourceWorkspace({
     autosave?: boolean;
     publish?: boolean;
   }) {
-    if (!formRef.current || savingRef.current || artworkUploadActiveRef.current) {
+    if (
+      !formRef.current ||
+      savingRef.current ||
+      artworkUploadActiveRef.current
+    ) {
       if (artworkUploadActiveRef.current) {
         setStatus("Wait for artwork uploads to finish before saving.");
       }
       return;
     }
     savingRef.current = true;
+    const savedChangeCounter = changeCounterRef.current;
+    lastAttemptRef.current = savedChangeCounter;
     setBusy(true);
-    setStatus(options?.autosave ? "Autosaving…" : options?.publish ? "Publishing…" : "Saving…");
+    setStatus(
+      options?.autosave
+        ? "Autosaving…"
+        : options?.publish
+          ? "Publishing…"
+          : "Saving…",
+    );
 
-    const payload = buildPayload(
+    const payload = buildResourcePayload(
       new FormData(formRef.current),
       dependencies,
       accessMode,
@@ -135,23 +166,18 @@ export function ResourceWorkspace({
       payload.changelogSummary = "";
       payload.changelogDetails = "";
     }
-    const response = await fetch(
-      resourceId ? `/api/resources/${resourceId}` : "/api/resources",
-      {
-        method: resourceId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-    );
-    const body = (await response.json().catch(() => ({}))) as {
+    const { ok, body } = await requestJson<{
       id?: string;
       error?: string;
       errors?: Record<string, string>;
-    };
-
+    }>(resourceId ? `/api/resources/${resourceId}` : "/api/resources", {
+      method: resourceId ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
     savingRef.current = false;
     setBusy(false);
-    if (!response.ok) {
+    if (!ok) {
       setStatus(
         body.error ??
           Object.values(body.errors ?? {})[0] ??
@@ -160,7 +186,14 @@ export function ResourceWorkspace({
       return;
     }
 
-    setStatus(options?.publish ? "Published successfully." : "All changes saved.");
+    if (savedChangeCounter !== changeCounterRef.current) {
+      setStatus("Unsaved changes");
+      return;
+    }
+    setChangeVersion(0);
+    setStatus(
+      options?.publish ? "Published successfully." : "All changes saved.",
+    );
     if (!resourceId && body.id) {
       router.replace(`/admin/resources/${body.id}`);
       router.refresh();
@@ -173,161 +206,10 @@ export function ResourceWorkspace({
     kind: FileKind,
     file: File,
     targetLocale: "en" | "es" = locale,
-  ): Promise<string | undefined> {
-    const isArtwork = kind === "cover" || kind === "thumbnail" || kind === "icon";
-    if (!resourceVersionId || (isArtwork && !resourceId)) {
-      setStatus("Save this draft before uploading files.");
-      return undefined;
-    }
-    const uploadLocale = kind === "cover" || kind === "thumbnail" || kind === "icon" ? "en" : targetLocale;
-    const key = `${uploadLocale}-${kind}`;
-    const mimeType = normalizedMimeType(file);
-    if (isArtwork) {
-      const artworkKind = kind as ArtworkKind;
-      const previousUrl = temporaryArtworkUrls.current[artworkKind];
-      if (previousUrl) URL.revokeObjectURL(previousUrl);
-      const previewUrl = URL.createObjectURL(file);
-      temporaryArtworkUrls.current[artworkKind] = previewUrl;
-      setArtwork((current) => ({ ...current, [`${artworkKind}Url`]: previewUrl }));
-      setArtworkUploads((current) => ({
-        ...current,
-        [artworkKind]: { phase: "uploading", progress: 1, fileName: file.name },
-      }));
-    }
-    setUploadProgress((current) => ({ ...current, [key]: 1 }));
-    setStatus(`Uploading ${file.name}…`);
-    try {
-      const safeName = file.name
-        .replace(/[^a-zA-Z0-9._-]+/g, "-")
-        .slice(0, 120);
-      const pathname = isArtwork
-        ? `resource-artwork/${resourceId}/${kind}/${Date.now()}-${safeName}`
-        : `resource-files/${resourceVersionId}/${Date.now()}-${safeName}`;
-      const blob = await upload(
-        pathname,
-        file,
-        {
-          access:
-            kind === "cover" ||
-            kind === "thumbnail" ||
-            kind === "icon" ||
-            kind === "descriptionImage"
-              ? "public"
-              : "private",
-          handleUploadUrl: "/api/uploads",
-          multipart: file.size > 20 * 1024 * 1024,
-          clientPayload: JSON.stringify({
-            resourceVersionId,
-            resourceId: isArtwork ? resourceId : undefined,
-            kind,
-            locale: uploadLocale,
-            originalName: file.name,
-            mimeType,
-            sizeBytes: file.size,
-            uploadedBy: "shared-admin",
-          }),
-          onUploadProgress(event) {
-            const percentage = Math.max(1, Math.round(event.percentage));
-            setUploadProgress((current) => ({
-              ...current,
-              [key]: percentage,
-            }));
-            if (isArtwork) {
-              setArtworkUploads((current) => ({
-                ...current,
-                [kind as ArtworkKind]: {
-                  ...current[kind as ArtworkKind],
-                  progress: percentage,
-                },
-              }));
-            }
-          },
-        },
-      );
-      if (isArtwork) {
-        setArtworkUploads((current) => ({
-          ...current,
-          [kind as ArtworkKind]: {
-            ...current[kind as ArtworkKind],
-            phase: "saving",
-            progress: 100,
-          },
-        }));
-        const finalizeResponse = await fetch("/api/uploads/finalize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            resourceId,
-            kind,
-            locale: "en",
-            originalName: file.name,
-            mimeType,
-            sizeBytes: file.size,
-            url: blob.url,
-            pathname: blob.pathname,
-          }),
-        });
-        const finalized = (await finalizeResponse.json().catch(() => ({}))) as {
-          error?: string;
-          resourceId?: string;
-          coverUrl?: string | null;
-          thumbnailUrl?: string | null;
-          iconUrl?: string | null;
-          persisted?: boolean;
-        };
-        if (!finalizeResponse.ok) {
-          throw new Error(finalized.error ?? "The artwork could not be saved.");
-        }
-        if (finalized.resourceId !== resourceId) {
-          throw new Error("The artwork was saved to an unexpected resource.");
-        }
-        if (!finalized.persisted) {
-          throw new Error("The artwork was not confirmed as saved.");
-        }
-        const temporaryUrl = temporaryArtworkUrls.current[kind as ArtworkKind];
-        if (temporaryUrl) URL.revokeObjectURL(temporaryUrl);
-        delete temporaryArtworkUrls.current[kind as ArtworkKind];
-        setArtwork({
-          coverUrl: finalized.coverUrl ?? null,
-          thumbnailUrl: finalized.thumbnailUrl ?? null,
-          iconUrl: finalized.iconUrl ?? null,
-        });
-        setArtworkUploads((current) => ({
-          ...current,
-          [kind as ArtworkKind]: {
-            ...current[kind as ArtworkKind],
-            phase: "complete",
-            progress: 100,
-            error: undefined,
-          },
-        }));
-      }
-      setUploadProgress((current) => ({ ...current, [key]: 100 }));
-      setStatus(`${file.name} uploaded.`);
-      if (kind !== "cover" && kind !== "thumbnail" && kind !== "icon") {
-        router.refresh();
-      }
-      return blob.url;
-    } catch (error) {
-      setUploadProgress((current) => ({ ...current, [key]: 0 }));
-      setStatus(
-        error instanceof Error ? error.message : "The upload could not complete.",
-      );
-      if (isArtwork) {
-        const message =
-          error instanceof Error ? error.message : "The upload could not complete.";
-        setArtworkUploads((current) => ({
-          ...current,
-          [kind as ArtworkKind]: {
-            ...current[kind as ArtworkKind],
-            phase: "error",
-            progress: 0,
-            error: message,
-          },
-        }));
-      }
-      return undefined;
-    }
+  ) {
+    const url = await fileUploads.uploadFile(kind, file, targetLocale);
+    if (url && !isArtworkKind(kind)) router.refresh();
+    return url;
   }
 
   return (
@@ -343,7 +225,9 @@ export function ResourceWorkspace({
           <a href="#translations">Translations</a>
           <a href="#classification">Classification</a>
           <a href="#release">Current release</a>
-          {editing && initialValue.resourceType === "module" ? <a href="#module-releases">Module publisher</a> : null}
+          {editing && initialValue.resourceType === "module" ? (
+            <a href="#module-releases">Module publisher</a>
+          ) : null}
           <a href="#files">Files and artwork</a>
           <a href="#access">Access and publishing</a>
         </nav>
@@ -414,7 +298,9 @@ export function ResourceWorkspace({
                 ["subclass", "Subclass"],
               ]}
               onChange={(event) =>
-                setResourceType(event.currentTarget.value as ResourceInput["resourceType"])
+                setResourceType(
+                  event.currentTarget.value as ResourceInput["resourceType"],
+                )
               }
             />
             <SelectField
@@ -623,7 +509,10 @@ export function ResourceWorkspace({
         </section>
 
         {editing && initialValue.resourceType === "module" ? (
-          <ModuleReleaseManager resourceId={initialValue.id} accessMode={accessMode} />
+          <ModuleReleaseManager
+            resourceId={initialValue.id}
+            accessMode={accessMode}
+          />
         ) : null}
 
         <section className="admin-editor-section" id="files">
@@ -637,121 +526,152 @@ export function ResourceWorkspace({
               Save the draft once to enable its secure upload areas.
             </div>
           ) : null}
-          {editing ? <div className="upload-card-grid">
-            {(
-              [
-                ["cover", "Cover image", "PNG, JPG or WebP"],
-                ["thumbnail", "Card thumbnail", "PNG, JPG or WebP"],
-                ["icon", "Resource icon", "Square PNG, JPG or WebP, up to 10 MB"],
-                ["module", "Foundry module", "ZIP, up to 250 MB"],
-                ["pdf", "PDF document", "PDF, up to 250 MB"],
-                ["macro", "Foundry macro", "JS or JSON, up to 250 MB"],
-                ["manifest", "Manifest", "JSON"],
-              ] as const
-            )
-              .filter(([kind]) => !(editing && initialValue.resourceType === "module" && kind === "module"))
-              .map(([kind, title, hint]) => {
-              const fileLocale = kind === "cover" || kind === "thumbnail" || kind === "icon" ? "en" : locale;
-              const key = `${fileLocale}-${kind}`;
-              const progress = uploadProgress[key] ?? 0;
-              const existingFile =
-                editing
-                  ? initialValue.files.find(
-                      (file) => file.kind === kind && file.locale === fileLocale,
-                    )
-                  : null;
-              const artworkUrl =
-                editing && kind === "cover"
-                  ? artwork.coverUrl
-                  : editing && kind === "thumbnail"
-                    ? artwork.thumbnailUrl
-                    : editing && kind === "icon"
-                      ? artwork.iconUrl
-                      : null;
-              const artworkState = isArtworkKind(kind)
-                ? artworkUploads[kind]
-                : null;
-              const uploadDisabled =
-                artworkState?.phase === "uploading" || artworkState?.phase === "saving";
-              return (
-                <label
-                  className={`upload-card${uploadDisabled ? " uploading" : ""}${artworkState?.phase === "error" ? " upload-error" : ""}`}
-                  key={kind}
-                >
-                  {artworkUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img className="upload-card-preview" src={artworkUrl} alt="" />
-                  ) : null}
-                  <span>{title}</span>
-                  <small>
-                    {existingFile
-                      ? `${existingFile.originalName} · ${formatBytes(existingFile.sizeBytes)}`
-                      : hint}
-                  </small>
-                  <input
-                    type="file"
-                    accept={acceptForKind(kind)}
-                    disabled={uploadDisabled}
-                    onChange={(event) => {
-                      const file = event.currentTarget.files?.[0];
-                      if (file) void uploadFile(kind, file);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                  {artworkState && artworkState.phase !== "idle" ? (
-                    <span className="upload-feedback" aria-live="polite">
-                      <span className="upload-feedback-row">
-                        <strong>{artworkState.fileName}</strong>
-                        <em>
-                          {artworkState.phase === "uploading"
-                            ? `${artworkState.progress}%`
-                            : artworkState.phase === "saving"
-                              ? "Saving image…"
-                              : artworkState.phase === "complete"
-                                ? "Saved"
-                                : "Not saved"}
-                        </em>
-                      </span>
-                      {(artworkState.phase === "uploading" || artworkState.phase === "saving") ? (
+          {editing ? (
+            <div className="upload-card-grid">
+              {(
+                [
+                  ["cover", "Cover image", "PNG, JPG or WebP"],
+                  ["thumbnail", "Card thumbnail", "PNG, JPG or WebP"],
+                  [
+                    "icon",
+                    "Resource icon",
+                    "Square PNG, JPG or WebP, up to 10 MB",
+                  ],
+                  ["module", "Foundry module", "ZIP, up to 250 MB"],
+                  ["pdf", "PDF document", "PDF, up to 250 MB"],
+                  ["macro", "Foundry macro", "JS or JSON, up to 250 MB"],
+                  ["manifest", "Manifest", "JSON"],
+                ] as const
+              )
+                .filter(
+                  ([kind]) =>
+                    !(
+                      editing &&
+                      initialValue.resourceType === "module" &&
+                      kind === "module"
+                    ),
+                )
+                .map(([kind, title, hint]) => {
+                  const fileLocale =
+                    kind === "cover" || kind === "thumbnail" || kind === "icon"
+                      ? "en"
+                      : locale;
+                  const key = `${fileLocale}-${kind}`;
+                  const progress = uploadProgress[key] ?? 0;
+                  const existingFile = editing
+                    ? initialValue.files.find(
+                        (file) =>
+                          file.kind === kind && file.locale === fileLocale,
+                      )
+                    : null;
+                  const artworkUrl =
+                    editing && kind === "cover"
+                      ? artwork.coverUrl
+                      : editing && kind === "thumbnail"
+                        ? artwork.thumbnailUrl
+                        : editing && kind === "icon"
+                          ? artwork.iconUrl
+                          : null;
+                  const artworkState = isArtworkKind(kind)
+                    ? artworkUploads[kind]
+                    : null;
+                  const uploadDisabled =
+                    artworkState?.phase === "uploading" ||
+                    artworkState?.phase === "saving";
+                  return (
+                    <label
+                      className={`upload-card${uploadDisabled ? " uploading" : ""}${artworkState?.phase === "error" ? " upload-error" : ""}`}
+                      key={kind}
+                    >
+                      {artworkUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          className="upload-card-preview"
+                          src={artworkUrl}
+                          alt=""
+                        />
+                      ) : null}
+                      <span>{title}</span>
+                      <small>
+                        {existingFile
+                          ? `${existingFile.originalName} · ${formatBytes(existingFile.sizeBytes)}`
+                          : hint}
+                      </small>
+                      <input
+                        type="file"
+                        accept={acceptForKind(kind)}
+                        disabled={uploadDisabled}
+                        onChange={(event) => {
+                          const file = event.currentTarget.files?.[0];
+                          if (file) void uploadFile(kind, file);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                      {artworkState && artworkState.phase !== "idle" ? (
+                        <span className="upload-feedback" aria-live="polite">
+                          <span className="upload-feedback-row">
+                            <strong>{artworkState.fileName}</strong>
+                            <em>
+                              {artworkState.phase === "uploading"
+                                ? `${artworkState.progress}%`
+                                : artworkState.phase === "saving"
+                                  ? "Saving image…"
+                                  : artworkState.phase === "complete"
+                                    ? "Saved"
+                                    : "Not saved"}
+                            </em>
+                          </span>
+                          {artworkState.phase === "uploading" ||
+                          artworkState.phase === "saving" ? (
+                            <span
+                              className={`upload-progress${artworkState.phase === "saving" ? " saving" : ""}`}
+                              role="progressbar"
+                              aria-label={`Uploading ${artworkState.fileName ?? title}`}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={
+                                artworkState.phase === "uploading"
+                                  ? artworkState.progress
+                                  : undefined
+                              }
+                            >
+                              <i
+                                style={{ width: `${artworkState.progress}%` }}
+                              />
+                            </span>
+                          ) : null}
+                          {artworkState.error ? (
+                            <small className="upload-error-message">
+                              {artworkState.error} Select the file again to
+                              retry.
+                            </small>
+                          ) : null}
+                        </span>
+                      ) : progress > 0 ? (
                         <span
-                          className={`upload-progress${artworkState.phase === "saving" ? " saving" : ""}`}
+                          className="upload-progress"
                           role="progressbar"
-                          aria-label={`Uploading ${artworkState.fileName ?? title}`}
                           aria-valuemin={0}
                           aria-valuemax={100}
-                          aria-valuenow={artworkState.phase === "uploading" ? artworkState.progress : undefined}
+                          aria-valuenow={progress}
                         >
-                          <i style={{ width: `${artworkState.progress}%` }} />
+                          <i style={{ width: `${progress}%` }} />
                         </span>
                       ) : null}
-                      {artworkState.error ? (
-                        <small className="upload-error-message">
-                          {artworkState.error} Select the file again to retry.
-                        </small>
+                      {existingFile ? (
+                        <span className="upload-replace-label">
+                          Choose a file to replace
+                        </span>
                       ) : null}
-                    </span>
-                  ) : progress > 0 ? (
-                    <span
-                      className="upload-progress"
-                      role="progressbar"
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={progress}
-                    >
-                      <i style={{ width: `${progress}%` }} />
-                    </span>
-                  ) : null}
-                  {existingFile ? (
-                    <span className="upload-replace-label">
-                      Choose a file to replace
-                    </span>
-                  ) : null}
-                </label>
-              );
-            })}
-          </div> : null}
+                    </label>
+                  );
+                })}
+            </div>
+          ) : null}
           {editing ? (
-            <label className={`featured-toggle ${!artwork.iconUrl ? "disabled" : ""}`}>
+            <label
+              className={`featured-toggle ${!artwork.iconUrl ? "disabled" : ""}`}
+            >
               <input
                 type="checkbox"
                 name="useIconEverywhere"
@@ -856,7 +776,9 @@ export function ResourceWorkspace({
                     : manifestValue
                 }
                 readOnly={resourceType === "module"}
-                onChange={(event) => setManifestValue(event.currentTarget.value)}
+                onChange={(event) =>
+                  setManifestValue(event.currentTarget.value)
+                }
               />
               {resourceType === "module" ? (
                 <small>Generated from the stable production domain.</small>
@@ -913,432 +835,6 @@ export function ResourceWorkspace({
       </form>
     </div>
   );
-}
-
-function TranslationFields({
-  locale,
-  value,
-  onChanged,
-  onImageUpload,
-}: {
-  locale: "en" | "es";
-  value: ResourceTranslationInput;
-  onChanged: () => void;
-  onImageUpload: (file: File) => Promise<string | undefined>;
-}) {
-  return (
-    <div className="translation-fields">
-      <Field
-        label={locale === "en" ? "English title" : "Título en español"}
-        name={`${locale}Title`}
-        value={value.title}
-      />
-      <Field
-        label="Short description"
-        name={`${locale}ShortDescription`}
-        value={value.shortDescription}
-        maxLength={240}
-        hint={`${value.shortDescription.length}/240 characters`}
-      />
-      <MarkdownDescriptionEditor
-        name={`${locale}Description`}
-        value={value.description}
-        onChanged={onChanged}
-        onImageUpload={onImageUpload}
-      />
-      <div className="form-grid form-grid-two">
-        <TextArea
-          label="Compatibility notes"
-          name={`${locale}CompatibilityNotes`}
-          value={value.compatibilityNotes ?? ""}
-          compact
-        />
-        <TextArea
-          label="Installation instructions"
-          name={`${locale}InstallationInstructions`}
-          value={value.installationInstructions ?? ""}
-          compact
-        />
-      </div>
-      <label className="translation-publish-toggle">
-        <input
-          type="checkbox"
-          name={`${locale}Published`}
-          defaultChecked={value.isPublished}
-        />
-        <span>Publish this translation when the resource is published</span>
-      </label>
-    </div>
-  );
-}
-
-function MarkdownDescriptionEditor({
-  name,
-  value,
-  onChanged,
-  onImageUpload,
-}: {
-  name: string;
-  value: string;
-  onChanged: () => void;
-  onImageUpload: (file: File) => Promise<string | undefined>;
-}) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [markdown, setMarkdown] = useState(value);
-  const [uploading, setUploading] = useState(false);
-
-  function replaceSelection(prefix: string, suffix: string, placeholder: string) {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selected = markdown.slice(start, end) || placeholder;
-    const next = `${markdown.slice(0, start)}${prefix}${selected}${suffix}${markdown.slice(end)}`;
-    setMarkdown(next);
-    onChanged();
-    window.requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
-    });
-  }
-
-  async function addImage(file: File) {
-    setUploading(true);
-    const url = await onImageUpload(file);
-    setUploading(false);
-    if (!url) return;
-    const textarea = textareaRef.current;
-    const position = textarea?.selectionStart ?? markdown.length;
-    const alt = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
-    const insertion = `\n\n![${alt}](${url})\n\n`;
-    setMarkdown(`${markdown.slice(0, position)}${insertion}${markdown.slice(position)}`);
-    onChanged();
-    window.requestAnimationFrame(() => textarea?.focus());
-  }
-
-  return (
-    <div className="markdown-editor">
-      <div className="markdown-editor-heading">
-        <label htmlFor={name}>Full description</label>
-        <small>Markdown formatting is supported.</small>
-      </div>
-      <div className="markdown-toolbar" aria-label="Description formatting tools">
-        <button type="button" onClick={() => replaceSelection("**", "**", "bold text")}><MarkdownToolbarIcon name="bold" /><span>Bold</span></button>
-        <button type="button" onClick={() => replaceSelection("_", "_", "italic text")}><MarkdownToolbarIcon name="italic" /><span>Italic</span></button>
-        <button type="button" onClick={() => replaceSelection("## ", "", "Heading")}><MarkdownToolbarIcon name="heading" /><span>Heading</span></button>
-        <button type="button" onClick={() => replaceSelection("- ", "", "List item")}><MarkdownToolbarIcon name="list" /><span>List</span></button>
-        <button type="button" onClick={() => replaceSelection("[", "](https://example.com)", "link text")}><MarkdownToolbarIcon name="link" /><span>Link</span></button>
-        <label className={`markdown-image-button ${uploading ? "uploading" : ""}`}>
-          <MarkdownToolbarIcon name="image" />
-          <span>{uploading ? "Uploading…" : "Add image"}</span>
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/gif,image/webp"
-            disabled={uploading}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void addImage(file);
-              event.currentTarget.value = "";
-            }}
-          />
-        </label>
-      </div>
-      <textarea
-        id={name}
-        ref={textareaRef}
-        name={name}
-        value={markdown}
-        maxLength={20_000}
-        onChange={(event) => setMarkdown(event.target.value)}
-      />
-    </div>
-  );
-}
-
-function MarkdownToolbarIcon({
-  name,
-}: {
-  name: "bold" | "italic" | "heading" | "list" | "link" | "image";
-}) {
-  const paths = {
-    bold: <><path d="M6 3.5h5a3 3 0 0 1 0 6H6z" /><path d="M6 9.5h5.8a3.5 3.5 0 0 1 0 7H6z" /></>,
-    italic: <><path d="M9.5 3.5h5" /><path d="M5.5 16.5h5" /><path d="m12 3.5-4 13" /></>,
-    heading: <><path d="M3.5 4v12" /><path d="M11 4v12" /><path d="M3.5 10h7.5" /><path d="M14 10.5a2 2 0 1 1 3.8.8c0 1.6-3.8 2.4-3.8 4.7h4" /></>,
-    list: <><path d="M7 5h10" /><path d="M7 10h10" /><path d="M7 15h10" /><circle cx="3.5" cy="5" r=".75" fill="currentColor" stroke="none" /><circle cx="3.5" cy="10" r=".75" fill="currentColor" stroke="none" /><circle cx="3.5" cy="15" r=".75" fill="currentColor" stroke="none" /></>,
-    link: <><path d="m8 12 4-4" /><path d="M6.5 13.5 5 15a3 3 0 0 1-4.2-4.2l3-3A3 3 0 0 1 8 7" /><path d="M12 13a3 3 0 0 0 4.2-.2l3-3A3 3 0 0 0 15 5.6L13.5 7" /></>,
-    image: <><rect x="2.5" y="3.5" width="15" height="13" rx="1" /><circle cx="7" cy="8" r="1.5" /><path d="m3 15 4.5-4 3 2.5 2.5-2 4 3.5" /></>,
-  };
-  return <svg className="markdown-toolbar-icon" aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5">{paths[name]}</svg>;
-}
-
-function DependenciesEditor({
-  dependencies,
-  onChange,
-}: {
-  dependencies: ResourceInput["dependencies"];
-  onChange: (value: ResourceInput["dependencies"]) => void;
-}) {
-  return (
-    <fieldset className="dependencies-editor">
-      <div className="fieldset-heading">
-        <div>
-          <legend>Dependencies</legend>
-          <small>Modules or packages visitors need before installation.</small>
-        </div>
-        <button
-          type="button"
-          className="button button-secondary button-small"
-          onClick={() =>
-            onChange([
-              ...dependencies,
-              { name: "", versionRange: "", url: "", isRequired: true },
-            ])
-          }
-        >
-          + Add dependency
-        </button>
-      </div>
-      {dependencies.map((dependency, index) => (
-        <div className="dependency-row" key={index}>
-          <input
-            aria-label={`Dependency ${index + 1} name`}
-            placeholder="Module name"
-            value={dependency.name}
-            onChange={(event) =>
-              onChange(
-                dependencies.map((item, itemIndex) =>
-                  itemIndex === index
-                    ? { ...item, name: event.target.value }
-                    : item,
-                ),
-              )
-            }
-          />
-          <input
-            aria-label={`Dependency ${index + 1} version`}
-            placeholder="Version range"
-            value={dependency.versionRange ?? ""}
-            onChange={(event) =>
-              onChange(
-                dependencies.map((item, itemIndex) =>
-                  itemIndex === index
-                    ? { ...item, versionRange: event.target.value }
-                    : item,
-                ),
-              )
-            }
-          />
-          <input
-            aria-label={`Dependency ${index + 1} URL`}
-            placeholder="https://…"
-            value={dependency.url ?? ""}
-            onChange={(event) =>
-              onChange(
-                dependencies.map((item, itemIndex) =>
-                  itemIndex === index
-                    ? { ...item, url: event.target.value }
-                    : item,
-                ),
-              )
-            }
-          />
-          <label>
-            <input
-              type="checkbox"
-              checked={dependency.isRequired}
-              onChange={(event) =>
-                onChange(
-                  dependencies.map((item, itemIndex) =>
-                    itemIndex === index
-                      ? { ...item, isRequired: event.target.checked }
-                      : item,
-                  ),
-                )
-              }
-            />
-            Required
-          </label>
-          <button
-            type="button"
-            className="admin-more-button"
-            aria-label={`Remove dependency ${index + 1}`}
-            onClick={() =>
-              onChange(dependencies.filter((_, itemIndex) => itemIndex !== index))
-            }
-          >
-            ×
-          </button>
-        </div>
-      ))}
-    </fieldset>
-  );
-}
-
-function buildPayload(
-  formData: FormData,
-  dependencies: ResourceInput["dependencies"],
-  accessMode: "public" | "patreon",
-  isPublished: boolean,
-) {
-  const value = (name: string) => String(formData.get(name) ?? "");
-  const translation = (locale: "en" | "es") => ({
-    title: value(`${locale}Title`),
-    shortDescription: value(`${locale}ShortDescription`),
-    description: value(`${locale}Description`),
-    compatibilityNotes: value(`${locale}CompatibilityNotes`),
-    installationInstructions: value(`${locale}InstallationInstructions`),
-    isPublished: formData.get(`${locale}Published`) === "on",
-  });
-  const translations = { en: translation("en"), es: translation("es") };
-  const defaultLocale = value("defaultLocale") === "es" ? "es" : "en";
-  const primary =
-    translations[defaultLocale].title.trim() ? translations[defaultLocale] : translations.en;
-
-  return {
-    title: value("title") || primary.title,
-    slug: value("slug"),
-    shortDescription: primary.shortDescription,
-    description: primary.description,
-    resourceType: value("resourceType"),
-    categoryId: value("categoryId"),
-    authorId: value("authorId"),
-    gameSystemId: value("gameSystemId"),
-    className: value("className"),
-    subclassName: value("subclassName"),
-    currentVersion: value("currentVersion"),
-    foundryMinimum: value("foundryMinimum"),
-    foundryVerified: value("foundryVerified"),
-    foundryMaximum: value("foundryMaximum"),
-    compatibilityStatus: value("compatibilityStatus"),
-    compatibilityNotes: primary.compatibilityNotes,
-    pricing: value("pricing"),
-    manifestUrl: value("manifestUrl"),
-    projectUrl: value("projectUrl"),
-    licenseName: value("licenseName"),
-    installationInstructions: primary.installationInstructions,
-    tagIds: formData.getAll("tagIds"),
-    dependencies,
-    changelogSummary: value("changelogSummary"),
-    changelogDetails: value("changelogDetails"),
-    defaultLocale,
-    accessMode,
-    patreonTierIds: formData.getAll("patreonTierIds"),
-    translations,
-    isFeatured: formData.get("isFeatured") === "on",
-    useIconEverywhere: formData.get("useIconEverywhere") === "on",
-    isPublished,
-  };
-}
-
-function SectionHeading({
-  eyebrow,
-  title,
-  description,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="admin-section-heading">
-      <p className="eyebrow">{eyebrow}</p>
-      <h2>{title}</h2>
-      <p>{description}</p>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  name,
-  value,
-  type = "text",
-  hint,
-  ...props
-}: {
-  label: string;
-  name: string;
-  value: string;
-  type?: string;
-  hint?: string;
-  required?: boolean;
-  maxLength?: number;
-  placeholder?: string;
-  onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
-}) {
-  return (
-    <label>
-      <span>{label}</span>
-      <input name={name} type={type} defaultValue={value} {...props} />
-      {hint ? <small>{hint}</small> : null}
-    </label>
-  );
-}
-
-function TextArea({
-  label,
-  name,
-  value,
-  compact = false,
-}: {
-  label: string;
-  name: string;
-  value: string;
-  compact?: boolean;
-}) {
-  return (
-    <label>
-      <span>{label}</span>
-      <textarea
-        name={name}
-        defaultValue={value}
-        className={compact ? "textarea-compact" : ""}
-      />
-    </label>
-  );
-}
-
-function SelectField({
-  label,
-  name,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  name: string;
-  value: string;
-  options: Array<readonly [string, string]>;
-  onChange?: (event: React.ChangeEvent<HTMLSelectElement>) => void;
-}) {
-  return (
-    <label>
-      <span>{label}</span>
-      <select name={name} defaultValue={value} required onChange={onChange}>
-        <option value="" disabled>
-          Select…
-        </option>
-        {options.map(([optionValue, optionLabel]) => (
-          <option value={optionValue} key={optionValue}>
-            {optionLabel}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function normalizedMimeType(file: File): string {
-  if (file.type) return file.type;
-  const name = file.name.toLowerCase();
-  if (name.endsWith(".zip")) return "application/zip";
-  if (name.endsWith(".json")) return "application/json";
-  if (name.endsWith(".js")) return "text/javascript";
-  if (name.endsWith(".png")) return "image/png";
-  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
-  if (name.endsWith(".gif")) return "image/gif";
-  if (name.endsWith(".webp")) return "image/webp";
-  return "application/octet-stream";
 }
 
 function acceptForKind(kind: FileKind): string {

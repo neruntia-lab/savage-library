@@ -10,10 +10,11 @@
   },
   "scripts": {
     "dev": "next dev",
+    "preview:local": "node scripts/preview.mjs",
     "build": "next build",
     "build:vercel": "drizzle-kit migrate && next build",
     "start": "next start",
-    "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts tests/markdown.test.ts tests/patreon.test.ts tests/patreon-posts.test.ts tests/foundry-publisher.test.ts tests/webhook.test.ts tests/maintenance.test.ts",
+    "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts tests/markdown.test.ts tests/patreon.test.ts tests/patreon-posts.test.ts tests/foundry-publisher.test.ts tests/webhook.test.ts tests/maintenance.test.ts tests/client-workflows.test.ts tests/design-system.test.ts",
     "test:flows": "tsx --test tests/http-flows.test.ts",
     "test:build": "npm run build && npm test && npm run test:flows",
     "check:production": "node scripts/check-production-env.mjs",
@@ -33,12 +34,13 @@
     "marked": "^18.0.9",
     "next": "^16.3.0",
     "next-auth": "^4.24.15",
-    "nodemailer": "^9.0.5",
+    "nodemailer": "^10.0.9",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "sanitize-html": "^2.17.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/adm-zip": "^0.5.8",
     "@types/node": "22.19.19",
@@ -49,6 +51,7 @@
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "^16.3.0",
+    "prettier": "^3.9.9",
     "tailwindcss": "4.2.1",
     "tsx": "^4.23.12",
     "typescript": "5.9.3"

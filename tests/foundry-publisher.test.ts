@@ -5,6 +5,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import AdmZip from "adm-zip";
+import { packageModule } from "../scripts/publisher-package.mjs";
 import {
   inspectFoundryModule,
   publicManifest,
@@ -43,15 +44,21 @@ test("creates deterministic tracked catalog metadata and production URLs", () =>
   assert.deepEqual(validatePublisherConfig(config), []);
   assert.deepEqual(distributionUrls("example-module"), {
     url: "https://savage-library.vercel.app/resources/example-module",
-    manifest: "https://savage-library.vercel.app/api/foundry/modules/example-module/module.json",
+    manifest:
+      "https://savage-library.vercel.app/api/foundry/modules/example-module/module.json",
   });
 });
 
 test("admin token validation and system inference fail safely", () => {
   assert.equal(isAdminToken(`sla_${"a".repeat(64)}`), true);
   assert.equal(isAdminToken(`slp_${"a".repeat(64)}`), false);
-  assert.equal(inferSystem({ relationships: { systems: [{ id: "a" }, { id: "b" }] } }), "system-agnostic");
-  assert.ok(validatePublisherConfig({ schemaVersion: 1, resource: {} }).length > 0);
+  assert.equal(
+    inferSystem({ relationships: { systems: [{ id: "a" }, { id: "b" }] } }),
+    "system-agnostic",
+  );
+  assert.ok(
+    validatePublisherConfig({ schemaVersion: 1, resource: {} }).length > 0,
+  );
 });
 
 test("requires concise release notes for existing module updates", () => {
@@ -60,23 +67,40 @@ test("requires concise release notes for existing module updates", () => {
     changes: ["Added playlist synchronization.", "Fixed scene audio playback."],
   };
   assert.equal(validateReleaseNotes(valid, "3.10.0").success, true);
-  const config = createPublisherConfig({ id: "example", title: "Example", description: "Example module." });
+  const config = createPublisherConfig({
+    id: "example",
+    title: "Example",
+    description: "Example module.",
+  });
   assert.deepEqual(validatePublisherConfig(config, "1.0.0", false), []);
-  assert.ok(validatePublisherConfig(config, "1.0.0", true).some((error) => error.includes("required")));
-  assert.ok(validatePublisherConfig({ ...config, release: { ...valid, version: "3.9.0" } }, "3.10.0", true).some((error) => error.includes("must match")));
+  assert.ok(
+    validatePublisherConfig(config, "1.0.0", true).some((error) =>
+      error.includes("required"),
+    ),
+  );
+  assert.ok(
+    validatePublisherConfig(
+      { ...config, release: { ...valid, version: "3.9.0" } },
+      "3.10.0",
+      true,
+    ).some((error) => error.includes("must match")),
+  );
 });
 
 test("rejects empty, duplicate, long, and indirect patch notes", () => {
-  const result = validateReleaseNotes({
-    version: "2.0.0",
-    changes: [
-      "",
-      "Fixed audio playback.",
-      "Fixed audio playback.",
-      `Added ${"x".repeat(170)}.`,
-      "Refactored the audio service.",
-    ],
-  }, "2.0.0");
+  const result = validateReleaseNotes(
+    {
+      version: "2.0.0",
+      changes: [
+        "",
+        "Fixed audio playback.",
+        "Fixed audio playback.",
+        `Added ${"x".repeat(170)}.`,
+        "Refactored the audio service.",
+      ],
+    },
+    "2.0.0",
+  );
   assert.equal(result.success, false);
   if (!result.success) {
     assert.ok(result.errors.some((error) => error.includes("empty")));
@@ -87,8 +111,14 @@ test("rejects empty, duplicate, long, and indirect patch notes", () => {
 });
 
 test("serializes and parses structured patch notes without changing legacy entries", () => {
-  const details = serializeReleaseNotes(["Added a new control.", "Improved mobile playback."]);
-  assert.deepEqual(parseReleaseNotes("Patch notes", details), ["Added a new control.", "Improved mobile playback."]);
+  const details = serializeReleaseNotes([
+    "Added a new control.",
+    "Improved mobile playback.",
+  ]);
+  assert.deepEqual(parseReleaseNotes("Patch notes", details), [
+    "Added a new control.",
+    "Improved mobile playback.",
+  ]);
   assert.equal(parseReleaseNotes("Compatibility update", details), null);
   assert.equal(formatLongDate("2026-08-24T12:00:00.000Z"), "August 24, 2026");
 });
@@ -96,19 +126,36 @@ test("serializes and parses structured patch notes without changing legacy entri
 test("CLI init creates tracked metadata, stable URLs, and a secret ignore rule", () => {
   const directory = mkdtempSync(join(tmpdir(), "savage-cli-"));
   try {
-    writeFileSync(join(directory, "module.json"), JSON.stringify({
-      id: "cli-example",
-      title: "CLI Example",
-      description: "A complete CLI test module.",
-      version: "1.0.0",
-      url: "https://example.com/project",
-    }));
-    execFileSync(process.execPath, [join(process.cwd(), "scripts/savage-library.mjs"), "init"], { cwd: directory });
-    const manifest = JSON.parse(readFileSync(join(directory, "module.json"), "utf8"));
-    const config = JSON.parse(readFileSync(join(directory, "savage-library.json"), "utf8"));
-    assert.equal(manifest.manifest, "https://savage-library.vercel.app/api/foundry/modules/cli-example/module.json");
+    writeFileSync(
+      join(directory, "module.json"),
+      JSON.stringify({
+        id: "cli-example",
+        title: "CLI Example",
+        description: "A complete CLI test module.",
+        version: "1.0.0",
+        url: "https://example.com/project",
+      }),
+    );
+    execFileSync(
+      process.execPath,
+      [join(process.cwd(), "scripts/savage-library.mjs"), "init"],
+      { cwd: directory },
+    );
+    const manifest = JSON.parse(
+      readFileSync(join(directory, "module.json"), "utf8"),
+    );
+    const config = JSON.parse(
+      readFileSync(join(directory, "savage-library.json"), "utf8"),
+    );
+    assert.equal(
+      manifest.manifest,
+      "https://savage-library.vercel.app/api/foundry/modules/cli-example/module.json",
+    );
     assert.equal(config.resource.projectUrl, "https://example.com/project");
-    assert.match(readFileSync(join(directory, ".gitignore"), "utf8"), /^\.savage-library\.json$/m);
+    assert.match(
+      readFileSync(join(directory, ".gitignore"), "utf8"),
+      /^\.savage-library\.json$/m,
+    );
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -132,6 +179,22 @@ function moduleZip(
   return zip.toBuffer();
 }
 
+test("CLI packaging excludes secrets, tracked metadata, and nested ZIPs", () => {
+  const directory = mkdtempSync(join(tmpdir(), "savage-package-"));
+  try {
+    const manifest = { id: "example", title: "Example", version: "1.0.0", description: "Useful module." };
+    writeFileSync(join(directory, "module.json"), JSON.stringify(manifest));
+    for (const name of [".env.production", ".savage-library.json", "savage-library.json", "old-release.zip"]) writeFileSync(join(directory, name), "excluded");
+    writeFileSync(join(directory, "main.js"), "export {};");
+    const result = packageModule(directory, manifest);
+    assert.deepEqual(new AdmZip(result.bytes).getEntries().map(entry => entry.entryName).sort(), ["example/main.js", "example/module.json"]);
+    assert.deepEqual(inspectFoundryModule(result.bytes).errors, []);
+    assert.equal(packageModule(directory, manifest).checksum, result.checksum);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("validates and extracts a Foundry module package", () => {
   const result = inspectFoundryModule(
     moduleZip({
@@ -144,6 +207,43 @@ test("validates and extracts a Foundry module package", () => {
   );
   assert.deepEqual(result.errors, []);
   assert.equal(result.manifest?.version, "1.2.0");
+});
+
+test("malformed manifest shapes produce validation feedback rather than exceptions", () => {
+  for (const value of [null, [], 42, "module"]) {
+    const zip = new AdmZip();
+    zip.addFile("example/module.json", Buffer.from(JSON.stringify(value)));
+    assert.match(
+      inspectFoundryModule(zip.toBuffer()).errors.join(" "),
+      /JSON object/,
+    );
+  }
+  const result = inspectFoundryModule(
+    moduleZip({
+      id: 123,
+      title: 123,
+      description: [],
+      version: {},
+      compatibility: "14",
+    }),
+  );
+  assert.ok(result.errors.length >= 4);
+});
+
+test("rejects environment variants, publisher metadata, and oversized manifests", () => {
+  const zip = new AdmZip(
+    moduleZip({ id: "example", title: "Example", version: "1.0.0" }),
+  );
+  zip.addFile("example/.env.production", Buffer.from("SECRET=never-package"));
+  zip.addFile("example/savage-library.json", Buffer.from("{}"));
+  assert.equal(
+    inspectFoundryModule(zip.toBuffer()).errors.filter((error) =>
+      error.includes("not allowed"),
+    ).length,
+    2,
+  );
+  zip.addFile("example/module.json", Buffer.alloc(1024 * 1024 + 1, " "));
+  assert.match(inspectFoundryModule(zip.toBuffer()).errors.join(" "), /1 MB/);
 });
 
 test("rejects mismatched folders and module identifiers", () => {
@@ -176,10 +276,14 @@ test("rejects unsafe ZIP paths", () => {
   zip.addFile("C:/escape.txt", Buffer.from("unsafe"));
   zip.addFile(
     "safe-module/module.json",
-    Buffer.from(JSON.stringify({ id: "safe-module", title: "Safe", version: "1.0.0" })),
+    Buffer.from(
+      JSON.stringify({ id: "safe-module", title: "Safe", version: "1.0.0" }),
+    ),
   );
   const result = inspectFoundryModule(zip.toBuffer());
-  assert.ok(result.errors.some((error) => error.includes("Unsafe archive path")));
+  assert.ok(
+    result.errors.some((error) => error.includes("Unsafe archive path")),
+  );
 });
 
 test("rejects files outside the module top-level directory", () => {
@@ -221,7 +325,9 @@ test("rejects publisher credentials, environment files, and nested archives", ()
 
   const result = inspectFoundryModule(zip.toBuffer());
 
-  assert.ok(result.errors.some((error) => error.includes("Publisher credentials")));
+  assert.ok(
+    result.errors.some((error) => error.includes("Publisher credentials")),
+  );
   assert.ok(result.errors.some((error) => error.includes("Nested ZIP")));
 });
 
@@ -302,7 +408,9 @@ test("publisher upload errors distinguish authentication and storage failures", 
     /new semantic version/i,
   );
   assert.match(
-    publisherUploadError(new Error("Vercel Blob: Failed to retrieve the client token")),
+    publisherUploadError(
+      new Error("Vercel Blob: Failed to retrieve the client token"),
+    ),
     /preflight passed/i,
   );
 });
@@ -315,5 +423,8 @@ test("publisher token format rejects Blob credentials and malformed values", () 
 
 test("release confirmation waits for the Blob callback checksum", () => {
   assert.equal(isFinalizedRelease({ status: "draft", checksum: null }), false);
-  assert.equal(isFinalizedRelease({ status: "draft", checksum: "abc123" }), true);
+  assert.equal(
+    isFinalizedRelease({ status: "draft", checksum: "abc123" }),
+    true,
+  );
 });

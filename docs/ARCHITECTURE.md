@@ -33,6 +33,10 @@ Savage Library is a Next.js 16 and React 19 application deployed on Vercel.
 
 - `app/` contains routes and server-rendered page composition.
 - `components/` contains client and server UI components.
+- `components/resources/ResourcePresentation` is shared by authorized previews and published resource pages.
+- `components/admin/WizardSteps` and the editor field components keep rendering separate from workflow state.
+- `lib/client/` owns same-origin JSON error handling, resource form payloads, and shared direct-upload/finalization workflows.
+- `useResourceUploads` owns per-slot concurrency and temporary artwork URL cleanup.
 - `lib/domain/` owns shared resource and compatibility types.
 - `lib/validation/` validates resource, taxonomy, artwork, and upload input.
 - `lib/repositories/` owns database and Blob persistence.
@@ -40,6 +44,15 @@ Savage Library is a Next.js 16 and React 19 application deployed on Vercel.
   sanitization, rate limiting, and application workflows.
 - `db/schema.ts` defines the relational schema; `drizzle/` contains forward-only
   production migrations.
+
+Resource persistence is split into a read facade, write repository, and explicit
+example seeding. The CLI delegates secret-free archive creation to
+`scripts/publisher-package.mjs`. Theme imports under `app/styles/` retain a
+predictable cascade, with shared reference tokens and ornamental components.
+
+`npm run preview:local` launches a loopback-only fixture environment. Its
+database/storage guards prevent accidental production writes and its local
+fixtures are unavailable on Vercel. See `DEVELOPMENT_AUDIT.md` for limitations.
 
 Public descriptions are sanitized Markdown. Private Blob destinations and
 Patreon-protected link destinations are resolved only by authorized server

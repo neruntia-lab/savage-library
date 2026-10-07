@@ -17,6 +17,7 @@ const labels: Record<string, string> = {
   class: "Class",
   subclass: "Subclass",
   pdf: "PDF",
+  macro: "Macro",
   free: "Free",
   premium: "Premium",
   verified: "Verified",

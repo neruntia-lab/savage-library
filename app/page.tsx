@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CelestialOrnament } from "../components/ui/CelestialOrnament";
 import { ResourceGrid } from "../components/resources/ResourceGrid";
 import { CATEGORY_LINKS, ROUTES } from "../lib/config/site";
 import { getFeaturedResources } from "../lib/repositories/resource-repository";
@@ -20,6 +21,17 @@ export default async function HomePage() {
         aria-label="Search the Savage Library"
       >
         <div className="container hero-search-wrap">
+          <div className="archive-masthead">
+            <CelestialOrnament variant="sun" className="archive-sun" />
+            <div>
+              <p className="eyebrow">Knowledge · Shadows · Wilder worlds</p>
+              <h1>Savage Library</h1>
+              <p className="archive-subtitle">The adventurer’s digital archive</p>
+              <span className="archive-divider" aria-hidden="true">✦</span>
+              <p className="archive-intro">Tools, tales, and treasures for your next adventure.</p>
+            </div>
+            <CelestialOrnament variant="moon" className="archive-moon" />
+          </div>
           <form className="hero-search" action={ROUTES.library} method="get">
             <label className="sr-only" htmlFor="home-search">
               Search the library

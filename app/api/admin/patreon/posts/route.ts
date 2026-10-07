@@ -6,10 +6,12 @@ import {
 import { requireApiAdmin } from "../../../../../lib/services/auth";
 import { syncPostById } from "../../../../../lib/services/patreon-sync";
 import type { PatreonImportPayload } from "../../../../../lib/services/patreon-posts";
+import { isLocalPreview } from "../../../../../lib/config/local-preview";
 
 export async function GET() {
   const auth = await requireApiAdmin();
   if (!auth.ok) return auth.response;
+  if (isLocalPreview()) return Response.json({ candidates: [], preview: true });
   return Response.json({ candidates: await listImportCandidates() });
 }
 
@@ -23,7 +25,10 @@ export async function PATCH(request: Request) {
     resourceId?: string | null;
   } | null;
   if (!body?.id) {
-    return Response.json({ error: "Candidate ID is required." }, { status: 400 });
+    return Response.json(
+      { error: "Candidate ID is required." },
+      { status: 400 },
+    );
   }
   try {
     if (body.action === "reprocess") {
@@ -45,13 +50,19 @@ export async function PATCH(request: Request) {
         status: body.action === "reject" ? "rejected" : "pending",
       });
       if (!updated) {
-        return Response.json({ error: "Candidate not found." }, { status: 404 });
+        return Response.json(
+          { error: "Candidate not found." },
+          { status: 404 },
+        );
       }
     }
     return Response.json({ updated: true });
   } catch (error) {
     return Response.json(
-      { error: error instanceof Error ? error.message : "Candidate update failed." },
+      {
+        error:
+          error instanceof Error ? error.message : "Candidate update failed.",
+      },
       { status: 400 },
     );
   }

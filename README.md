@@ -19,6 +19,24 @@ and publish without editing source files.
 
 ## Local setup
 
+For a safe, read-only design preview without production credentials:
+
+```powershell
+npm ci
+npm run preview:local
+```
+
+Open the printed localhost URL. The local administrator password is
+`local-preview`. Sample catalog data is used; saving, uploads, email, and
+publication are disabled. `/dev/preview?step=1` through `step=6` show wizard
+fixtures. This fixture mode cannot run on Vercel.
+
+See [the development audit](docs/DEVELOPMENT_AUDIT.md) for changes, verification,
+and the remaining integration checks. Development work targets `development`;
+production on `main` stays in maintenance mode until explicitly re-enabled.
+
+For real mutation testing, use separate development services:
+
 Requirements:
 
 - Node.js 22.13 or newer

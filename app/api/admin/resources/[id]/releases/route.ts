@@ -4,19 +4,33 @@ import {
   listModuleReleases,
 } from "../../../../../../lib/repositories/publisher-repository";
 import { requireApiAdmin } from "../../../../../../lib/services/auth";
+import { isLocalPreview } from "../../../../../../lib/config/local-preview";
 
 type Context = { params: Promise<{ id: string }> };
 
 export async function GET(_: Request, context: Context) {
   const auth = await requireApiAdmin();
   if (!auth.ok) return auth.response;
+  if (isLocalPreview()) return Response.json({ releases: [], preview: true });
   const { id } = await context.params;
-  return Response.json({ releases: await listModuleReleases(id) });
+  try {
+    return Response.json({ releases: await listModuleReleases(id) });
+  } catch {
+    return Response.json(
+      {
+        error:
+          "Module releases could not be loaded. Check the development database connection.",
+      },
+      { status: 503 },
+    );
+  }
 }
 
 export async function POST(request: Request, context: Context) {
   const { id } = await context.params;
-  const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  const bearer = request.headers
+    .get("authorization")
+    ?.replace(/^Bearer\s+/i, "");
   let uploadedBy = "publisher-cli";
   let source: "admin" | "cli" = "cli";
   if (bearer && !(await authenticatePublisherToken(id, bearer))) {
@@ -39,7 +53,10 @@ export async function POST(request: Request, context: Context) {
     const form = await request.formData();
     const file = form.get("file");
     if (!(file instanceof File)) {
-      return Response.json({ error: "A module ZIP is required." }, { status: 400 });
+      return Response.json(
+        { error: "A module ZIP is required." },
+        { status: 400 },
+      );
     }
     const release = await createReleaseDraft({
       resourceId: id,
@@ -56,7 +73,10 @@ export async function POST(request: Request, context: Context) {
     );
   } catch (error) {
     return Response.json(
-      { error: error instanceof Error ? error.message : "Release upload failed." },
+      {
+        error:
+          error instanceof Error ? error.message : "Release upload failed.",
+      },
       { status: 400 },
     );
   }

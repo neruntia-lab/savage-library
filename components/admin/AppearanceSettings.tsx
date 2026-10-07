@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchApi } from "../../lib/client/request";
 import { upload } from "@vercel/blob/client";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -25,7 +26,7 @@ export function AppearanceSettings({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const loadAppearance = useCallback(async () => {
-    const response = await fetch("/api/admin/site-settings");
+    const response = await fetchApi("/api/admin/site-settings");
     const body = (await response.json().catch(() => ({}))) as
       | SiteAppearance
       | { error?: string };
@@ -105,7 +106,7 @@ export function AppearanceSettings({
     }
     setBusy(true);
     onStatus("Restoring the bundled banner…");
-    const response = await fetch("/api/admin/hero-upload", { method: "DELETE" });
+    const response = await fetchApi("/api/admin/hero-upload", { method: "DELETE" });
     const body = (await response.json().catch(() => ({}))) as { error?: string };
     if (response.ok) {
       await loadAppearance();

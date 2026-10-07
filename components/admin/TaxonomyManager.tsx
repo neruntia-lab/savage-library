@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchApi } from "../../lib/client/request";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CatalogFacets, NamedEntity } from "../../lib/domain/resource";
 
@@ -30,7 +31,7 @@ export function TaxonomyManager({
   );
 
   const refresh = useCallback(async () => {
-    const response = await fetch("/api/taxonomy", { cache: "no-store" });
+    const response = await fetchApi("/api/taxonomy", { cache: "no-store" });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || !body.facets) {
       onStatus(body.error ?? "Taxonomy could not be refreshed.");
@@ -63,7 +64,7 @@ export function TaxonomyManager({
     const form = event.currentTarget;
     const key = `create-${type}`;
     setEntryBusy(key, true);
-    const response = await fetch("/api/taxonomy", {
+    const response = await fetchApi("/api/taxonomy", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(Object.fromEntries(new FormData(form))),
@@ -83,7 +84,7 @@ export function TaxonomyManager({
     const draft = drafts[id];
     if (!draft) return;
     setEntryBusy(id, true);
-    const response = await fetch(`/api/taxonomy/${encodeURIComponent(id)}`, {
+    const response = await fetchApi(`/api/taxonomy/${encodeURIComponent(id)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type, ...draft }),
@@ -100,7 +101,7 @@ export function TaxonomyManager({
 
   async function remove(type: string, id: string) {
     setEntryBusy(id, true);
-    const response = await fetch(
+    const response = await fetchApi(
       `/api/taxonomy/${encodeURIComponent(id)}?type=${encodeURIComponent(type)}`,
       { method: "DELETE" },
     );

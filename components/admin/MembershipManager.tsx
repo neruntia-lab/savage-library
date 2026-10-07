@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchApi } from "../../lib/client/request";
 import { useEffect, useMemo, useState } from "react";
 
 type Tier = { id: string; title: string; amountCents: number };
@@ -56,9 +57,9 @@ export function MembershipManager({ onStatus }: { onStatus: (message: string) =>
 
   async function load() {
     const [response, candidateResponse, resourceResponse] = await Promise.all([
-      fetch("/api/admin/memberships"),
-      fetch("/api/admin/patreon/posts"),
-      fetch("/api/resources?admin=1"),
+      fetchApi("/api/admin/memberships"),
+      fetchApi("/api/admin/patreon/posts"),
+      fetchApi("/api/resources?admin=1"),
     ]);
     if (response.ok) setData(await response.json());
     if (candidateResponse.ok) setCandidates((await candidateResponse.json()).candidates);
@@ -84,7 +85,7 @@ export function MembershipManager({ onStatus }: { onStatus: (message: string) =>
     const target = event.currentTarget;
     const form = new FormData(target);
     setBusy(true);
-    const response = await fetch("/api/admin/memberships", {
+    const response = await fetchApi("/api/admin/memberships", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: form.get("email"), tierIds: form.getAll("tierIds"),
@@ -99,20 +100,20 @@ export function MembershipManager({ onStatus }: { onStatus: (message: string) =>
   }
 
   async function revoke(id: string) {
-    const response = await fetch(`/api/admin/memberships/${id}`, { method: "DELETE" });
+    const response = await fetchApi(`/api/admin/memberships/${id}`, { method: "DELETE" });
     onStatus(response.ok ? "Complimentary access revoked." : "Grant could not be revoked.");
     if (response.ok) await load();
   }
 
   async function resend(id: string) {
-    const response = await fetch(`/api/admin/memberships/${id}`, { method: "POST" });
+    const response = await fetchApi(`/api/admin/memberships/${id}`, { method: "POST" });
     onStatus(response.ok ? "A new sign-in link was sent." : "The sign-in email could not be sent.");
   }
 
   async function synchronize() {
     setBusy(true);
     onStatus("Synchronizing Patreon members, tiers, and import candidates…");
-    const response = await fetch("/api/admin/patreon/sync", { method: "POST" });
+    const response = await fetchApi("/api/admin/patreon/sync", { method: "POST" });
     const body = await response.json().catch(() => ({}));
     onStatus(response.ok ? `${body.memberCount} members and ${body.postCount} candidates synchronized.` : body.error ?? "Synchronization failed.");
     if (response.ok) await load();
@@ -122,7 +123,7 @@ export function MembershipManager({ onStatus }: { onStatus: (message: string) =>
   async function connectCreator() {
     setBusy(true);
     onStatus("Validating creator credentials and registering the webhook…");
-    const response = await fetch("/api/admin/patreon/setup", { method: "POST" });
+    const response = await fetchApi("/api/admin/patreon/setup", { method: "POST" });
     const body = await response.json().catch(() => ({}));
     onStatus(response.ok ? `Patreon connected. ${body.memberCount} members and ${body.postCount} candidates synchronized.` : body.error ?? "Patreon creator setup failed.");
     if (response.ok) await load();
@@ -131,7 +132,7 @@ export function MembershipManager({ onStatus }: { onStatus: (message: string) =>
 
   async function updateCandidate(candidate: Candidate, action: "save" | "approve" | "reject" | "reprocess", payload = candidate.payload, resourceId = candidate.resourceId) {
     setBusy(true);
-    const response = await fetch("/api/admin/patreon/posts", {
+    const response = await fetchApi("/api/admin/patreon/posts", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: candidate.id, action, ...(action === "reprocess" ? {} : { payload, resourceId }) }),
     });
