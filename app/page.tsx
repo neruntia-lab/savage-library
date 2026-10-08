@@ -41,7 +41,6 @@ export default async function HomePage({
           <div className="archive-masthead">
             <CelestialOrnament variant="sun" className="archive-sun" />
             <div>
-              <p className="eyebrow">Knowledge · Shadows · Wilder worlds</p>
               <h1>Savage Library</h1>
               <p className="archive-subtitle">
                 The adventurer’s digital archive
@@ -49,9 +48,6 @@ export default async function HomePage({
               <span className="archive-divider" aria-hidden="true">
                 ✦
               </span>
-              <p className="archive-intro">
-                Tools, tales, and treasures for your next adventure.
-              </p>
             </div>
             <CelestialOrnament variant="moon" className="archive-moon" />
           </div>
@@ -89,10 +85,6 @@ export default async function HomePage({
               <p className="eyebrow">Resource catalog</p>
               <h2 id="library-title">Browse the library</h2>
             </div>
-            <p className="section-intro">
-              Explore every published entry. Filter and sort to find your next
-              adventure.
-            </p>
           </div>
           <CatalogFilters
             filters={filters}
