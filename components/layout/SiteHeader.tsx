@@ -69,7 +69,7 @@ export function SiteHeader() {
             </span>
             <span className="brand-copy">
               <strong>Savage Library</strong>
-              <small>Curated arcana for Foundry VTT</small>
+              <small>D&amp;D Content &amp; Foundry Modules</small>
             </span>
           </Link>
           <nav className="header-nav" aria-label="Primary navigation">
