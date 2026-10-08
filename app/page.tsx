@@ -43,7 +43,7 @@ export default async function HomePage({
             <div>
               <h1>Savage Library</h1>
               <p className="archive-subtitle">
-                The adventurer’s digital archive
+                Expand your campaign. Enhance your game.
               </p>
               <span className="archive-divider" aria-hidden="true">
                 ✦
