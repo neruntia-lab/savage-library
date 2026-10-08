@@ -62,3 +62,11 @@ the active immutable release.
 The daily reconciliation also removes expired rate-limit records and one-time
 verification tokens. Successfully processed webhook delivery records are kept
 for 90 days; failed or pending deliveries remain available for diagnosis.
+## Homepage catalog
+
+The homepage uses the shared published-resource catalog with the internal
+`paginate: false` policy. Banner search and the filters below it submit GET
+requests to `/#library`, preserving normalized query/filter state without
+pagination parameters. Homepage card tags also target that browser. `/library`,
+category routes, and `/api/resources` retain their paginated contracts; URL
+parameters cannot enable the internal unbounded listing policy.

@@ -38,7 +38,7 @@ import type {
   ResourceDetails,
   ResourceSummary,
 } from "../domain/resource";
-import { filterCatalog } from "../services/catalog";
+import { filterCatalog, type CatalogListingOptions } from "../services/catalog";
 import { resolveResourceArtwork } from "../services/resource-artwork";
 import type { ResourceInput } from "../validation/resource";
 import { isLocalPreview } from "../config/local-preview";
@@ -46,12 +46,13 @@ import { previewResource } from "../data/preview-resource";
 
 export async function listCatalog(
   filters: CatalogFilters,
+  options: CatalogListingOptions = {},
 ): Promise<CatalogResult> {
   try {
     await ensureSeedData();
-    return await listCatalogFromDatabase(filters);
+    return await listCatalogFromDatabase(filters, options);
   } catch {
-    return filterCatalog(SEED_RESOURCES, filters);
+    return filterCatalog(SEED_RESOURCES, filters, options);
   }
 }
 
@@ -681,6 +682,7 @@ export { createResource, updateResource, setResourcePublication, deleteResource,
 
 async function listCatalogFromDatabase(
   filters: CatalogFilters,
+  options: CatalogListingOptions = {},
 ): Promise<CatalogResult> {
   const db = getDb();
   const conditions: SQL[] = [eq(resources.isPublished, true)];
@@ -756,23 +758,21 @@ async function listCatalogFromDatabase(
   const where = and(...conditions);
   const orderBy = catalogOrder(filters.sort);
   const offset = (filters.page - 1) * filters.pageSize;
+  const rowsQuery = db
+    .select({ resource: resources, author: authors, category: categories, system: gameSystems })
+    .from(resources)
+    .innerJoin(authors, eq(resources.authorId, authors.id))
+    .innerJoin(categories, eq(resources.categoryId, categories.id))
+    .innerJoin(gameSystems, eq(resources.gameSystemId, gameSystems.id))
+    .where(where)
+    .orderBy(orderBy)
+    .$dynamic();
+  const selectedRows = options.paginate === false
+    ? rowsQuery
+    : rowsQuery.limit(filters.pageSize).offset(offset);
 
   const [rows, totals] = await Promise.all([
-    db
-      .select({
-        resource: resources,
-        author: authors,
-        category: categories,
-        system: gameSystems,
-      })
-      .from(resources)
-      .innerJoin(authors, eq(resources.authorId, authors.id))
-      .innerJoin(categories, eq(resources.categoryId, categories.id))
-      .innerJoin(gameSystems, eq(resources.gameSystemId, gameSystems.id))
-      .where(where)
-      .orderBy(orderBy)
-      .limit(filters.pageSize)
-      .offset(offset),
+    selectedRows,
     db
       .select({ value: count() })
       .from(resources)
@@ -798,14 +798,14 @@ async function listCatalogFromDatabase(
   }
 
   const total = totals[0]?.value ?? 0;
-  const pageCount = Math.max(1, Math.ceil(total / filters.pageSize));
+  const pageCount = options.paginate === false ? 1 : Math.max(1, Math.ceil(total / filters.pageSize));
   return {
     items: rows.map((row) =>
       mapSummary(row, tagsByResource.get(row.resource.id) ?? []),
     ),
     total,
-    page: Math.min(filters.page, pageCount),
-    pageSize: filters.pageSize,
+    page: options.paginate === false ? 1 : Math.min(filters.page, pageCount),
+    pageSize: options.paginate === false ? Math.max(1, total) : filters.pageSize,
     pageCount,
   };
 }

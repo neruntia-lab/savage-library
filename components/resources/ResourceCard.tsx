@@ -13,7 +13,14 @@ const typeLabels: Record<ResourceSummary["resourceType"], string> = {
   macro: "Macro",
 };
 
-export function ResourceCard({ resource }: { resource: ResourceSummary }) {
+export function ResourceCard({
+  resource,
+  catalogHref = ROUTES.library,
+}: {
+  resource: ResourceSummary;
+  catalogHref?: string;
+}) {
+  const [catalogPath, catalogAnchor] = catalogHref.split("#");
   return (
     <article className="resource-card">
       <span className="resource-card-accent" aria-hidden="true" />
@@ -68,7 +75,7 @@ export function ResourceCard({ resource }: { resource: ResourceSummary }) {
         {resource.tags.slice(0, 3).map((tag) => (
           <Link
             className="tag"
-            href={`${ROUTES.library}?tag=${encodeURIComponent(tag.slug)}`}
+            href={`${catalogPath}?tag=${encodeURIComponent(tag.slug)}${catalogAnchor ? `#${catalogAnchor}` : ""}`}
             key={tag.id}
           >
             {tag.name}

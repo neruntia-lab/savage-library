@@ -2,7 +2,13 @@ import type { ResourceSummary } from "../../lib/domain/resource";
 import { EmptyState } from "../ui/EmptyState";
 import { ResourceCard } from "./ResourceCard";
 
-export function ResourceGrid({ resources }: { resources: ResourceSummary[] }) {
+export function ResourceGrid({
+  resources,
+  catalogHref,
+}: {
+  resources: ResourceSummary[];
+  catalogHref?: string;
+}) {
   if (!resources.length) {
     return (
       <EmptyState
@@ -15,7 +21,11 @@ export function ResourceGrid({ resources }: { resources: ResourceSummary[] }) {
   return (
     <div className="resource-grid">
       {resources.map((resource) => (
-        <ResourceCard key={resource.id} resource={resource} />
+        <ResourceCard
+          key={resource.id}
+          resource={resource}
+          catalogHref={catalogHref}
+        />
       ))}
     </div>
   );

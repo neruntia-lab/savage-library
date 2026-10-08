@@ -87,6 +87,35 @@ test("home-to-library discovery flow renders searchable catalog content", async 
   assert.match(tagSearch, /Savage Craft/);
 });
 
+test("homepage is a complete filterable catalog with one banner search", async () => {
+  const home = await get("/?page=99&pageSize=1");
+  assert.match(home, /Browse the library/);
+  assert.match(home, /id="library"/);
+  assert.match(home, /action="\/#library"/);
+  assert.equal((home.match(/type="search"/g) ?? []).length, 1);
+  assert.equal((home.match(/<article class="resource-card"/g) ?? []).length, 5);
+  assert.doesNotMatch(
+    home,
+    /Featured discoveries|Explore the collection|class="category-card"|aria-label="Resource pages"/,
+  );
+  assert.match(home, /href="\/\?tag=[^\"]+#library"/);
+  const filtered = await get("/?q=crafting&type=module&sort=most-downloaded");
+  assert.equal(
+    (filtered.match(/<article class="resource-card"/g) ?? []).length,
+    1,
+  );
+  assert.match(filtered, /Savage Craft/);
+  assert.match(filtered, /type="hidden" name="q" value="crafting"/);
+  assert.match(filtered, /type="hidden" name="type" value="module"/);
+  assert.match(filtered, /href="\/#library"/);
+  assert.doesNotMatch(filtered, /Vanguard Class/);
+  const empty = await get("/?q=no-matching-entry");
+  assert.match(empty, /No resources found/);
+  const api = await fetch(`${origin}/api/resources?pageSize=1`);
+  assert.equal(api.status, 200);
+  assert.equal((await api.json()).items.length, 1);
+});
+
 test("resource detail flow exposes attribution, compatibility, and manifest actions", async () => {
   const details = await get("/resources/savage-craft");
   assert.match(details, /José Felipe/);
@@ -258,7 +287,10 @@ test("admin credentials callback creates an administrator session", async () => 
     preview.headers.get("Content-Security-Policy"),
     "frame-ancestors 'self'",
   );
-  const previewPage = await fetch(`${origin}/resources/savage-craft?preview=resource-savage-craft`, { headers });
+  const previewPage = await fetch(
+    `${origin}/resources/savage-craft?preview=resource-savage-craft`,
+    { headers },
+  );
   assert.equal(previewPage.status, 200);
   assert.match(await previewPage.text(), /Private draft preview/);
 });

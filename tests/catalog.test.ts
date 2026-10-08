@@ -2,7 +2,82 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { SEED_RESOURCES } from "../lib/data/seed-resources";
 import { deriveCompatibilityStatus } from "../lib/domain/compatibility";
-import { filterCatalog, parseCatalogFilters } from "../lib/services/catalog";
+import {
+  catalogFilterParams,
+  filterCatalog,
+  parseCatalogFilters,
+} from "../lib/services/catalog";
+
+test("homepage listing returns every match beyond the API page-size cap", () => {
+  const resources = Array.from({ length: 65 }, (_, index) => ({
+    ...SEED_RESOURCES[0],
+    id: `resource-${index}`,
+    slug: `resource-${index}`,
+    title: `Resource ${String(index).padStart(2, "0")}`,
+  }));
+  const filters = parseCatalogFilters({
+    page: "99",
+    pageSize: "1",
+    sort: "alphabetical",
+  });
+  const all = filterCatalog(resources, filters, { paginate: false });
+  assert.equal(all.items.length, 65);
+  assert.equal(new Set(all.items.map((resource) => resource.id)).size, 65);
+  assert.equal(all.page, 1);
+  assert.equal(all.pageCount, 1);
+  assert.equal(all.items[0].title, "Resource 00");
+  assert.equal(all.items[64].title, "Resource 64");
+  assert.equal(
+    filterCatalog(resources, { ...filters, page: 1 }).items.length,
+    1,
+  );
+  const none = filterCatalog(
+    resources,
+    { ...filters, query: "no-matching-entry" },
+    { paginate: false },
+  );
+  assert.equal(none.total, 0);
+  assert.equal(none.pageCount, 1);
+});
+
+test("unpaginated catalog still composes filters and sorting", () => {
+  const result = filterCatalog(
+    SEED_RESOURCES,
+    parseCatalogFilters({
+      type: "module",
+      system: "dnd5e",
+      pricing: "free",
+      sort: "most-downloaded",
+    }),
+    { paginate: false },
+  );
+  assert.equal(result.total, 2);
+  assert.deepEqual(
+    result.items.map((resource) => resource.slug),
+    ["savage-craft", "savage-training"],
+  );
+});
+
+test("homepage form state preserves normalized filters without pagination", () => {
+  const params = catalogFilterParams(
+    parseCatalogFilters({
+      q: "  craft  ",
+      type: "module",
+      category: "foundry-modules",
+      sort: "alphabetical",
+      page: "99",
+      pageSize: "1",
+    }),
+  );
+  assert.deepEqual(params, {
+    q: "craft",
+    type: "module",
+    category: "foundry-modules",
+    sort: "alphabetical",
+  });
+  assert.equal("page" in params, false);
+  assert.equal("pageSize" in params, false);
+});
 
 test("search covers titles, descriptions, authors, categories, tags, and systems", () => {
   for (const query of [

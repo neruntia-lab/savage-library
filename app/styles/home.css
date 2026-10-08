@@ -219,3 +219,6 @@
     max-width: 240px;
   }
 }
+.home-library {
+  scroll-margin-top: 6rem;
+}
