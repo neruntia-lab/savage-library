@@ -38,9 +38,17 @@ try {
       await expect(sidebar.locator("dt")).toContainText([
         "Compatibility",
         "Version",
-        "Cost",
+        "Required tier",
       ]);
       await expect(page.locator(".resource-hero .status")).toHaveCount(0);
+      await expect(sidebar).toContainText("None — Free");
+      assert.ok(
+        await sidebar
+          .locator(":scope > .tag-list")
+          .evaluate(
+            (tags) => parseFloat(getComputedStyle(tags).marginTop) >= 20,
+          ),
+      );
       if (slug === "savage-craft") {
         await expect(page.locator(".resource-hero button")).toHaveCount(0);
         await sidebar

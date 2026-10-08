@@ -1,3 +1,16 @@
+import type { ResourceDetails } from "./domain/resource";
+
+export function formatRequiredTier(
+  resource: Pick<ResourceDetails, "accessMode" | "allowedPatreonTiers">,
+): string {
+  if (resource.accessMode !== "patreon") return "None — Free";
+  const titles = (resource.allowedPatreonTiers ?? [])
+    .map((tier) => tier.title.trim())
+    .filter(Boolean);
+  if (!titles.length) return "Patreon membership required";
+  return titles.length === 1 ? titles[0] : `Any of: ${titles.join(", ")}`;
+}
+
 export function formatDate(value: string): string {
   return new Intl.DateTimeFormat("en", {
     year: "numeric",

@@ -5,7 +5,12 @@ import { CompatibilityBadge } from "./CompatibilityBadge";
 import { ResourceGrid } from "./ResourceGrid";
 import { CopyButton } from "../ui/CopyButton";
 import { ROUTES } from "../../lib/config/site";
-import { formatBytes, formatDate, formatLongDate } from "../../lib/format";
+import {
+  formatBytes,
+  formatDate,
+  formatLongDate,
+  formatRequiredTier,
+} from "../../lib/format";
 import type { ResourceDetails } from "../../lib/domain/resource";
 import type { AuthorizedUser } from "../../lib/services/auth";
 import { parseReleaseNotes } from "../../lib/validation/release-notes";
@@ -166,9 +171,7 @@ export function ResourcePresentation({
               {resource.allowedPatreonTiers?.length ? (
                 <div className="patreon-tier-list">
                   {resource.allowedPatreonTiers.map((tier) => (
-                    <span key={tier.id}>
-                      {tier.title} · ${(tier.amountCents / 100).toFixed(2)}
-                    </span>
+                    <span key={tier.id}>{tier.title}</span>
                   ))}
                 </div>
               ) : null}
@@ -368,12 +371,8 @@ export function ResourcePresentation({
                 </dd>
               </div>
               <div>
-                <dt>Cost</dt>
-                <dd>
-                  {resource.pricing === "free"
-                    ? "Free"
-                    : (resource.priceLabel ?? "Premium")}
-                </dd>
+                <dt>Required tier</dt>
+                <dd>{formatRequiredTier(resource)}</dd>
               </div>
               <div>
                 <dt>Author</dt>

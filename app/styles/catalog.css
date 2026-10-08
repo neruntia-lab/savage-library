@@ -606,6 +606,10 @@ textarea:focus {
   top: 105px;
 }
 
+.details-sidebar > .tag-list {
+  margin-top: 20px;
+}
+
 .resource-manifest-action {
   margin-bottom: 1.15rem;
 }

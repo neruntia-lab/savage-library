@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { SEED_RESOURCES } from "../lib/data/seed-resources";
 import { deriveCompatibilityStatus } from "../lib/domain/compatibility";
+import { formatRequiredTier } from "../lib/format";
 import {
   parsePublicCatalogFilters,
   publicCatalogParams,
@@ -9,6 +10,43 @@ import {
   filterCatalog,
   parseCatalogFilters,
 } from "../lib/services/catalog";
+
+test("resource requirement labels use tier names, not prices", () => {
+  const tier = (title: string) => ({ id: title, title, amountCents: 1500 });
+  assert.equal(
+    formatRequiredTier({
+      accessMode: "public",
+      allowedPatreonTiers: [tier("Gold")],
+    }),
+    "None — Free",
+  );
+  assert.equal(formatRequiredTier({}), "None — Free");
+  assert.equal(
+    formatRequiredTier({ accessMode: "patreon" }),
+    "Patreon membership required",
+  );
+  assert.equal(
+    formatRequiredTier({
+      accessMode: "patreon",
+      allowedPatreonTiers: [tier(" ")],
+    }),
+    "Patreon membership required",
+  );
+  assert.equal(
+    formatRequiredTier({
+      accessMode: "patreon",
+      allowedPatreonTiers: [tier("Gold")],
+    }),
+    "Gold",
+  );
+  assert.equal(
+    formatRequiredTier({
+      accessMode: "patreon",
+      allowedPatreonTiers: [tier("Gold"), tier("Silver")],
+    }),
+    "Any of: Gold, Silver",
+  );
+});
 
 test("public catalog accepts only type and system filters with search and sorting", () => {
   const input = {

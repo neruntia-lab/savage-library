@@ -210,7 +210,9 @@ test("resource detail flow exposes attribution, compatibility, and manifest acti
   assert.match(sidebar, /Copy manifest/);
   assert.match(sidebar, /<dt>Compatibility<\/dt>/);
   assert.match(sidebar, /<dt>Version<\/dt>/);
-  assert.match(sidebar, /<dt>Cost<\/dt>/);
+  assert.match(sidebar, /<dt>Required tier<\/dt>/);
+  assert.match(sidebar, /None — Free/);
+  assert.doesNotMatch(sidebar, /<dt>Cost<\/dt>/);
 });
 
 test("category and discovery metadata routes are available", async () => {
