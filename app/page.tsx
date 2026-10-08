@@ -8,7 +8,7 @@ import {
 import { getSiteAppearance } from "../lib/repositories/site-settings-repository";
 import {
   catalogFilterParams,
-  parseCatalogFilters,
+  parsePublicCatalogFilters,
 } from "../lib/services/catalog";
 
 export const revalidate = 120;
@@ -18,7 +18,7 @@ export default async function HomePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const filters = parseCatalogFilters(await searchParams);
+  const filters = parsePublicCatalogFilters(await searchParams);
   const [catalog, facets, appearance] = await Promise.all([
     listCatalog(filters, { paginate: false }),
     getCatalogFacets(),
@@ -93,11 +93,9 @@ export default async function HomePage({
             </p>
           </div>
           <CatalogFilters
-            key={JSON.stringify(catalogFilterParams(filters))}
             filters={filters}
             facets={facets}
             action="/#library"
-            clearHref="/#library"
             showSearch={false}
           />
           <div className="catalog-summary" aria-live="polite">
@@ -105,7 +103,7 @@ export default async function HomePage({
             {catalog.total === 1 ? "resource" : "resources"}
             {filters.query ? ` matching “${filters.query}”` : ""}
           </div>
-          <ResourceGrid resources={catalog.items} catalogHref="/#library" />
+          <ResourceGrid resources={catalog.items} />
         </div>
       </section>
     </>

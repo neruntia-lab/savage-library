@@ -3,10 +3,49 @@ import test from "node:test";
 import { SEED_RESOURCES } from "../lib/data/seed-resources";
 import { deriveCompatibilityStatus } from "../lib/domain/compatibility";
 import {
+  parsePublicCatalogFilters,
+  publicCatalogParams,
   catalogFilterParams,
   filterCatalog,
   parseCatalogFilters,
 } from "../lib/services/catalog";
+
+test("public catalog accepts only type and system filters with search and sorting", () => {
+  const input = {
+    q: "craft",
+    type: "module",
+    system: "dnd5e",
+    sort: "alphabetical",
+    page: "2",
+    pageSize: "1",
+    tag: "crafting",
+    author: "author",
+    pricing: "premium",
+    foundry: "13",
+    version: "999",
+    class: "fighter",
+    compatibility: "unsupported",
+    category: "pdfs",
+  };
+  const parsed = parsePublicCatalogFilters(input);
+  assert.equal(parsed.tag, undefined);
+  assert.equal(parsed.pricing, undefined);
+  assert.equal(parsed.author, undefined);
+  assert.equal(parsed.category, undefined);
+  assert.deepEqual(publicCatalogParams(parsed), {
+    q: "craft",
+    type: "module",
+    system: "dnd5e",
+    sort: "alphabetical",
+    page: "2",
+    pageSize: "1",
+  });
+  assert.equal(
+    parsePublicCatalogFilters(input, { category: "foundry-modules" }).category,
+    "foundry-modules",
+  );
+  assert.equal(parseCatalogFilters(input).tag, "crafting");
+});
 
 test("homepage listing returns every match beyond the API page-size cap", () => {
   const resources = Array.from({ length: 65 }, (_, index) => ({

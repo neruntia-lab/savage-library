@@ -449,13 +449,9 @@ export function ResourcePresentation({
 
             <div className="tag-list">
               {resource.tags.map((tag) => (
-                <Link
-                  className="tag"
-                  href={`${ROUTES.library}?tag=${tag.slug}`}
-                  key={tag.id}
-                >
+                <span className="tag" key={tag.id}>
                   {tag.name}
-                </Link>
+                </span>
               ))}
             </div>
           </aside>

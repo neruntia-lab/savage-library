@@ -79,8 +79,9 @@ test("home-to-library discovery flow renders searchable catalog content", async 
   );
   assert.match(library, /Savage Craft/);
   assert.match(library, /matching/);
-  assert.match(library, /Filters.*\(4\)/);
-  assert.match(library, /filter-advanced is-open/);
+  assert.match(library, /Source type/);
+  assert.match(library, /Sort by/);
+  assert.doesNotMatch(library, /filter-advanced|Apply filters/);
   assert.doesNotMatch(library, /Vanguard Class/);
 
   const tagSearch = await get("/library?q=Automation");
@@ -98,7 +99,7 @@ test("homepage is a complete filterable catalog with one banner search", async (
     home,
     /Featured discoveries|Explore the collection|class="category-card"|aria-label="Resource pages"/,
   );
-  assert.match(home, /href="\/\?tag=[^\"]+#library"/);
+  assert.doesNotMatch(home, /href="[^\"]*\?tag=/);
   const filtered = await get("/?q=crafting&type=module&sort=most-downloaded");
   assert.equal(
     (filtered.match(/<article class="resource-card"/g) ?? []).length,
@@ -107,13 +108,45 @@ test("homepage is a complete filterable catalog with one banner search", async (
   assert.match(filtered, /Savage Craft/);
   assert.match(filtered, /type="hidden" name="q" value="crafting"/);
   assert.match(filtered, /type="hidden" name="type" value="module"/);
-  assert.match(filtered, /href="\/#library"/);
+  assert.match(filtered, /Clear filters/);
   assert.doesNotMatch(filtered, /Vanguard Class/);
   const empty = await get("/?q=no-matching-entry");
   assert.match(empty, /No resources found/);
   const api = await fetch(`${origin}/api/resources?pageSize=1`);
   assert.equal(api.status, 200);
   assert.equal((await api.json()).items.length, 1);
+});
+
+test("public browser ignores retired filters while the API retains them", async () => {
+  const retired =
+    "tag=nonexistent&author=nonexistent&pricing=premium&foundry=999&version=999&class=nonexistent&compatibility=unsupported&category=nonexistent";
+  for (const route of ["/", "/library"]) {
+    const html = await get(`${route}?${retired}`);
+    assert.equal(
+      (html.match(/<article class="resource-card"/g) ?? []).length,
+      5,
+    );
+    for (const name of [
+      "tag",
+      "author",
+      "pricing",
+      "foundry",
+      "version",
+      "class",
+      "compatibility",
+      "category",
+    ]) {
+      assert.doesNotMatch(html, new RegExp(`name="${name}"`));
+    }
+    assert.equal((html.match(/<select /g) ?? []).length, 3);
+  }
+  const category = await get(`/categories/foundry-modules?${retired}`);
+  assert.equal(
+    (category.match(/<article class="resource-card"/g) ?? []).length,
+    2,
+  );
+  const api = await fetch(`${origin}/api/resources?tag=nonexistent`);
+  assert.equal((await api.json()).total, 0);
 });
 
 test("resource detail flow exposes attribution, compatibility, and manifest actions", async () => {

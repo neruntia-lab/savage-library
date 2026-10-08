@@ -66,7 +66,9 @@ for 90 days; failed or pending deliveries remain available for diagnosis.
 
 The homepage uses the shared published-resource catalog with the internal
 `paginate: false` policy. Banner search and the filters below it submit GET
-requests to `/#library`, preserving normalized query/filter state without
-pagination parameters. Homepage card tags also target that browser. `/library`,
+requests to `/#library`, preserving search, source type, game system, and sorting.
+The compact controls use client-side navigation for immediate updates without
+pagination parameters. Tags are informational; retired public filter parameters
+are ignored. Sorting is outside the two-filter fieldset. `/library`,
 category routes, and `/api/resources` retain their paginated contracts; URL
 parameters cannot enable the internal unbounded listing policy.

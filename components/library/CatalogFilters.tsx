@@ -1,74 +1,106 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  useMemo,
+  useOptimistic,
+  useRef,
+  useTransition,
+  type FormEvent,
+} from "react";
 import { ROUTES } from "../../lib/config/site";
 import {
-  COMPATIBILITY_STATUSES,
-  PRICING_TYPES,
   RESOURCE_TYPES,
   SORT_OPTIONS,
   type CatalogFacets,
-  type CatalogFilters,
+  type CatalogFilters as Filters,
 } from "../../lib/domain/resource";
 
 const labels: Record<string, string> = {
-  module: "Module",
-  class: "Class",
-  subclass: "Subclass",
+  module: "Foundry module",
   pdf: "PDF",
   macro: "Macro",
-  free: "Free",
-  premium: "Premium",
-  verified: "Verified",
-  compatible: "Compatible",
-  untested: "Untested",
-  outdated: "Outdated",
-  unsupported: "Unsupported",
+  class: "Class",
+  subclass: "Subclass",
   "recently-added": "Recently added",
   "recently-updated": "Recently updated",
   alphabetical: "Alphabetical",
   "most-downloaded": "Most downloaded",
   "most-popular": "Most popular",
 };
+type Selection = { type: string; system: string; sort: string };
 
 export function CatalogFilters({
   filters,
   facets,
   fixedCategory,
   action,
-  clearHref,
   showSearch = true,
 }: {
-  filters: CatalogFilters;
+  filters: Filters;
   facets: CatalogFacets;
   fixedCategory?: string;
   action?: string;
-  clearHref?: string;
   showSearch?: boolean;
 }) {
-  const activeFilterCount = [
-    filters.resourceType,
-    filters.system,
-    filters.foundryVersion,
-    filters.moduleVersion,
-    filters.classOrSubclass,
-    filters.pricing,
-    filters.tag,
-    filters.author,
-    filters.compatibility,
-    !fixedCategory ? filters.category : undefined,
-    filters.sort !== "recently-added" ? filters.sort : undefined,
-  ].filter(Boolean).length;
-  const [filtersOpen, setFiltersOpen] = useState(activeFilterCount > 0);
+  const router = useRouter();
+  const form = useRef<HTMLFormElement>(null);
+  const [pending, startTransition] = useTransition();
+  const initial = useMemo(
+    () => ({
+      type: filters.resourceType ?? "",
+      system: filters.system ?? "",
+      sort: filters.sort,
+    }),
+    [filters.resourceType, filters.system, filters.sort],
+  );
+  const [selection, select] = useOptimistic(
+    initial as Selection,
+    (current, update: Partial<Selection>) => ({ ...current, ...update }),
+  );
+  const destination =
+    action ?? (fixedCategory ? ROUTES.category(fixedCategory) : ROUTES.library);
+
+  function navigate(update: Partial<Selection> = {}) {
+    const next = { ...selection, ...update };
+    const query = showSearch
+      ? String(new FormData(form.current!).get("q") ?? "").trim()
+      : filters.query;
+    const params = new URLSearchParams();
+    if (query) params.set("q", query.slice(0, 120));
+    if (next.type) params.set("type", next.type);
+    if (next.system) params.set("system", next.system);
+    params.set("sort", next.sort);
+    const [path, fragment] = destination.split("#");
+    startTransition(() => {
+      select(update);
+      router.replace(
+        `${path}?${params.toString()}${fragment ? `#${fragment}` : ""}`,
+        { scroll: false },
+      );
+    });
+  }
+
+  function search(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    navigate();
+  }
 
   return (
-    <form className="catalog-filters" method="get" action={action}>
+    <form
+      ref={form}
+      className="catalog-browser-controls"
+      method="get"
+      action={destination}
+      onSubmit={search}
+      aria-busy={pending}
+    >
       {showSearch ? (
         <div className="filter-search">
           <label htmlFor="library-search">Search resources</label>
           <div>
             <input
+              key={filters.query ?? ""}
               id="library-search"
               name="q"
               type="search"
@@ -83,167 +115,74 @@ export function CatalogFilters({
       ) : filters.query ? (
         <input type="hidden" name="q" value={filters.query} />
       ) : null}
-
-      {fixedCategory || filters.category ? (
-        <input
-          type="hidden"
-          name="category"
-          value={fixedCategory ?? filters.category}
-        />
-      ) : null}
-
-      <button
-        className="filter-toggle"
-        type="button"
-        aria-expanded={filtersOpen}
-        aria-controls="advanced-catalog-filters"
-        onClick={() => setFiltersOpen((value) => !value)}
-      >
-        <span>Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}</span>
-        <span aria-hidden="true">{filtersOpen ? "−" : "+"}</span>
-      </button>
-
-      <div
-        id="advanced-catalog-filters"
-        className={`filter-advanced ${filtersOpen ? "is-open" : ""}`}
-      >
-        <div className="filter-grid">
-          <FilterSelect
-            label="Resource type"
-            name="type"
-            value={filters.resourceType}
-            options={RESOURCE_TYPES.map((value) => ({
-              value,
-              label: labels[value],
-            }))}
-          />
-          <FilterSelect
-            label="Game system"
-            name="system"
-            value={filters.system}
-            options={facets.gameSystems.map((system) => ({
-              value: system.slug,
-              label: system.name,
-            }))}
-          />
-          <FilterSelect
-            label="Foundry version"
-            name="foundry"
-            value={filters.foundryVersion}
-            options={facets.foundryVersions.map((version) => ({
-              value: version,
-              label: `Foundry ${version}`,
-            }))}
-          />
-          <FilterSelect
-            label="Module version"
-            name="version"
-            value={filters.moduleVersion}
-            options={facets.moduleVersions.map((version) => ({
-              value: version,
-              label: version,
-            }))}
-          />
-          <FilterSelect
-            label="Class or subclass"
-            name="class"
-            value={filters.classOrSubclass}
-            options={facets.classes.map((name) => ({
-              value: name,
-              label: name,
-            }))}
-          />
-          <FilterSelect
-            label="Price"
-            name="pricing"
-            value={filters.pricing}
-            options={PRICING_TYPES.map((value) => ({
-              value,
-              label: labels[value],
-            }))}
-          />
-          <FilterSelect
-            label="Tag"
-            name="tag"
-            value={filters.tag}
-            options={facets.tags.map((tag) => ({
-              value: tag.slug,
-              label: tag.name,
-            }))}
-          />
-          <FilterSelect
-            label="Author"
-            name="author"
-            value={filters.author}
-            options={facets.authors.map((author) => ({
-              value: author.slug,
-              label: author.name,
-            }))}
-          />
-          <FilterSelect
-            label="Compatibility"
-            name="compatibility"
-            value={filters.compatibility}
-            options={COMPATIBILITY_STATUSES.map((value) => ({
-              value,
-              label: labels[value],
-            }))}
-          />
-          <FilterSelect
-            label="Sort"
+      <div className="catalog-control-bar">
+        <fieldset className="catalog-filter-group">
+          <legend className="sr-only">Catalog filters</legend>
+          <label>
+            <span>Source type</span>
+            <select
+              name="type"
+              value={selection.type}
+              onChange={(event) => navigate({ type: event.target.value })}
+            >
+              <option value="">All types</option>
+              {RESOURCE_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {labels[type]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Game system</span>
+            <select
+              name="system"
+              value={selection.system}
+              onChange={(event) => navigate({ system: event.target.value })}
+            >
+              <option value="">All systems</option>
+              {facets.gameSystems.map((system) => (
+                <option key={system.id} value={system.slug}>
+                  {system.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </fieldset>
+        <label className="catalog-sort">
+          <span>Sort by</span>
+          <select
             name="sort"
-            value={filters.sort}
-            includeAny={false}
-            options={SORT_OPTIONS.map((value) => ({
-              value,
-              label: labels[value],
-            }))}
-          />
-        </div>
-
-        <div className="filter-actions">
-          <button className="button button-secondary" type="submit">
-            Apply filters
-          </button>
-          <Link
-            className="button button-quiet"
-            href={
-              clearHref ??
-              (fixedCategory ? ROUTES.category(fixedCategory) : ROUTES.library)
-            }
+            value={selection.sort}
+            onChange={(event) => navigate({ sort: event.target.value })}
           >
-            Clear
-          </Link>
-        </div>
+            {SORT_OPTIONS.map((sort) => (
+              <option key={sort} value={sort}>
+                {labels[sort]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="catalog-control-feedback">
+        <p role="status" aria-live="polite">
+          {pending ? "Updating results…" : ""}
+        </p>
+        {selection.type || selection.system ? (
+          <button
+            className="catalog-clear"
+            type="button"
+            onClick={() => {
+              form.current
+                ?.querySelector<HTMLSelectElement>('select[name="type"]')
+                ?.focus();
+              navigate({ type: "", system: "" });
+            }}
+          >
+            Clear filters
+          </button>
+        ) : null}
       </div>
     </form>
-  );
-}
-
-function FilterSelect({
-  label,
-  name,
-  value,
-  options,
-  includeAny = true,
-}: {
-  label: string;
-  name: string;
-  value?: string;
-  options: Array<{ value: string; label: string }>;
-  includeAny?: boolean;
-}) {
-  return (
-    <label>
-      <span>{label}</span>
-      <select name={name} defaultValue={value ?? ""}>
-        {includeAny ? <option value="">Any</option> : null}
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }

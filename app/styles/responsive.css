@@ -288,13 +288,8 @@
 
 .mobile-menu-button,
 .mobile-navigation,
-.mobile-menu-backdrop,
-.filter-toggle {
+.mobile-menu-backdrop {
   display: none;
-}
-
-.filter-advanced {
-  display: block;
 }
 
 .admin-resource-table .admin-more-button {
@@ -715,44 +710,6 @@
     width: 100%;
   }
 
-  .filter-toggle {
-    align-items: center;
-    background: transparent;
-    border: 1px solid var(--color-border-strong);
-    color: var(--color-text);
-    display: flex;
-    font-size: 0.78rem;
-    font-weight: 700;
-    justify-content: space-between;
-    margin-top: 0.85rem;
-    min-height: 46px;
-    padding: 0.65rem 0.8rem;
-    width: 100%;
-  }
-
-  .filter-advanced:not(.is-open) {
-    display: none;
-  }
-
-  .filter-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .filter-grid select {
-    min-height: 46px;
-  }
-
-  .filter-actions {
-    align-items: stretch;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .filter-actions .button {
-    min-height: 46px;
-    width: 100%;
-  }
-
   .resource-hero {
     gap: 1.5rem;
     grid-template-columns: 1fr;
@@ -996,8 +953,7 @@
   }
 
   .footer-grid,
-  .patreon-access-actions,
-  .filter-actions {
+  .patreon-access-actions {
     grid-template-columns: 1fr;
   }
 

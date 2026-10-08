@@ -22,6 +22,45 @@ type SearchParamRecord = Record<string, SearchParamValue>;
 // Internal listing policy; URL parameters never enable unbounded API results.
 export type CatalogListingOptions = { paginate?: boolean };
 
+// Browser controls are intentionally smaller than the backwards-compatible API.
+export function parsePublicCatalogFilters(
+  params: SearchParamRecord,
+  overrides: Partial<CatalogFilters> = {},
+): CatalogFilters {
+  return parseCatalogFilters(
+    {
+      q: params.q,
+      type: params.type,
+      system: params.system,
+      sort: params.sort,
+      page: params.page,
+      pageSize: params.pageSize,
+    },
+    overrides,
+  );
+}
+
+export function publicCatalogParams(
+  filters: CatalogFilters,
+): Record<string, string> {
+  const values: Record<string, string | undefined> = {
+    q: filters.query,
+    type: filters.resourceType,
+    system: filters.system,
+    sort: filters.sort,
+    page: filters.page > 1 ? String(filters.page) : undefined,
+    pageSize:
+      filters.pageSize !== SITE_CONFIG.defaultPageSize
+        ? String(filters.pageSize)
+        : undefined,
+  };
+  return Object.fromEntries(
+    Object.entries(values).filter((entry): entry is [string, string] =>
+      Boolean(entry[1]),
+    ),
+  );
+}
+
 export function catalogFilterParams(
   filters: CatalogFilters,
 ): Record<string, string> {
