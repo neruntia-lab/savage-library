@@ -1,5 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNotNull, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  isNotNull,
+  ne,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { getDb, isDatabaseConfigured } from "../../db";
 import { resources, wikiGuides } from "../../db/schema";
 import { isLocalPreview } from "../config/local-preview";
@@ -13,7 +25,9 @@ import {
   WikiError,
   validateWikiInput,
   wikiPublicationFields,
+  browseWiki,
 } from "../services/wiki";
+import { containsPattern, pagination } from "./query-utils";
 
 function adminGuide(row: typeof wikiGuides.$inferSelect): AdminWikiGuide {
   return {
@@ -29,9 +43,15 @@ function adminGuide(row: typeof wikiGuides.$inferSelect): AdminWikiGuide {
   };
 }
 
-export async function listPublicWiki(): Promise<PublicWikiGuide[]> {
-  if (isLocalPreview()) return WIKI_EXAMPLES;
-  if (!isDatabaseConfigured()) return [];
+export async function listPublicWiki(
+  options: { slug?: string; where?: SQL; limit?: number; offset?: number } = {},
+): Promise<PublicWikiGuide[]> {
+  if (isLocalPreview())
+    return WIKI_EXAMPLES.filter(
+      (g) => !options.slug || g.slug === options.slug,
+    );
+  if (!isDatabaseConfigured())
+    throw new Error("Wiki is temporarily unavailable.");
   // Deliberately select only the published snapshot: drafts never reach public page data.
   const rows = await getDb()
     .select({
@@ -49,7 +69,16 @@ export async function listPublicWiki(): Promise<PublicWikiGuide[]> {
     })
     .from(wikiGuides)
     .leftJoin(resources, eq(wikiGuides.publishedModuleId, resources.id))
-    .where(isNotNull(wikiGuides.publishedContent));
+    .where(
+      and(
+        isNotNull(wikiGuides.publishedContent),
+        options.slug ? eq(wikiGuides.publishedSlug, options.slug) : undefined,
+        options.where,
+      ),
+    )
+    .orderBy(desc(wikiGuides.publishedAt), asc(wikiGuides.id))
+    .limit(options.limit ?? 20)
+    .offset(options.offset ?? 0);
   return rows.map((row) => ({
     id: row.id,
     slug: row.slug!,
@@ -71,9 +100,124 @@ export async function listPublicWiki(): Promise<PublicWikiGuide[]> {
   }));
 }
 
-export async function listAdminWiki(): Promise<AdminWikiGuide[]> {
-  if (isLocalPreview()) return WIKI_ADMIN_EXAMPLES;
-  return (await getDb().select().from(wikiGuides)).map(adminGuide);
+export async function getPublicWikiBySlug(slug: string) {
+  return (await listPublicWiki({ slug, limit: 1 }))[0] ?? null;
+}
+
+export async function browsePublicWiki(
+  query: string,
+  moduleId: string,
+  requestedPage: number,
+) {
+  if (isLocalPreview())
+    return browseWiki(WIKI_EXAMPLES, query, moduleId, requestedPage);
+  const search = containsPattern(query);
+  const translationSearch = sql<string>`concat_ws(' ', ${wikiGuides.publishedContent}->'translations'->'en'->>'title', ${wikiGuides.publishedContent}->'translations'->'en'->>'summary', ${wikiGuides.publishedContent}->'translations'->'en'->>'body', ${wikiGuides.publishedContent}->'translations'->'es'->>'title', ${wikiGuides.publishedContent}->'translations'->'es'->>'summary', ${wikiGuides.publishedContent}->'translations'->'es'->>'body')`;
+  const where = and(
+    isNotNull(wikiGuides.publishedContent),
+    query.trim()
+      ? or(
+          ilike(translationSearch, search),
+          and(eq(resources.isPublished, true), ilike(resources.title, search)),
+        )
+      : undefined,
+    moduleId === "general"
+      ? or(sql`${resources.id} IS NULL`, eq(resources.isPublished, false))
+      : moduleId
+        ? and(eq(resources.id, moduleId), eq(resources.isPublished, true))
+        : undefined,
+  );
+  const [totals] = await getDb()
+    .select({ total: count() })
+    .from(wikiGuides)
+    .leftJoin(resources, eq(wikiGuides.publishedModuleId, resources.id))
+    .where(where);
+  const { offset, ...page } = pagination(totals.total, requestedPage, 20);
+  return { ...page, items: await listPublicWiki({ where, limit: 20, offset }) };
+}
+
+export async function publicWikiModules() {
+  if (isLocalPreview())
+    return Array.from(
+      new Map(
+        WIKI_EXAMPLES.filter((g) => g.module).map((g) => [
+          g.module!.id,
+          g.module!,
+        ]),
+      ).values(),
+    );
+  return getDb()
+    .selectDistinct({ id: resources.id, title: resources.title })
+    .from(wikiGuides)
+    .innerJoin(resources, eq(wikiGuides.publishedModuleId, resources.id))
+    .where(
+      and(
+        isNotNull(wikiGuides.publishedContent),
+        eq(resources.isPublished, true),
+      ),
+    )
+    .orderBy(asc(resources.title));
+}
+
+export async function listAdminWiki(
+  input: { query?: string; filter?: string; page?: number } = {},
+) {
+  const query = input.query?.trim().slice(0, 120) ?? "";
+  if (isLocalPreview()) {
+    const matching = WIKI_ADMIN_EXAMPLES.filter(
+      (g) =>
+        `${g.slug} ${Object.values(g.draft.translations)
+          .map((t) => t.title)
+          .join(" ")}`
+          .toLowerCase()
+          .includes(query.toLowerCase()) &&
+        (input.filter === "published"
+          ? g.isPublished
+          : input.filter === "draft"
+            ? !g.isPublished
+            : true),
+    );
+    const { offset, ...page } = pagination(
+      matching.length,
+      input.page ?? 1,
+      20,
+    );
+    return { ...page, guides: matching.slice(offset, offset + 20) };
+  }
+  const where = and(
+    query
+      ? or(
+          ilike(wikiGuides.slug, containsPattern(query)),
+          ilike(
+            sql<string>`concat_ws(' ', ${wikiGuides.draft}->'translations'->'en'->>'title', ${wikiGuides.draft}->'translations'->'es'->>'title')`,
+            containsPattern(query),
+          ),
+        )
+      : undefined,
+    input.filter === "published"
+      ? isNotNull(wikiGuides.publishedContent)
+      : input.filter === "draft"
+        ? sql`${wikiGuides.publishedContent} IS NULL`
+        : undefined,
+  );
+  const db = getDb();
+  const [totals] = await db
+    .select({ total: count() })
+    .from(wikiGuides)
+    .where(where);
+  const { offset, ...page } = pagination(totals.total, input.page ?? 1, 20);
+  return {
+    ...page,
+    guides: (
+      await db
+        .select()
+        .from(wikiGuides)
+        .where(where)
+        .orderBy(desc(wikiGuides.updatedAt), asc(wikiGuides.id))
+        .limit(20)
+        .offset(offset)
+    ).map(adminGuide),
+  };
 }
 
 export async function getAdminWiki(id: string) {

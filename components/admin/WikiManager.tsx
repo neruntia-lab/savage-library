@@ -11,30 +11,35 @@ export function WikiManager({ modules }: { modules: WikiModule[] }) {
     undefined,
   );
   const [status, setStatus] = useState("Loading guides…");
-  const refresh = useCallback(async () => {
-    const result = await requestJson<
-      ApiFailure & { guides?: AdminWikiGuide[] }
-    >("/api/admin/wiki");
-    if (result.ok && result.body.guides) {
-      setGuides(result.body.guides);
-      setStatus("");
-    } else setStatus(result.body.error ?? "Guides could not be loaded.");
-  }, []);
-  useEffect(() => {
-    let active = true;
-    void requestJson<ApiFailure & { guides?: AdminWikiGuide[] }>(
-      "/api/admin/wiki",
-    ).then((result) => {
-      if (!active) return;
+  const [page, setPage] = useState(1);
+  const [pageCount, setPageCount] = useState(1);
+  const refresh = useCallback(
+    async (signal?: AbortSignal) => {
+      const params = new URLSearchParams({
+        q: query,
+        filter,
+        page: String(page),
+      });
+      const result = await requestJson<
+        ApiFailure & { guides?: AdminWikiGuide[]; pageCount?: number }
+      >(`/api/admin/wiki?${params}`, { signal });
+      if (signal?.aborted) return;
       if (result.ok && result.body.guides) {
         setGuides(result.body.guides);
+        setPageCount(result.body.pageCount ?? 1);
         setStatus("");
       } else setStatus(result.body.error ?? "Guides could not be loaded.");
-    });
+    },
+    [query, filter, page],
+  );
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => void refresh(controller.signal), 250);
     return () => {
-      active = false;
+      clearTimeout(timer);
+      controller.abort();
     };
-  }, []);
+  }, [refresh]);
   if (selection !== undefined)
     return (
       <WikiGuideEditor
@@ -48,16 +53,7 @@ export function WikiManager({ modules }: { modules: WikiModule[] }) {
         onSaved={() => void refresh()}
       />
     );
-  const visible = guides.filter(
-    (guide) =>
-      `${guide.slug} ${Object.values(guide.draft.translations)
-        .map((t) => t.title)
-        .join(" ")}`
-        .toLowerCase()
-        .includes(query.toLowerCase()) &&
-      (filter === "all" ||
-        (filter === "published" ? guide.isPublished : !guide.isPublished)),
-  );
+  const visible = guides;
   return (
     <section aria-labelledby="wiki-admin-title">
       <header className="admin-section-heading">
@@ -74,12 +70,21 @@ export function WikiManager({ modules }: { modules: WikiModule[] }) {
           <input
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
           />
         </label>
         <label>
           <span>Status</span>
-          <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+          <select
+            value={filter}
+            onChange={(e) => {
+              setFilter(e.target.value);
+              setPage(1);
+            }}
+          >
             <option value="all">All guides</option>
             <option value="draft">Drafts</option>
             <option value="published">Published</option>
@@ -126,6 +131,29 @@ export function WikiManager({ modules }: { modules: WikiModule[] }) {
           </div>
         </article>
       ))}
+      {pageCount > 1 ? (
+        <nav className="pagination" aria-label="Guide pages">
+          <button
+            className="button button-secondary"
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage(page - 1)}
+          >
+            Previous
+          </button>
+          <span>
+            Page {page} of {pageCount}
+          </span>
+          <button
+            className="button button-secondary"
+            type="button"
+            disabled={page >= pageCount}
+            onClick={() => setPage(page + 1)}
+          >
+            Next
+          </button>
+        </nav>
+      ) : null}
     </section>
   );
 }

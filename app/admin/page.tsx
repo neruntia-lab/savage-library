@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { AdminDashboard } from "../../components/admin/AdminDashboard";
 import {
   getCatalogFacets,
-  listAdminResources,
+  listAdminResourcePage,
+  adminModuleChoices,
 } from "../../lib/repositories/resource-repository";
 import { getSiteAppearance } from "../../lib/repositories/site-settings-repository";
 import { requireAdminPage } from "../../lib/services/auth";
@@ -20,10 +21,11 @@ export default async function AdminPage() {
   const user = await requireAdminPage();
   if (!user) redirect("/admin/login");
 
-  const [resources, facets, appearance] = await Promise.all([
-    listAdminResources(),
+  const [catalog, facets, appearance, modules] = await Promise.all([
+    listAdminResourcePage(),
     getCatalogFacets(),
     getSiteAppearance(),
+    adminModuleChoices(),
   ]);
 
   return (
@@ -38,15 +40,13 @@ export default async function AdminPage() {
               the archive.
             </p>
           </div>
-          <Link
-            className="button button-secondary button-small"
-            href="/logout"
-          >
+          <Link className="button button-secondary button-small" href="/logout">
             Sign out
           </Link>
         </div>
         <AdminDashboard
-          initialResources={resources}
+          initialCatalog={catalog}
+          modules={modules}
           facets={facets}
           initialAppearance={appearance}
         />

@@ -35,6 +35,11 @@ See [the development audit](docs/DEVELOPMENT_AUDIT.md) for changes, verification
 and the remaining integration checks. Development work targets `development`;
 production on `main` stays in maintenance mode until explicitly re-enabled.
 
+The latest [optimization audit](docs/OPTIMIZATION_AUDIT.md) covers bounded catalog
+browsing, transactional writes, lazy administration panels, synchronization safety,
+verification results, and remaining scalability work. Run `npm run audit:structure`
+to repeat the read-only structural scan.
+
 For real mutation testing, use separate development services:
 
 Requirements:

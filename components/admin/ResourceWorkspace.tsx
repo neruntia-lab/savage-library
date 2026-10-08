@@ -13,8 +13,13 @@ import { useEffect, useRef, useState } from "react";
 import type { CatalogFacets, FileKind } from "../../lib/domain/resource";
 import type { ResourceInput } from "../../lib/validation/resource";
 import type { EditingResource } from "./types";
-import { ModuleReleaseManager } from "./ModuleReleaseManager";
+import dynamic from "next/dynamic";
+const ModuleReleaseManager = dynamic(() =>
+  import("./ModuleReleaseManager").then((m) => m.ModuleReleaseManager),
+);
 import { foundryManifestUrl } from "../../lib/config/site";
+import { wizardSlug as slugify } from "../../lib/services/resource-wizard";
+import { formatBytes } from "../../lib/format";
 
 type PatreonTier = {
   id: string;
@@ -854,20 +859,4 @@ function acceptForKind(kind: FileKind): string {
     case "manifest":
       return ".json";
   }
-}
-
-function formatBytes(value: number): string {
-  if (value < 1_024) return `${value} B`;
-  if (value < 1_024 * 1_024) return `${(value / 1_024).toFixed(1)} KB`;
-  return `${(value / (1_024 * 1_024)).toFixed(1)} MB`;
-}
-
-function slugify(value: string): string {
-  return value
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 120);
 }

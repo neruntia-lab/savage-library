@@ -8,6 +8,7 @@ import {
 } from "@vercel/blob";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db";
+import { withWriteTransaction, type WriteDatabase } from "../../db/transaction";
 import { privateBlobToken } from "../config/blob";
 import {
   files,
@@ -72,10 +73,10 @@ export async function storeResourceFile(input: {
   });
 }
 
-export async function recordUploadedBlob(
+export async function persistUploadedBlob(
   input: UploadedBlobInput,
-): Promise<{ id: string; storageKey: string; resourceId: string }> {
-  const db = getDb();
+  db: WriteDatabase,
+) {
   const resourceRows = await db
     .select({
       id: resources.id,
@@ -175,35 +176,54 @@ export async function recordUploadedBlob(
           ? resource.iconKey
           : null;
   const oldUrl = existingRows[0]?.storageUrl ?? resourceArtworkUrl;
-  if (oldUrl && oldUrl !== input.blob.url) {
-    await deleteBlobBestEffort(oldUrl);
-  }
+  return {
+    id,
+    storageKey: input.blob.pathname,
+    resourceId: resource.id,
+    oldUrl,
+  };
+}
 
-  return { id, storageKey: input.blob.pathname, resourceId: resource.id };
+async function finishUpload(
+  stored: Awaited<ReturnType<typeof persistUploadedBlob>>,
+  newUrl: string,
+) {
+  const { oldUrl, ...result } = stored;
+  if (oldUrl && oldUrl !== newUrl) await deleteBlobBestEffort(oldUrl);
+  return result;
+}
+
+export async function recordUploadedBlob(input: UploadedBlobInput) {
+  const stored = await withWriteTransaction((db) =>
+    persistUploadedBlob(input, db),
+  );
+  return finishUpload(stored, input.blob.url);
 }
 
 export async function recordResourceArtwork(
-  input: Omit<UploadedBlobInput, "resourceVersionId"> & {
-    resourceId: string;
-  },
-): Promise<{ id: string; storageKey: string; resourceId: string }> {
-  const current = await getDb()
-    .select({ id: resourceVersions.id })
-    .from(resourceVersions)
-    .where(
-      and(
-        eq(resourceVersions.resourceId, input.resourceId),
-        eq(resourceVersions.isCurrent, true),
-      ),
-    )
-    .limit(1);
-  if (!current[0])
-    throw new Error("The resource does not have a current version.");
-
-  return recordUploadedBlob({
-    ...input,
-    resourceVersionId: current[0].id,
+  input: Omit<UploadedBlobInput, "resourceVersionId"> & { resourceId: string },
+) {
+  const stored = await withWriteTransaction(async (db) => {
+    await db
+      .select({ id: resources.id })
+      .from(resources)
+      .where(eq(resources.id, input.resourceId))
+      .for("update");
+    const [current] = await db
+      .select({ id: resourceVersions.id })
+      .from(resourceVersions)
+      .where(
+        and(
+          eq(resourceVersions.resourceId, input.resourceId),
+          eq(resourceVersions.isCurrent, true),
+        ),
+      )
+      .limit(1);
+    if (!current)
+      throw new Error("The resource does not have a current version.");
+    return persistUploadedBlob({ ...input, resourceVersionId: current.id }, db);
   });
+  return finishUpload(stored, input.blob.url);
 }
 
 export async function getResourceArtworkState(resourceId: string) {

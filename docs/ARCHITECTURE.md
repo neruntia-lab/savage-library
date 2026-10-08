@@ -95,11 +95,24 @@ verification tokens. Successfully processed webhook delivery records are kept
 for 90 days; failed or pending deliveries remain available for diagnosis.
 ## Homepage catalog
 
-The homepage uses the shared published-resource catalog with the internal
-`paginate: false` policy. Banner search and the filters below it submit GET
+The homepage uses the shared published-resource catalog in fixed 24-entry batches.
+Load more appends a bounded API page while retaining earlier results on failure;
+without JavaScript its ordinary link navigates to the next GET page. Public pages
+do not use the admin streaming-loading boundary. Banner search and filters submit GET
 requests to `/#library`, preserving search, source type, game system, and sorting.
 The compact controls use client-side navigation for immediate updates without
 pagination parameters. Tags are informational; retired public filter parameters
 are ignored. Sorting is outside the two-filter fieldset. `/library`,
 category routes, and `/api/resources` retain their paginated contracts; URL
-parameters cannot enable the internal unbounded listing policy.
+parameters cannot enable the internal unbounded listing policy. Admin resource lists
+use 50-row database pages and independent aggregate statistics. Public/admin Wiki
+lists use 20-row pages and details query a published slug directly.
+
+Catalog queries, public mapping, admin reads, and resource writes have separate
+repository modules behind the existing resource-repository facade. Interactive
+resource/artwork/import writes use `db/transaction.ts`; HTTP reads retain their
+existing driver. No SQL transaction spans an upload or Patreon HTTP request.
+Patreon reconciliation uses a recoverable row lease, atomic record updates, an
+indexed catalog snapshot for matching, and bounded read retries. Durable scan
+checkpoints remain follow-up work. See `OPTIMIZATION_AUDIT.md` for measurements
+and integration limitations.

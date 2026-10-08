@@ -1,6 +1,6 @@
 import {
   createResource,
-  listAdminResources,
+  listAdminResourcePage,
   listCatalog,
 } from "../../../lib/repositories/resource-repository";
 import { requireApiAdmin } from "../../../lib/services/auth";
@@ -16,7 +16,21 @@ export async function GET(request: Request) {
   if (url.searchParams.get("admin") === "1") {
     const auth = await requireApiAdmin();
     if (!auth.ok) return auth.response;
-    return Response.json({ resources: await listAdminResources() });
+    try {
+      return Response.json(
+        await listAdminResourcePage({
+          query: url.searchParams.get("q")?.slice(0, 120),
+          visibility: url.searchParams.get("visibility") ?? "all",
+          page: Number(url.searchParams.get("page") ?? 1),
+        }),
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    } catch {
+      return Response.json(
+        { error: "The resource dashboard is temporarily unavailable." },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
   }
 
   const limit = await enforceRateLimit({
@@ -29,13 +43,20 @@ export async function GET(request: Request) {
 
   const params = Object.fromEntries(url.searchParams.entries());
   const filters = parseCatalogFilters(params);
-  const catalog = await listCatalog(filters);
-  return Response.json(catalog, {
-    headers: {
-      "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
-      "X-RateLimit-Remaining": String(limit.remaining),
-    },
-  });
+  try {
+    const catalog = await listCatalog(filters);
+    return Response.json(catalog, {
+      headers: {
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+        "X-RateLimit-Remaining": String(limit.remaining),
+      },
+    });
+  } catch {
+    return Response.json(
+      { error: "The catalog is temporarily unavailable. Please retry." },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 }
 
 export async function POST(request: Request) {

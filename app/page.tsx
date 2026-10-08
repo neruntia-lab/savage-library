@@ -1,6 +1,6 @@
 import { CelestialOrnament } from "../components/ui/CelestialOrnament";
 import { CatalogFilters } from "../components/library/CatalogFilters";
-import { ResourceGrid } from "../components/resources/ResourceGrid";
+import { ProgressiveCatalog } from "../components/library/ProgressiveCatalog";
 import {
   getCatalogFacets,
   listCatalog,
@@ -18,9 +18,11 @@ export default async function HomePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const filters = parsePublicCatalogFilters(await searchParams);
+  const filters = parsePublicCatalogFilters(await searchParams, {
+    pageSize: 24,
+  });
   const [catalog, facets, appearance] = await Promise.all([
-    listCatalog(filters, { paginate: false }),
+    listCatalog(filters),
     getCatalogFacets(),
     getSiteAppearance(),
   ]);
@@ -103,7 +105,11 @@ export default async function HomePage({
             {catalog.total === 1 ? "resource" : "resources"}
             {filters.query ? ` matching “${filters.query}”` : ""}
           </div>
-          <ResourceGrid resources={catalog.items} />
+          <ProgressiveCatalog
+            key={JSON.stringify(filters)}
+            initial={catalog}
+            filters={filters}
+          />
         </div>
       </section>
     </>

@@ -10,16 +10,23 @@ async function available(port) {
     server.listen(port, "127.0.0.1", () => server.close(() => resolve(true)));
   });
 }
-let port = 3000;
-while (!(await available(port)) && port < 3010) port++;
-if (port === 3010)
-  throw new Error("No preview port available between 3000 and 3009.");
+const option = (name) => process.argv[process.argv.indexOf(name) + 1];
+let port = process.argv.includes("--port") ? Number(option("--port")) : 3000;
+if (!Number.isInteger(port) || port < 1024 || port > 65525)
+  throw new Error("Choose a valid preview port.");
+const maximumPort = port + 10;
+while (!(await available(port)) && port < maximumPort) port++;
+if (port === maximumPort)
+  throw new Error("No preview port available in the requested range.");
 const origin = `http://localhost:${port}`;
 const salt = randomBytes(16).toString("hex");
 const password = "local-preview";
 const env = {
   ...process.env,
   SAVAGE_LIBRARY_LOCAL_PREVIEW: "1",
+  SAVAGE_LIBRARY_PREVIEW_CATALOG_SIZE: process.argv.includes("--catalog-size")
+    ? option("--catalog-size")
+    : "",
   VERCEL: "",
   VERCEL_ENV: "",
   DATABASE_URL: "",
@@ -47,7 +54,7 @@ const child = spawn(
   process.execPath,
   [
     path.join(process.cwd(), "node_modules/next/dist/bin/next"),
-    "dev",
+    process.argv.includes("--built") ? "start" : "dev",
     "--port",
     String(port),
     "--hostname",

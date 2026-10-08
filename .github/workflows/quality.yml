@@ -1,0 +1,38 @@
+name: Development quality checks
+on:
+  push:
+    branches: [development]
+  pull_request:
+    branches: [development, main]
+permissions:
+  contents: read
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:flows
+      - run: npx playwright install --with-deps chromium
+      - name: Stress preview and progressive catalog browser checks
+        run: |
+          node scripts/preview.mjs --built --port 3400 --catalog-size 65 > /tmp/savage-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          for attempt in $(seq 1 60); do
+            curl --silent --fail http://localhost:3400/ > /dev/null && break
+            sleep 1
+          done
+          node scripts/progressive-catalog-check.mjs

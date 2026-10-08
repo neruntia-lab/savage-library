@@ -1,6 +1,6 @@
 "use client";
 import ErrorPage from "../../app/error";
-import Loading from "../../app/loading";
+import Loading from "../../app/admin/loading";
 
 export function PreviewBoundaryState({
   screen,

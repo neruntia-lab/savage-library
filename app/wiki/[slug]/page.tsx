@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { listPublicWiki } from "../../../lib/repositories/wiki-repository";
+import { getPublicWikiBySlug } from "../../../lib/repositories/wiki-repository";
 import { GuidePresentation } from "../../../components/wiki/GuidePresentation";
 import { wikiLanguage } from "../../../lib/services/wiki";
 import { renderWikiMarkdown } from "../../../lib/services/wiki-markdown";
@@ -14,7 +14,7 @@ export async function generateMetadata({
   searchParams,
 }: Props): Promise<Metadata> {
   const slug = (await params).slug;
-  const current = (await listPublicWiki()).find((g) => g.slug === slug);
+  const current = await getPublicWikiBySlug(slug);
   if (!current) notFound();
   const language = wikiLanguage(
     current.content,
@@ -27,7 +27,7 @@ export async function generateMetadata({
 }
 export default async function WikiGuidePage({ params, searchParams }: Props) {
   const slug = (await params).slug;
-  const guide = (await listPublicWiki()).find((g) => g.slug === slug);
+  const guide = await getPublicWikiBySlug(slug);
   if (!guide) notFound();
   const requestedLocale = (await searchParams).lang === "es" ? "es" : "en";
   const language = wikiLanguage(guide.content, requestedLocale);

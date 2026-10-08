@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "../../db";
 import { ensureDatabaseSchema } from "../../db/bootstrap";
+import { withWriteTransaction, type WriteDatabase } from "../../db/transaction";
 import {
   changelogEntries,
   dependencies,
@@ -14,14 +15,8 @@ import {
 } from "../../db/schema";
 import type { ResourceInput } from "../validation/resource";
 
-export async function createResource(input: ResourceInput): Promise<string> {
-  await ensureDatabaseSchema();
-  const db = getDb();
-  const id = crypto.randomUUID();
-  const now = new Date().toISOString();
-
-  await db.insert(resources).values({
-    id,
+function resourceMetadata(input: ResourceInput) {
+  return {
     slug: input.slug,
     title: input.title,
     shortDescription: input.shortDescription,
@@ -49,6 +44,22 @@ export async function createResource(input: ResourceInput): Promise<string> {
     isFeatured: input.isFeatured,
     useIconEverywhere: input.useIconEverywhere,
     isPublished: input.isPublished,
+  };
+}
+
+export async function createResource(
+  input: ResourceInput,
+  transaction?: WriteDatabase,
+): Promise<string> {
+  if (!transaction)
+    return withWriteTransaction((db) => createResource(input, db));
+  const db = transaction;
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+
+  await db.insert(resources).values({
+    id,
+    ...resourceMetadata(input),
     publishedAt: input.isPublished ? now : null,
     createdAt: now,
     updatedAt: now,
@@ -77,45 +88,22 @@ export async function createResource(input: ResourceInput): Promise<string> {
 export async function updateResource(
   id: string,
   input: ResourceInput,
+  transaction?: WriteDatabase,
 ): Promise<boolean> {
-  await ensureDatabaseSchema();
-  const db = getDb();
+  if (!transaction)
+    return withWriteTransaction((db) => updateResource(id, input, db));
+  const db = transaction;
   const now = new Date().toISOString();
   const existing = await db
     .select({ currentVersion: resources.currentVersion })
     .from(resources)
     .where(eq(resources.id, id))
-    .limit(1);
+    .limit(1)
+    .for("update");
   const result = await db
     .update(resources)
     .set({
-      slug: input.slug,
-      title: input.title,
-      shortDescription: input.shortDescription,
-      description: input.description,
-      resourceType: input.resourceType,
-      categoryId: input.categoryId,
-      authorId: input.authorId,
-      gameSystemId: input.gameSystemId,
-      className: input.className,
-      subclassName: input.subclassName,
-      currentVersion: input.currentVersion,
-      foundryMinimum: input.foundryMinimum,
-      foundryVerified: input.foundryVerified,
-      foundryMaximum: input.foundryMaximum,
-      compatibilityStatus: input.compatibilityStatus,
-      compatibilityNotes: input.compatibilityNotes,
-      pricing: input.pricing,
-      priceLabel: input.priceLabel,
-      manifestUrl: input.manifestUrl,
-      projectUrl: input.projectUrl,
-      defaultLocale: input.defaultLocale,
-      accessMode: input.accessMode,
-      licenseName: input.licenseName,
-      installationInstructions: input.installationInstructions,
-      isFeatured: input.isFeatured,
-      useIconEverywhere: input.useIconEverywhere,
-      isPublished: input.isPublished,
+      ...resourceMetadata(input),
       publishedAt: input.isPublished
         ? sql`COALESCE(${resources.publishedAt}, ${now})`
         : resources.publishedAt,
@@ -231,7 +219,7 @@ export async function getResourceStorageKeys(id: string): Promise<string[]> {
 }
 
 async function replaceResourceRelations(
-  db: ReturnType<typeof getDb>,
+  db: WriteDatabase,
   resourceId: string,
   input: ResourceInput,
   now: string,
@@ -308,7 +296,7 @@ async function replaceResourceRelations(
 }
 
 async function replaceResourceTranslations(
-  db: ReturnType<typeof getDb>,
+  db: WriteDatabase,
   resourceId: string,
   input: ResourceInput,
   now: string,
@@ -349,7 +337,7 @@ async function replaceResourceTranslations(
 }
 
 async function replacePatreonTiers(
-  db: ReturnType<typeof getDb>,
+  db: WriteDatabase,
   resourceId: string,
   tierIds: string[],
 ): Promise<void> {

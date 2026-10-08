@@ -105,7 +105,8 @@ textarea:focus {
   box-shadow: var(--shadow-focus);
 }
 
-input[type="checkbox"], input[type="radio"] {
+input[type="checkbox"],
+input[type="radio"] {
   width: 18px;
   height: 18px;
   min-height: 0;
@@ -113,8 +114,19 @@ input[type="checkbox"], input[type="radio"] {
   flex: 0 0 18px;
   accent-color: var(--color-gold);
 }
-.checkbox-grid { display: grid; gap: .5rem; margin-block: .5rem 1rem; }
-.checkbox-grid label { display: flex; align-items: center; gap: .75rem; min-height: 44px; padding: .5rem; border: 1px solid var(--color-border); }
+.checkbox-grid {
+  display: grid;
+  gap: 0.5rem;
+  margin-block: 0.5rem 1rem;
+}
+.checkbox-grid label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+}
 
 .site-header {
   background: rgb(9 11 15 / 97%);
@@ -246,7 +258,6 @@ input[type="checkbox"], input[type="radio"] {
 }
 
 /* Shared corner-frame treatment on public content and administrator workspaces. */
-.category-card,
 .resource-card,
 .admin-panel,
 .admin-editor-section,
@@ -272,28 +283,9 @@ input[type="checkbox"], input[type="radio"] {
     auto;
   background-repeat: no-repeat;
 }
-.category-card:hover,
 .resource-card:hover {
   border-color: var(--color-gold);
   background-color: var(--color-surface-raised);
-}
-.category-icon {
-  color: var(--color-gold);
-  border-color: var(--color-gold);
-  background: rgb(91 14 24 / 20%);
-}
-.category-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
-}
-.category-card {
-  min-height: 160px;
-}
-.category-copy strong {
-  color: var(--color-text);
-  font-family: var(--font-display);
-}
-.category-copy small {
-  color: var(--color-text-muted);
 }
 .section-heading {
   border-color: var(--color-border);

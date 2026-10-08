@@ -1,4 +1,5 @@
 "use client";
+import { formatBytes } from "../../lib/format";
 
 import { fetchApi } from "../../lib/client/request";
 import { useEffect, useRef, useState } from "react";
@@ -423,9 +424,4 @@ function parseErrors(value: string) {
   } catch {
     return [];
   }
-}
-
-function formatBytes(value: number) {
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-  return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }

@@ -5,12 +5,16 @@ import {
 } from "../../../../lib/repositories/wiki-repository";
 import { wikiApiError } from "../../../../lib/services/wiki-api";
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireApiAdmin();
   if (!auth.ok) return auth.response;
   try {
     return Response.json(
-      { guides: await listAdminWiki() },
+      await listAdminWiki({
+        query: new URL(request.url).searchParams.get("q") ?? "",
+        filter: new URL(request.url).searchParams.get("filter") ?? "all",
+        page: Number(new URL(request.url).searchParams.get("page") ?? 1),
+      }),
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

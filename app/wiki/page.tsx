@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { listPublicWiki } from "../../lib/repositories/wiki-repository";
-import { browseWiki } from "../../lib/services/wiki";
+import {
+  browsePublicWiki,
+  publicWikiModules,
+} from "../../lib/repositories/wiki-repository";
 import { Pagination } from "../../components/library/Pagination";
 import { WikiCard } from "../../components/wiki/WikiCard";
 export const dynamic = "force-dynamic";
@@ -19,13 +21,10 @@ export default async function WikiPage({
   const q = single("q").trim().slice(0, 120),
     moduleId = single("module"),
     lang = single("lang") === "es" ? "es" : "en";
-  const guides = await listPublicWiki();
-  const catalog = browseWiki(guides, q, moduleId, Number(single("page") || 1));
-  const modules = Array.from(
-    new Map(
-      guides.filter((g) => g.module).map((g) => [g.module!.id, g.module!]),
-    ).values(),
-  ).sort((a, b) => a.title.localeCompare(b.title));
+  const [catalog, modules] = await Promise.all([
+    browsePublicWiki(q, moduleId, Number(single("page") || 1)),
+    publicWikiModules(),
+  ]);
   return (
     <section className="page-section">
       <div className="container">
@@ -34,7 +33,7 @@ export default async function WikiPage({
           <h1>Wiki</h1>
           <p>Guides, instructions, and answers for your modules.</p>
         </header>
-        {guides.some((g) => g.sample) ? (
+        {catalog.items.some((g) => g.sample) ? (
           <p className="notice">
             Local preview samples — not production documentation.
           </p>

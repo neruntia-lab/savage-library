@@ -169,10 +169,13 @@ export function filterCatalog(
     );
   });
 
-  const sorted = [...filtered].sort(sorter(filters.sort));
+  const compare = sorter(filters.sort);
+  const sorted = [...filtered].sort(
+    (a, b) => compare(a, b) || a.id.localeCompare(b.id),
+  );
   if (options.paginate === false) {
     return {
-      items: sorted,
+      items: sorted.map(toSummary),
       total: sorted.length,
       page: 1,
       pageSize: Math.max(1, sorted.length),
@@ -184,7 +187,7 @@ export function filterCatalog(
   const start = (page - 1) * filters.pageSize;
 
   return {
-    items: sorted.slice(start, start + filters.pageSize),
+    items: sorted.slice(start, start + filters.pageSize).map(toSummary),
     total: sorted.length,
     page,
     pageSize: filters.pageSize,
@@ -213,6 +216,11 @@ export function toSummary(resource: ResourceDetails): ResourceSummary {
     priceLabel: resource.priceLabel,
     tags: resource.tags,
     thumbnailUrl: resource.thumbnailUrl,
+    iconUrl: resource.iconUrl,
+    cardArtworkUrl: resource.cardArtworkUrl,
+    useIconEverywhere: resource.useIconEverywhere,
+    accessMode: resource.accessMode,
+    defaultLocale: resource.defaultLocale,
     isFeatured: resource.isFeatured,
     downloadCount: resource.downloadCount,
     popularityScore: resource.popularityScore,

@@ -382,6 +382,28 @@ test("admin credentials callback creates an administrator session", async () => 
   };
   assert.equal(session.user?.role, "admin");
   const headers = { Cookie: [...csrfCookies, ...sessionCookies].join("; ") };
+  assert.equal((await fetch(`${origin}/api/resources?admin=1`)).status, 401);
+  const resourcesRead = await fetch(
+    `${origin}/api/resources?admin=1&q=CRAFT&page=9999`,
+    { headers },
+  );
+  assert.equal(resourcesRead.status, 200);
+  assert.equal(resourcesRead.headers.get("cache-control"), "no-store");
+  const adminResources = await resourcesRead.json();
+  assert.equal(adminResources.resources.length, 1);
+  assert.equal(adminResources.total, 1);
+  assert.equal(adminResources.page, 1);
+  assert.equal(adminResources.totals.total, 5);
+  assert.equal(adminResources.totals.downloads, 0);
+  const filteredWiki = await fetch(
+    `${origin}/api/admin/wiki?filter=draft&q=SAVAGE&page=9999`,
+    { headers },
+  );
+  const filteredGuides = await filteredWiki.json();
+  assert.equal(filteredWiki.status, 200);
+  assert.equal(filteredGuides.total, 1);
+  assert.equal(filteredGuides.page, 1);
+  assert.equal(filteredGuides.guides[0].isPublished, false);
   const wiki = await fetch(`${origin}/api/admin/wiki`, { headers });
   assert.equal(wiki.status, 200);
   const adminGuides = (await wiki.json()).guides;

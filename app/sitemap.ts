@@ -1,38 +1,22 @@
 import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
 import { CATEGORY_LINKS } from "../lib/config/site";
-import { listCatalog } from "../lib/repositories/resource-repository";
-import { listPublicWiki } from "../lib/repositories/wiki-repository";
+import { sitemapEntries } from "../lib/repositories/sitemap-repository";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = await metadataOrigin();
-  const guides = await listPublicWiki();
-  const resources: Awaited<ReturnType<typeof listCatalog>>["items"] = [];
-  let page = 1;
-  let totalPages = 1;
-  do {
-    const catalog = await listCatalog({
-      sort: "recently-updated",
-      page,
-      pageSize: 48,
-    });
-    resources.push(...catalog.items);
-    totalPages = catalog.pageCount;
-    page += 1;
-  } while (page <= totalPages);
+  const { resources, guides } = await sitemapEntries();
 
   return [
     { url: origin, changeFrequency: "weekly", priority: 1 },
     { url: `${origin}/wiki`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${origin}/legal`, changeFrequency: "yearly", priority: 0.3 },
-    ...guides
-      .filter((guide) => !guide.sample)
-      .map((guide) => ({
-        url: `${origin}/wiki/${guide.slug}`,
-        lastModified: new Date(guide.publishedAt),
-        changeFrequency: "monthly" as const,
-        priority: 0.6,
-      })),
+    ...guides.map((guide) => ({
+      url: `${origin}/wiki/${guide.slug}`,
+      lastModified: new Date(guide.publishedAt!),
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
     {
       url: `${origin}/library`,
       changeFrequency: "daily",

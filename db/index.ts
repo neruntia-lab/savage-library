@@ -10,12 +10,13 @@ export function isDatabaseConfigured(): boolean {
 }
 
 export function getDb() {
-  if (isLocalPreview()) throw new Error("Local design preview is read-only. Connect a separate development database to save changes.");
+  if (isLocalPreview())
+    throw new Error(
+      "Local design preview is read-only. Connect a separate development database to save changes.",
+    );
   const url = process.env.DATABASE_URL;
   if (!url) {
-    throw new Error(
-      "DATABASE_URL is not configured. Public catalog reads use bundled examples until Neon is connected.",
-    );
+    throw new Error("DATABASE_URL is not configured.");
   }
 
   database ??= drizzle(neon(url), { schema });
