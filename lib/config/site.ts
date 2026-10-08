@@ -5,7 +5,7 @@ export const SITE_CONFIG = {
     "A focused archive of authorized Foundry VTT modules, macros, classes, subclasses, PDFs, and documentation.",
   defaultPageSize: 12,
   maxPageSize: 48,
-  supportEmail: "library@neruntia-lab.com",
+  supportEmail: "savagelibraryofficial@gmail.com",
 } as const;
 
 export const CANONICAL_SITE_ORIGIN = "https://savage-library.vercel.app";
