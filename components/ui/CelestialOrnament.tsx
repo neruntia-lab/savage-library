@@ -33,7 +33,7 @@ export function CelestialOrnament({
         <>
           <path
             d="M117 45a57 57 0 1 1-28 108A56 56 0 0 0 117 45Z"
-            transform="translate(-8 0)"
+            transform="translate(-14 -3)"
             fill="currentColor"
             fillOpacity=".15"
           />
