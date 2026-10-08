@@ -121,6 +121,38 @@ test("homepage is a complete filterable catalog with one banner search", async (
   assert.equal((await api.json()).items.length, 1);
 });
 
+test("zero preview counters and controlled download failures do not imply successful delivery", async () => {
+  const home = await get("/");
+  assert.equal(
+    (home.replace(/<!--[\s\S]*?-->/g, "").match(/0 downloads/g) ?? []).length,
+    5,
+  );
+  for (const url of [
+    "/api/downloads/missing-file",
+    "/api/foundry/modules/missing/releases/missing/module.zip",
+  ]) {
+    const response = await fetch(`${origin}${url}`, { redirect: "manual" });
+    assert.equal(response.status, 502);
+    assert.equal(response.headers.get("location"), null);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(
+      (await response.json()).error,
+      "The download could not be completed. Please try again later.",
+    );
+    const head = await fetch(`${origin}${url}`, {
+      method: "HEAD",
+      redirect: "manual",
+    });
+    assert.equal(head.status, 502);
+    assert.equal(await head.text(), "");
+  }
+  assert.equal(
+    (await get("/")).replace(/<!--[\s\S]*?-->/g, "").match(/0 downloads/g)
+      ?.length,
+    5,
+  );
+});
+
 test("public browser ignores retired filters while the API retains them", async () => {
   const retired =
     "tag=nonexistent&author=nonexistent&pricing=premium&foundry=999&version=999&class=nonexistent&compatibility=unsupported&category=nonexistent";

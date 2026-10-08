@@ -6,11 +6,10 @@ import {
   put,
   type PutBlobResult,
 } from "@vercel/blob";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db";
 import { privateBlobToken } from "../config/blob";
 import {
-  downloads,
   files,
   resourcePatreonTiers,
   resources,
@@ -19,6 +18,7 @@ import {
 import type { FileKind } from "../domain/resource";
 import type { AuthorizedUser } from "../services/auth";
 import { resolveResourceArtwork } from "../services/resource-artwork";
+import { downloadEventQuery } from "./download-queries";
 
 export type UploadedBlobInput = {
   resourceVersionId: string;
@@ -40,7 +40,10 @@ export async function storeResourceFile(input: {
   extension: string;
   uploadedBy: AuthorizedUser;
 }): Promise<{ id: string; storageKey: string; resourceId: string }> {
-  const isMedia = input.kind === "cover" || input.kind === "thumbnail" || input.kind === "icon";
+  const isMedia =
+    input.kind === "cover" ||
+    input.kind === "thumbnail" ||
+    input.kind === "icon";
   const token = isMedia
     ? process.env.PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN
     : privateBlobToken();
@@ -85,7 +88,9 @@ export async function recordUploadedBlob(
     .where(
       and(
         eq(resourceVersions.id, input.resourceVersionId),
-        input.kind === "cover" || input.kind === "thumbnail" || input.kind === "icon"
+        input.kind === "cover" ||
+          input.kind === "thumbnail" ||
+          input.kind === "icon"
           ? eq(resourceVersions.isCurrent, true)
           : undefined,
       ),
@@ -122,7 +127,10 @@ export async function recordUploadedBlob(
       extension: input.extension,
       sizeBytes: input.sizeBytes,
       uploadedBy: input.uploadedBy,
-      isRestricted: input.kind !== "cover" && input.kind !== "thumbnail" && input.kind !== "icon",
+      isRestricted:
+        input.kind !== "cover" &&
+        input.kind !== "thumbnail" &&
+        input.kind !== "icon",
       createdAt: now,
       updatedAt: now,
     })
@@ -140,7 +148,11 @@ export async function recordUploadedBlob(
       },
     });
 
-  if (input.kind === "cover" || input.kind === "thumbnail" || input.kind === "icon") {
+  if (
+    input.kind === "cover" ||
+    input.kind === "thumbnail" ||
+    input.kind === "icon"
+  ) {
     await db
       .update(resources)
       .set({
@@ -170,9 +182,11 @@ export async function recordUploadedBlob(
   return { id, storageKey: input.blob.pathname, resourceId: resource.id };
 }
 
-export async function recordResourceArtwork(input: Omit<UploadedBlobInput, "resourceVersionId"> & {
-  resourceId: string;
-}): Promise<{ id: string; storageKey: string; resourceId: string }> {
+export async function recordResourceArtwork(
+  input: Omit<UploadedBlobInput, "resourceVersionId"> & {
+    resourceId: string;
+  },
+): Promise<{ id: string; storageKey: string; resourceId: string }> {
   const current = await getDb()
     .select({ id: resourceVersions.id })
     .from(resourceVersions)
@@ -183,7 +197,8 @@ export async function recordResourceArtwork(input: Omit<UploadedBlobInput, "reso
       ),
     )
     .limit(1);
-  if (!current[0]) throw new Error("The resource does not have a current version.");
+  if (!current[0])
+    throw new Error("The resource does not have a current version.");
 
   return recordUploadedBlob({
     ...input,
@@ -242,21 +257,9 @@ export async function recordDownload(input: {
   user?: AuthorizedUser | null;
   visitorHash?: string;
 }): Promise<void> {
-  const db = getDb();
-  const auditQuery = db.insert(downloads).values({
-    id: crypto.randomUUID(),
-    resourceId: input.resourceId,
-    fileId: input.fileId,
-    visitorHash: input.visitorHash,
-  });
-  const counterQuery = db
-    .update(resources)
-    .set({
-      downloadCount: sql`${resources.downloadCount} + 1`,
-      popularityScore: sql`${resources.popularityScore} + 1`,
-    })
-    .where(eq(resources.id, input.resourceId));
-  await db.batch([auditQuery, counterQuery]);
+  const result = await getDb().execute(downloadEventQuery(input));
+  if (result.rows.length !== 1)
+    throw new Error("Download resource no longer exists.");
 }
 
 export async function createSignedDownloadUrl(

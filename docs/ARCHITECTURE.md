@@ -12,6 +12,25 @@ Public Wiki cards reuse library card styling in a three/two/one-column responsiv
 
 Vercel Preview builds refuse automatic migrations unless `SAVAGE_LIBRARY_PREVIEW_DATABASE_CONFIRMED=1` is set in Preview. Set it only after confirming `DATABASE_URL` and `DATABASE_URL_UNPOOLED` (if used) target a separate development database. Production builds are unchanged. This guard intentionally blocks unconfirmed preview deployments rather than risking production data writes.
 
+## Download counters
+
+Resource download and popularity counters measure authorized file-delivery GET requests, not unique users or completed transfers. Website downloads and Foundry ZIP delivery validate access, generate a signed HTTPS Blob URL, then atomically insert an audit event and increment both counters before issuing a non-cacheable redirect. Storage or tracking failures do not redirect or leave partial counts. HEAD requests, manifest requests and page views do not count. Protected remote links retain their separate access counters.
+
+New seeds and read-only catalog samples start at zero. Cards, admin totals and sorting read persisted resource counters; historical audit rows never repopulate a reset counter. A refresh shows subsequent requests without requiring a real-time dashboard.
+
+The administrative reset is operational, not a migration or deployment hook. Run a dry run using an ignored environment file containing the **confirmed target's** database URL:
+
+```sh
+npm run counters:reset -- --environment development --env-file .env.development.reset
+npm run counters:reset -- --environment development --env-file .env.development.reset --apply --confirm <fingerprint-from-dry-run>
+```
+
+Repeat for `production` with its own confirmed environment file. Do not commit credentials or backups. The script does not load `.env.local` or inherit connection variables. It prints only a database fingerprint, totals and a backup path. If production and development resolve to the same database, report that configuration issue rather than pretending they are separate targets.
+
+Each applied reset locks affected tables, saves and verifies exact pre-reset values under ignored `work/counter-backups/`, zeros only resource download/popularity and protected-link access counts, and records `download-counter-reset-v1` in synchronization state in the same transaction. Historical audit rows and other data are preserved. Repeating a completed operation skips resetting, preserving downloads recorded since it ran. Failure rolls back the database changes; retain any backup produced by a failed attempt for inspection.
+
+Keep backups outside the repository as needed for recovery. A counter restoration must account for post-reset downloads rather than blindly overwriting the current values with the backup. No public reset endpoint or automatic counter reset is provided.
+
 ## Runtime
 
 Savage Library is a Next.js 16 and React 19 application deployed on Vercel.
