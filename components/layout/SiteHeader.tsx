@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { ROUTES } from "../../lib/config/site";
+import { ROUTES, PUBLIC_NAVIGATION } from "../../lib/config/site";
 
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -22,7 +22,8 @@ export function SiteHeader() {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const focusable = Array.from(
-      mobileNavigationRef.current?.querySelectorAll<HTMLElement>("a[href]") ?? [],
+      mobileNavigationRef.current?.querySelectorAll<HTMLElement>("a[href]") ??
+        [],
     );
     window.requestAnimationFrame(() => focusable[0]?.focus());
     function closeOnEscape(event: KeyboardEvent) {
@@ -52,47 +53,46 @@ export function SiteHeader() {
     <>
       <header className="site-header">
         <div className="container header-inner">
-        <Link
-          className="brand"
-          href={ROUTES.home}
-          aria-label="Savage Library home"
-        >
-          <span className="brand-mark">
-            <Image
-              src="/savage-library-logo.svg"
-              alt=""
-              width={34}
-              height={46}
-              priority
-            />
-          </span>
-          <span className="brand-copy">
-            <strong>Savage Library</strong>
-            <small>Curated arcana for Foundry VTT</small>
-          </span>
-        </Link>
-        <nav className="header-nav" aria-label="Primary navigation">
-          <Link href={ROUTES.library}>Library</Link>
-          <Link href={ROUTES.category("foundry-modules")}>Modules</Link>
-          <Link href={ROUTES.category("macros")}>Macros</Link>
-          <Link href={ROUTES.category("classes")}>Classes</Link>
-          <Link href={ROUTES.category("subclasses")}>Subclasses</Link>
-          <Link className="nav-account" href={ROUTES.account}>
-            Patreon access
+          <Link
+            className="brand"
+            href={ROUTES.home}
+            aria-label="Savage Library home"
+          >
+            <span className="brand-mark">
+              <Image
+                src="/savage-library-logo.svg"
+                alt=""
+                width={34}
+                height={46}
+                priority
+              />
+            </span>
+            <span className="brand-copy">
+              <strong>Savage Library</strong>
+              <small>Curated arcana for Foundry VTT</small>
+            </span>
           </Link>
-        </nav>
+          <nav className="header-nav" aria-label="Primary navigation">
+            {PUBLIC_NAVIGATION.map((item) => (
+              <Link key={item.href} href={item.href}>
+                {item.label}
+              </Link>
+            ))}
+          </nav>
           <button
-          ref={menuButtonRef}
-          className="mobile-menu-button"
-          type="button"
-          aria-expanded={menuOpen}
-          aria-controls="mobile-navigation"
-          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
-          onClick={() => setMenuOpen((value) => !value)}
-        >
-          <span />
-          <span />
-          <span />
+            ref={menuButtonRef}
+            className="mobile-menu-button"
+            type="button"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-navigation"
+            aria-label={
+              menuOpen ? "Close navigation menu" : "Open navigation menu"
+            }
+            onClick={() => setMenuOpen((value) => !value)}
+          >
+            <span />
+            <span />
+            <span />
           </button>
         </div>
       </header>
@@ -111,28 +111,11 @@ export function SiteHeader() {
         aria-label="Mobile navigation"
         aria-hidden={!menuOpen}
       >
-        <Link href={ROUTES.library} onClick={() => closeMenu()}>
-          Library
-        </Link>
-        <Link href={ROUTES.category("foundry-modules")} onClick={() => closeMenu()}>
-          Modules
-        </Link>
-        <Link href={ROUTES.category("macros")} onClick={() => closeMenu()}>
-          Macros
-        </Link>
-        <Link href={ROUTES.category("classes")} onClick={() => closeMenu()}>
-          Classes
-        </Link>
-        <Link href={ROUTES.category("subclasses")} onClick={() => closeMenu()}>
-          Subclasses
-        </Link>
-        <Link
-          className="nav-account"
-          href={ROUTES.account}
-          onClick={() => closeMenu()}
-        >
-          Patreon access
-        </Link>
+        {PUBLIC_NAVIGATION.map((item) => (
+          <Link key={item.href} href={item.href} onClick={() => closeMenu()}>
+            {item.label}
+          </Link>
+        ))}
       </nav>
     </>
   );

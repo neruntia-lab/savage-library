@@ -60,16 +60,24 @@ export function TranslationFields({
   );
 }
 
-function MarkdownDescriptionEditor({
+export function MarkdownDescriptionEditor({
   name,
   value,
   onChanged,
   onImageUpload,
+  label = "Full description",
+  onValueChanged,
+  invalid = false,
+  required = false,
 }: {
   name: string;
   value: string;
   onChanged: () => void;
-  onImageUpload: (file: File) => Promise<string | undefined>;
+  onImageUpload?: (file: File) => Promise<string | undefined>;
+  label?: string;
+  onValueChanged?: (value: string) => void;
+  invalid?: boolean;
+  required?: boolean;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [markdown, setMarkdown] = useState(value);
@@ -87,6 +95,7 @@ function MarkdownDescriptionEditor({
     const selected = markdown.slice(start, end) || placeholder;
     const next = `${markdown.slice(0, start)}${prefix}${selected}${suffix}${markdown.slice(end)}`;
     setMarkdown(next);
+    onValueChanged?.(next);
     onChanged();
     window.requestAnimationFrame(() => {
       textarea.focus();
@@ -98,6 +107,7 @@ function MarkdownDescriptionEditor({
   }
 
   async function addImage(file: File) {
+    if (!onImageUpload) return;
     setUploading(true);
     let url: string | undefined;
     try {
@@ -110,10 +120,9 @@ function MarkdownDescriptionEditor({
     const position = textarea?.selectionStart ?? markdown.length;
     const alt = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
     const insertion = `\n\n![${alt}](${url})\n\n`;
-    setMarkdown(
-      (current) =>
-        `${current.slice(0, position)}${insertion}${current.slice(position)}`,
-    );
+    const next = `${markdown.slice(0, position)}${insertion}${markdown.slice(position)}`;
+    setMarkdown(next);
+    onValueChanged?.(next);
     onChanged();
     window.requestAnimationFrame(() => textarea?.focus());
   }
@@ -121,7 +130,15 @@ function MarkdownDescriptionEditor({
   return (
     <div className="markdown-editor">
       <div className="markdown-editor-heading">
-        <label htmlFor={name}>Full description</label>
+        <label htmlFor={name}>
+          {label}
+          {required ? (
+            <span className="required-marker" aria-hidden="true">
+              {" "}
+              *
+            </span>
+          ) : null}
+        </label>
         <small>Markdown formatting is supported.</small>
       </div>
       <div
@@ -165,22 +182,38 @@ function MarkdownDescriptionEditor({
           <MarkdownToolbarIcon name="link" />
           <span>Link</span>
         </button>
-        <label
-          className={`markdown-image-button ${uploading ? "uploading" : ""}`}
-        >
-          <MarkdownToolbarIcon name="image" />
-          <span>{uploading ? "Uploading…" : "Add image"}</span>
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/gif,image/webp"
-            disabled={uploading}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void addImage(file);
-              event.currentTarget.value = "";
-            }}
-          />
-        </label>
+        {onImageUpload ? (
+          <label
+            className={`markdown-image-button ${uploading ? "uploading" : ""}`}
+          >
+            <MarkdownToolbarIcon name="image" />
+            <span>{uploading ? "Uploading…" : "Add image"}</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              disabled={uploading}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void addImage(file);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+        ) : (
+          <button
+            type="button"
+            onClick={() =>
+              replaceSelection(
+                "![",
+                "](https://example.com/image.png)",
+                "Image description",
+              )
+            }
+          >
+            <MarkdownToolbarIcon name="image" />
+            <span>Image link</span>
+          </button>
+        )}
       </div>
       <textarea
         id={name}
@@ -188,8 +221,11 @@ function MarkdownDescriptionEditor({
         name={name}
         value={markdown}
         maxLength={20_000}
+        aria-invalid={invalid || undefined}
+        aria-required={required || undefined}
         onChange={(event) => {
           setMarkdown(event.target.value);
+          onValueChanged?.(event.target.value);
           onChanged();
         }}
       />

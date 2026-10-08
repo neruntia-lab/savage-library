@@ -169,7 +169,7 @@ export function ResourcePresentation({
                   ? "Your membership is verified. Eligible downloads are available below."
                   : user
                     ? "Your account does not currently have an eligible membership tier."
-                    : "The complete details are public. Sign in to verify your active Savage Library Patreon tier."}
+                    : "The complete details are public. Downloads require a verified eligible membership."}
               </p>
               {resource.allowedPatreonTiers?.length ? (
                 <div className="patreon-tier-list">
@@ -180,40 +180,6 @@ export function ResourcePresentation({
                   ))}
                 </div>
               ) : null}
-            </div>
-            <div className="patreon-access-actions">
-              {!user && !isPreview ? (
-                <Link
-                  className="button button-primary"
-                  href={`/api/auth/signin/patreon?callbackUrl=${encodeURIComponent(
-                    `${ROUTES.resource(resource.slug)}?lang=${resource.activeLocale ?? "en"}`,
-                  )}`}
-                >
-                  Sign in with Patreon
-                </Link>
-              ) : null}
-              {isPreview ? (
-                <button
-                  className="button button-secondary"
-                  type="button"
-                  disabled
-                >
-                  View eligible tiers
-                </button>
-              ) : (
-                <a
-                  className="button button-secondary"
-                  href={
-                    resource.allowedPatreonTiers?.[0]?.url ??
-                    process.env.PATREON_CAMPAIGN_URL ??
-                    "https://www.patreon.com/"
-                  }
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View eligible tiers
-                </a>
-              )}
             </div>
           </section>
         ) : null}

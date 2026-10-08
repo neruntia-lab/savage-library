@@ -11,6 +11,7 @@ import { TaxonomyManager } from "./TaxonomyManager";
 import type { AdminResource } from "./types";
 import { MembershipManager } from "./MembershipManager";
 import { CliTokenManager } from "./CliTokenManager";
+import { WikiManager } from "./WikiManager";
 
 export function AdminDashboard({
   initialResources,
@@ -28,7 +29,7 @@ export function AdminDashboard({
     "all" | "published" | "draft" | "patreon"
   >("all");
   const [activePanel, setActivePanel] = useState<
-    "resources" | "metadata" | "appearance" | "patreon" | "cli"
+    "resources" | "metadata" | "appearance" | "patreon" | "cli" | "wiki"
   >("resources");
 
   const visibleResources = useMemo(() => {
@@ -51,7 +52,9 @@ export function AdminDashboard({
     });
   }, [query, resources, visibility]);
 
-  const publishedCount = resources.filter((resource) => resource.isPublished).length;
+  const publishedCount = resources.filter(
+    (resource) => resource.isPublished,
+  ).length;
   const protectedCount = resources.filter(
     (resource) => resource.accessMode === "patreon",
   ).length;
@@ -84,7 +87,7 @@ export function AdminDashboard({
         ? resource.isPublished
           ? "Entry returned to drafts."
           : "Entry published."
-        : body.error ?? "Publication status could not be changed.",
+        : (body.error ?? "Publication status could not be changed."),
     );
     if (response.ok) await refreshResources();
   }
@@ -100,7 +103,9 @@ export function AdminDashboard({
       method: "DELETE",
     });
     setStatus(
-      response.ok ? "Entry permanently deleted." : "The entry could not be deleted.",
+      response.ok
+        ? "Entry permanently deleted."
+        : "The entry could not be deleted.",
     );
     if (response.ok) await refreshResources();
   }
@@ -137,6 +142,12 @@ export function AdminDashboard({
             Taxonomy
           </TabButton>
           <TabButton
+            active={activePanel === "wiki"}
+            onClick={() => setActivePanel("wiki")}
+          >
+            Wiki
+          </TabButton>
+          <TabButton
             active={activePanel === "appearance"}
             onClick={() => setActivePanel("appearance")}
           >
@@ -148,7 +159,10 @@ export function AdminDashboard({
           >
             Patreon
           </TabButton>
-          <TabButton active={activePanel === "cli"} onClick={() => setActivePanel("cli")}>
+          <TabButton
+            active={activePanel === "cli"}
+            onClick={() => setActivePanel("cli")}
+          >
             CLI Access
           </TabButton>
         </div>
@@ -180,10 +194,7 @@ export function AdminDashboard({
                 onChange={(event) =>
                   setVisibility(
                     event.target.value as
-                      | "all"
-                      | "published"
-                      | "draft"
-                      | "patreon",
+                      "all" | "published" | "draft" | "patreon",
                   )
                 }
               >
@@ -201,6 +212,12 @@ export function AdminDashboard({
             onDelete={deleteResource}
           />
         </>
+      ) : activePanel === "wiki" ? (
+        <WikiManager
+          modules={resources
+            .filter((resource) => resource.resourceType === "module")
+            .map(({ id, slug, title }) => ({ id, slug, title }))}
+        />
       ) : activePanel === "metadata" ? (
         <TaxonomyManager facets={facets} onStatus={setStatus} />
       ) : activePanel === "appearance" ? (

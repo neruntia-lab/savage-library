@@ -22,11 +22,19 @@ export const ROUTES = {
   home: "/",
   library: "/library",
   account: "/account",
+  wiki: "/wiki",
+  legal: "/legal",
   admin: "/admin",
   resource: (slug: string) => `/resources/${encodeURIComponent(slug)}`,
   category: (slug: string) => `/categories/${encodeURIComponent(slug)}`,
   download: (fileId: string) => `/api/downloads/${encodeURIComponent(fileId)}`,
 } as const;
+
+export const PUBLIC_NAVIGATION = [
+  { label: "Library", href: ROUTES.home },
+  { label: "Wiki", href: ROUTES.wiki },
+  { label: "Terms & Privacy", href: ROUTES.legal },
+] as const;
 
 export const CATEGORY_LINKS = [
   {

@@ -3,17 +3,49 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import type { WikiContent } from "../lib/domain/wiki";
 
 const timestamps = {
-  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
 };
+
+export const wikiGuides = pgTable(
+  "wiki_guides",
+  {
+    id: text("id").primaryKey(),
+    slug: text("slug").notNull(),
+    publishedSlug: text("published_slug"),
+    draft: jsonb("draft").$type<WikiContent>().notNull(),
+    publishedContent: jsonb("published_content").$type<WikiContent>(),
+    moduleId: text("module_id").references(() => resources.id, {
+      onDelete: "set null",
+    }),
+    publishedModuleId: text("published_module_id").references(
+      () => resources.id,
+      { onDelete: "set null" },
+    ),
+    revision: integer("revision").notNull().default(1),
+    updatedBy: text("updated_by").notNull(),
+    publishedAt: text("published_at"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("wiki_slug_unique").on(table.slug),
+    uniqueIndex("wiki_published_slug_unique").on(table.publishedSlug),
+  ],
+);
 
 export const authors = pgTable(
   "authors",
@@ -69,9 +101,7 @@ export const foundryVersions = pgTable(
     isSupported: boolean("is_supported").notNull().default(true),
     ...timestamps,
   },
-  (table) => [
-    uniqueIndex("foundry_versions_version_unique").on(table.version),
-  ],
+  (table) => [uniqueIndex("foundry_versions_version_unique").on(table.version)],
 );
 
 export const resources = pgTable(
@@ -202,10 +232,7 @@ export const resourceVersions = pgTable(
     ...timestamps,
   },
   (table) => [
-    uniqueIndex("resource_version_unique").on(
-      table.resourceId,
-      table.version,
-    ),
+    uniqueIndex("resource_version_unique").on(table.resourceId, table.version),
     uniqueIndex("resource_version_current_unique")
       .on(table.resourceId)
       .where(sql`${table.isCurrent} = true`),
@@ -378,9 +405,7 @@ export const downloads = pgTable(
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
   },
-  (table) => [
-    index("downloads_resource_idx").on(table.resourceId),
-  ],
+  (table) => [index("downloads_resource_idx").on(table.resourceId)],
 );
 
 export const rateLimits = pgTable(
@@ -410,7 +435,9 @@ export const siteSettings = pgTable("site_settings", {
 export const users = pgTable(
   "users",
   {
-    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
     name: text("name"),
     email: text("email"),
     emailVerified: timestamp("email_verified", { mode: "date" }),
@@ -458,9 +485,7 @@ export const verificationTokens = pgTable(
     token: text("token").notNull(),
     expires: timestamp("expires", { mode: "date" }).notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.identifier, table.token] }),
-  ],
+  (table) => [primaryKey({ columns: [table.identifier, table.token] })],
 );
 
 export const adminCliTokens = pgTable(

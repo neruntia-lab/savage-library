@@ -60,19 +60,23 @@ test("public pages load without the retired construction login", async () => {
   assert.match(html, /Open navigation menu/);
   assert.match(html, /aria-controls="mobile-navigation"/);
   assert.match(html, /aria-label="Mobile navigation"/);
-  assert.match(html, /Patreon access/);
+  assert.match(html, /href="\/wiki"/);
+  assert.match(html, /Terms &amp; Privacy/);
+  assert.doesNotMatch(
+    html,
+    /href="\/account"|nav-account|Sign in with Patreon/,
+  );
   assert.doesNotMatch(html, /footer-seal/);
   assert.doesNotMatch(html, /href="\/admin"/);
   assert.doesNotMatch(html, /Site under construction/);
-  assert.match(html, /href="\/privacy"/);
-  assert.match(html, /href="\/terms"/);
+  assert.match(html, /href="\/legal"/);
 });
 
 test("home-to-library discovery flow renders searchable catalog content", async () => {
   const home = await get("/");
   assert.match(home, /Savage Library/);
   assert.match(home, /Search the archive/);
-  assert.match(home, /Foundry VTT Modules/);
+  assert.match(home, /Browse the library/);
 
   const library = await get(
     "/library?q=crafting&type=module&system=dnd5e&foundry=13&sort=most-downloaded",
@@ -211,6 +215,11 @@ test("content wizard APIs require administrator authentication", async () => {
 });
 
 test("legal disclosures are publicly available", async () => {
+  const legal = await get("/legal");
+  assert.match(legal, /id="terms"/);
+  assert.match(legal, /id="privacy"/);
+  assert.match(legal, /Licenses and permitted use/);
+  assert.match(legal, /Patreon account identifiers/);
   const privacy = await get("/privacy");
   assert.match(privacy, /Privacy policy/);
   assert.match(privacy, /Patreon account identifiers/);
@@ -220,6 +229,46 @@ test("legal disclosures are publicly available", async () => {
   assert.match(terms, /Terms of service/);
   assert.match(terms, /Licenses and permitted use/);
   assert.match(terms, /unauthorized redistribution/);
+});
+
+test("public Wiki exposes sample published guides, search, language fallback and 404 boundaries", async () => {
+  const index = await get("/wiki");
+  assert.match(index, /Getting started with a module/);
+  assert.match(index, /Local preview samples/);
+  const empty = await get("/wiki?q=nonexistent-guide");
+  assert.match(empty, /No guides found/);
+  const general = await get("/wiki?module=general");
+  assert.match(general, /Finding documentation/);
+  assert.doesNotMatch(general, /wiki-topic-title[^>]*>Getting started/);
+  const guide = await get("/wiki/sample-module-installation?lang=es");
+  assert.match(guide, /Primeros pasos/);
+  assert.match(guide, /id="wiki-section-1"/);
+  const fallback = await get("/wiki/sample-library-help?lang=es");
+  assert.match(fallback, /This translation is not available/);
+  // Next.js keeps 200 after streaming starts; the not-found UI and noindex
+  // must still render without any private guide content.
+  const missing = await fetch(`${origin}/wiki/private-draft`);
+  assert.ok([200, 404].includes(missing.status));
+  const missingHtml = await missing.text();
+  assert.match(missingHtml, /noindex/);
+  assert.doesNotMatch(missingHtml, /class="wiki-guide"/);
+  const sitemap = await get("/sitemap.xml");
+  assert.match(sitemap, /\/wiki</);
+  assert.doesNotMatch(sitemap, /sample-module-installation/);
+  for (const [route, method] of [
+    ["/api/admin/wiki", "GET"],
+    ["/api/admin/wiki", "POST"],
+    ["/api/admin/wiki/sample-wiki-general", "GET"],
+    ["/api/admin/wiki/sample-wiki-general", "PUT"],
+    ["/api/admin/wiki/preview", "POST"],
+  ]) {
+    assert.equal((await fetch(origin + route, { method })).status, 401);
+  }
+  const account = await get("/account");
+  assert.match(
+    account,
+    /Sign in with Patreon|Patreon is not configured|Patreon/,
+  );
 });
 
 test("logout confirmation and draft previews fail safely", async () => {
@@ -301,6 +350,39 @@ test("admin credentials callback creates an administrator session", async () => 
   };
   assert.equal(session.user?.role, "admin");
   const headers = { Cookie: [...csrfCookies, ...sessionCookies].join("; ") };
+  const wiki = await fetch(`${origin}/api/admin/wiki`, { headers });
+  assert.equal(wiki.status, 200);
+  assert.equal((await wiki.json()).guides.length, 2);
+  const wikiRead = await fetch(`${origin}/api/admin/wiki/sample-wiki-general`, {
+    headers,
+  });
+  const wikiDraft = (await wikiRead.json()).guide;
+  assert.equal(wikiDraft.revision, 1);
+  const wikiPreview = await fetch(`${origin}/api/admin/wiki/preview`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      slug: wikiDraft.slug,
+      moduleId: wikiDraft.moduleId,
+      content: wikiDraft.draft,
+      locale: "en",
+    }),
+  });
+  assert.equal(wikiPreview.status, 200);
+  assert.match((await wikiPreview.json()).document.html, /Find a guide/);
+  const wikiSave = await fetch(`${origin}/api/admin/wiki/sample-wiki-general`, {
+    method: "PUT",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "draft",
+      slug: wikiDraft.slug,
+      moduleId: null,
+      content: wikiDraft.draft,
+      revision: 1,
+    }),
+  });
+  assert.equal(wikiSave.status, 503);
+  assert.match((await wikiSave.json()).error, /read-only/);
   const taxonomy = await fetch(`${origin}/api/taxonomy`, { headers });
   assert.equal(taxonomy.status, 200);
   assert.ok((await taxonomy.json()).facets.categories.length > 0);

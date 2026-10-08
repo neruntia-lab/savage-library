@@ -1,5 +1,13 @@
 # Savage Library architecture
 
+## Wiki and public navigation
+
+Desktop, mobile, and footer navigation share Library (`/`), Wiki (`/wiki`), and Terms & Privacy (`/legal`). Account and Patreon routes remain operational but public access links are hidden. Catalog/category and individual legal URLs remain available directly.
+
+Wiki rows keep independent working and published bilingual JSON snapshots, module associations, and a revision counter. Draft saves never modify the public snapshot. Publication promotes all metadata in one atomic update; stale revisions return 409. Public queries select only published columns and exclude unfinished translations. Resource deletion clears associations. Admin editing and unsaved preview rendering require administrator sessions. Preview and public guides share their presentation and sanitized Markdown renderer.
+
+Apply `0011_wiki_guides` to a separate development database before persistence testing. Local preview uses labeled samples and rejects Wiki writes; hosted environments never serve these fixtures. Dedicated Wiki image uploads and community contributions are not included.
+
 ## Runtime
 
 Savage Library is a Next.js 16 and React 19 application deployed on Vercel.

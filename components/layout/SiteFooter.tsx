@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { CATEGORY_LINKS, ROUTES, SITE_CONFIG } from "../../lib/config/site";
+import { PUBLIC_NAVIGATION, ROUTES, SITE_CONFIG } from "../../lib/config/site";
 
 export function SiteFooter() {
   return (
@@ -23,19 +23,15 @@ export function SiteFooter() {
           </Link>
           <p>{SITE_CONFIG.tagline}</p>
         </div>
-        <nav aria-label="Library categories">
-          {CATEGORY_LINKS.map((category) => (
-            <Link href={ROUTES.category(category.slug)} key={category.slug}>
-              {category.name}
+        <nav aria-label="Footer navigation">
+          {PUBLIC_NAVIGATION.map((item) => (
+            <Link href={item.href} key={item.href}>
+              {item.label}
             </Link>
           ))}
         </nav>
         <div className="footer-meta">
           <p>Only authorized resources enter the archive.</p>
-          <nav aria-label="Legal information">
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-          </nav>
         </div>
       </div>
     </footer>
