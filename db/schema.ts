@@ -32,6 +32,12 @@ export const wikiGuides = pgTable(
     moduleId: text("module_id").references(() => resources.id, {
       onDelete: "set null",
     }),
+    starterResourceId: text("starter_resource_id").references(
+      () => resources.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     publishedModuleId: text("published_module_id").references(
       () => resources.id,
       { onDelete: "set null" },
@@ -44,6 +50,7 @@ export const wikiGuides = pgTable(
   (table) => [
     uniqueIndex("wiki_slug_unique").on(table.slug),
     uniqueIndex("wiki_published_slug_unique").on(table.publishedSlug),
+    uniqueIndex("wiki_starter_resource_unique").on(table.starterResourceId),
   ],
 );
 

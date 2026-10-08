@@ -6,7 +6,11 @@ Desktop, mobile, and footer navigation share Library (`/`), Wiki (`/wiki`), and 
 
 Wiki rows keep independent working and published bilingual JSON snapshots, module associations, and a revision counter. Draft saves never modify the public snapshot. Publication promotes all metadata in one atomic update; stale revisions return 409. Public queries select only published columns and exclude unfinished translations. Resource deletion clears associations. Admin editing and unsaved preview rendering require administrator sessions. Preview and public guides share their presentation and sanitized Markdown renderer.
 
-Apply `0011_wiki_guides` to a separate development database before persistence testing. Local preview uses labeled samples and rejects Wiki writes; hosted environments never serve these fixtures. Dedicated Wiki image uploads and community contributions are not included.
+Apply `0011_wiki_guides` and `0012_module_wiki_starters` to a separate development database before hosted persistence testing. The latter backfills uncovered modules and installs an atomic resource insert/type-change trigger, covering dashboard, wizard, CLI, Patreon and seed writes. Row locking and unique nullable starter provenance prevent duplicate automatic drafts, including after manual unlinking. Existing working/published associations suppress new starters. Titles are copied once in the resource default language; admin content is never overwritten. Resource deletion clears references without deleting guide history.
+
+Public Wiki cards reuse library card styling in a three/two/one-column responsive grid, exposing only published guide snapshots and artwork from published associated resources. Private Blob URLs are rejected before serialization. Local preview uses labeled public samples and private starter samples, and rejects Wiki writes; hosted environments never serve these fixtures. Dedicated Wiki image uploads and community contributions are not included. In-memory PostgreSQL tests exercise migration, backfill, retries, collision handling and rollback without any production connection.
+
+Vercel Preview builds refuse automatic migrations unless `SAVAGE_LIBRARY_PREVIEW_DATABASE_CONFIRMED=1` is set in Preview. Set it only after confirming `DATABASE_URL` and `DATABASE_URL_UNPOOLED` (if used) target a separate development database. Production builds are unchanged. This guard intentionally blocks unconfirmed preview deployments rather than risking production data writes.
 
 ## Runtime
 

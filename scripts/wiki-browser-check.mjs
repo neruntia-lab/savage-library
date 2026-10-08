@@ -52,6 +52,14 @@ try {
     await nav.getByRole("link", { name: "Wiki", exact: true }).click();
     await page.waitForURL("**/wiki");
     await capture("wiki");
+    await expect(page.locator(".wiki-card")).toHaveCount(2);
+    const columns = await page
+      .locator(".wiki-card-grid")
+      .evaluate(
+        (grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length,
+      );
+    assert.equal(columns, width <= 640 ? 1 : width <= 960 ? 2 : 3);
+    await expect(page.locator(".wiki-topic-group")).toHaveCount(0);
     await page
       .getByRole("link", { name: "Getting started with a module", exact: true })
       .click();
@@ -94,9 +102,22 @@ try {
     await page.waitForLoadState("networkidle");
     await page.getByRole("tab", { name: "Wiki", exact: true }).click();
     await expect(page.getByRole("button", { name: "Edit guide" })).toHaveCount(
-      2,
+      3,
     );
+    await expect(
+      page.getByText("Starter draft — add documentation"),
+    ).toBeVisible();
     await capture("admin");
+    const starter = page
+      .locator(".wiki-topic")
+      .filter({ hasText: "Starter draft — add documentation" });
+    await starter.getByRole("button", { name: "Edit guide" }).click();
+    await expect(page.locator('input[name="en.title"]')).toHaveValue(
+      "Savage Training",
+    );
+    await expect(page.locator('textarea[name="en.body"]')).toHaveValue("");
+    await capture("starter");
+    await page.getByRole("button", { name: "← Guide list" }).click();
     await page
       .getByRole("button", { name: "+ New guide", exact: true })
       .click();

@@ -9,7 +9,8 @@ import {
   wikiPublicationFields,
 } from "../lib/services/wiki";
 import { renderWikiMarkdown } from "../lib/services/wiki-markdown";
-import { WIKI_EXAMPLES } from "../lib/data/wiki-examples";
+import { WIKI_EXAMPLES, WIKI_ADMIN_EXAMPLES } from "../lib/data/wiki-examples";
+import { publicWikiArtworkUrl } from "../lib/services/resource-artwork";
 import { PUBLIC_NAVIGATION } from "../lib/config/site";
 
 function input() {
@@ -30,6 +31,36 @@ test("navigation contains only the three requested destinations in order", () =>
       ["Terms & Privacy", "/legal"],
     ],
   );
+});
+test("preview starter drafts stay out of the public list", () => {
+  const starters = WIKI_ADMIN_EXAMPLES.filter(
+    (guide) => guide.starterResourceId,
+  );
+  assert.ok(starters.length);
+  for (const guide of starters) {
+    assert.equal(guide.isPublished, false);
+    assert.equal(guide.draft.translations[guide.draft.defaultLocale].body, "");
+    assert.ok(!WIKI_EXAMPLES.some((published) => published.id === guide.id));
+  }
+});
+test("Wiki card artwork accepts public images but not private destinations", () => {
+  assert.equal(
+    publicWikiArtworkUrl(
+      "https://store.public.blob.vercel-storage.com/image.png",
+    ),
+    "https://store.public.blob.vercel-storage.com/image.png",
+  );
+  assert.equal(publicWikiArtworkUrl("/logo.png"), "/logo.png");
+  for (const value of [
+    null,
+    "private-key",
+    "/api/downloads/secret",
+    "https://store.private.blob.vercel-storage.com/module.zip",
+    "https://store.public.blob.vercel-storage.com.evil.org/x",
+    "http://store.public.blob.vercel-storage.com/x",
+    "javascript:alert(1)",
+  ])
+    assert.equal(publicWikiArtworkUrl(value), null);
 });
 test("Wiki validates drafts and requires a complete default language to publish", () => {
   const guide = input();

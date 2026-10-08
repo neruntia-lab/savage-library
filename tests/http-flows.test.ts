@@ -352,7 +352,14 @@ test("admin credentials callback creates an administrator session", async () => 
   const headers = { Cookie: [...csrfCookies, ...sessionCookies].join("; ") };
   const wiki = await fetch(`${origin}/api/admin/wiki`, { headers });
   assert.equal(wiki.status, 200);
-  assert.equal((await wiki.json()).guides.length, 2);
+  const adminGuides = (await wiki.json()).guides;
+  assert.equal(adminGuides.length, 3);
+  const starter = adminGuides.find(
+    (guide: { starterResourceId: string | null }) => guide.starterResourceId,
+  );
+  assert.equal(starter.isPublished, false);
+  assert.equal(starter.draft.translations.en.body, "");
+  assert.doesNotMatch(await get("/wiki"), /sample-savage-training-guide/);
   const wikiRead = await fetch(`${origin}/api/admin/wiki/sample-wiki-general`, {
     headers,
   });

@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { listPublicWiki } from "../../lib/repositories/wiki-repository";
-import { browseWiki, wikiLanguage } from "../../lib/services/wiki";
+import { browseWiki } from "../../lib/services/wiki";
 import { Pagination } from "../../components/library/Pagination";
-import type { PublicWikiGuide } from "../../lib/domain/wiki";
+import { WikiCard } from "../../components/wiki/WikiCard";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Wiki",
@@ -27,19 +26,6 @@ export default async function WikiPage({
       guides.filter((g) => g.module).map((g) => [g.module!.id, g.module!]),
     ).values(),
   ).sort((a, b) => a.title.localeCompare(b.title));
-  const groups = new Map<
-    string,
-    { title: string; guides: PublicWikiGuide[] }
-  >();
-  for (const guide of catalog.items) {
-    const key = guide.module?.id ?? "general";
-    if (!groups.has(key))
-      groups.set(key, {
-        title: guide.module?.title ?? "General guides",
-        guides: [],
-      });
-    groups.get(key)!.guides.push(guide);
-  }
   return (
     <section className="page-section">
       <div className="container">
@@ -94,49 +80,11 @@ export default async function WikiPage({
             </p>
           </div>
         ) : (
-          Array.from(groups.entries()).map(([id, group]) => (
-            <section
-              key={id}
-              className="wiki-topic-group"
-              aria-labelledby={`group-${id}`}
-            >
-              <h2 id={`group-${id}`}>{group.title}</h2>
-              {group.guides.map((guide) => {
-                const translation = wikiLanguage(
-                  guide.content,
-                  lang,
-                ).translation;
-                return (
-                  <article className="wiki-topic" key={guide.id}>
-                    <div>
-                      <Link
-                        className="wiki-topic-title"
-                        href={`/wiki/${encodeURIComponent(guide.slug)}?lang=${lang}`}
-                      >
-                        {translation.title}
-                      </Link>
-                      <p>{translation.summary}</p>
-                    </div>
-                    <div className="wiki-topic-meta">
-                      <span>
-                        {wikiLanguage(guide.content)
-                          .available.map((l) =>
-                            l === "en" ? "English" : "Español",
-                          )
-                          .join(" · ")}
-                      </span>
-                      <time dateTime={guide.publishedAt}>
-                        {new Date(guide.publishedAt).toLocaleDateString(
-                          "en-US",
-                          { dateStyle: "medium", timeZone: "UTC" },
-                        )}
-                      </time>
-                    </div>
-                  </article>
-                );
-              })}
-            </section>
-          ))
+          <div className="resource-grid wiki-card-grid">
+            {catalog.items.map((guide) => (
+              <WikiCard key={guide.id} guide={guide} lang={lang} />
+            ))}
+          </div>
         )}
         <Pagination
           page={catalog.page}

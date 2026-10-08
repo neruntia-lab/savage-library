@@ -53,9 +53,35 @@ export const WIKI_ADMIN_EXAMPLES: AdminWikiGuide[] = WIKI_EXAMPLES.map(
     slug: guide.slug,
     draft: guide.content,
     moduleId: guide.module?.id ?? null,
+    starterResourceId: null,
     isPublished: true,
     revision: 1,
     updatedAt: guide.publishedAt,
     publishedAt: guide.publishedAt,
   }),
 );
+
+// Read-only examples of the migration result. These never reach the public list.
+for (const resource of SEED_RESOURCES.filter(
+  (resource) => resource.resourceType === "module",
+)) {
+  if (WIKI_ADMIN_EXAMPLES.some((guide) => guide.moduleId === resource.id))
+    continue;
+  WIKI_ADMIN_EXAMPLES.push({
+    id: `sample-starter-${resource.id}`,
+    slug: `sample-${resource.slug}-guide`,
+    moduleId: resource.id,
+    starterResourceId: resource.id,
+    draft: {
+      defaultLocale: "en",
+      translations: {
+        en: { title: resource.title, summary: "", body: "" },
+        es: { title: "", summary: "", body: "" },
+      },
+    },
+    isPublished: false,
+    revision: 1,
+    updatedAt: "2026-10-08T00:00:00.000Z",
+    publishedAt: null,
+  });
+}

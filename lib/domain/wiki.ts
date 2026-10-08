@@ -4,7 +4,12 @@ export type WikiContent = {
   defaultLocale: WikiLocale;
   translations: Record<WikiLocale, WikiTranslation>;
 };
-export type WikiModule = { id: string; slug: string; title: string };
+export type WikiModule = {
+  id: string;
+  slug: string;
+  title: string;
+  cardArtworkUrl?: string;
+};
 export type PublicWikiGuide = {
   id: string;
   slug: string;
@@ -18,6 +23,7 @@ export type AdminWikiGuide = {
   slug: string;
   draft: WikiContent;
   moduleId: string | null;
+  starterResourceId: string | null;
   isPublished: boolean;
   revision: number;
   updatedAt: string;

@@ -6,6 +6,10 @@ import { isLocalPreview } from "../config/local-preview";
 import { WIKI_EXAMPLES, WIKI_ADMIN_EXAMPLES } from "../data/wiki-examples";
 import type { AdminWikiGuide, PublicWikiGuide } from "../domain/wiki";
 import {
+  resolveResourceArtwork,
+  publicWikiArtworkUrl,
+} from "../services/resource-artwork";
+import {
   WikiError,
   validateWikiInput,
   wikiPublicationFields,
@@ -17,6 +21,7 @@ function adminGuide(row: typeof wikiGuides.$inferSelect): AdminWikiGuide {
     slug: row.slug,
     draft: row.draft,
     moduleId: row.moduleId,
+    starterResourceId: row.starterResourceId,
     isPublished: Boolean(row.publishedContent),
     revision: row.revision,
     updatedAt: row.updatedAt,
@@ -38,6 +43,9 @@ export async function listPublicWiki(): Promise<PublicWikiGuide[]> {
       moduleSlug: resources.slug,
       moduleTitle: resources.title,
       modulePublished: resources.isPublished,
+      moduleThumbnail: resources.thumbnailKey,
+      moduleIcon: resources.iconKey,
+      moduleUseIconEverywhere: resources.useIconEverywhere,
     })
     .from(wikiGuides)
     .leftJoin(resources, eq(wikiGuides.publishedModuleId, resources.id))
@@ -49,7 +57,16 @@ export async function listPublicWiki(): Promise<PublicWikiGuide[]> {
     publishedAt: row.publishedAt!,
     module:
       row.moduleId && row.modulePublished
-        ? { id: row.moduleId, slug: row.moduleSlug!, title: row.moduleTitle! }
+        ? {
+            id: row.moduleId,
+            slug: row.moduleSlug!,
+            title: row.moduleTitle!,
+            cardArtworkUrl: resolveResourceArtwork({
+              thumbnailUrl: publicWikiArtworkUrl(row.moduleThumbnail),
+              iconUrl: publicWikiArtworkUrl(row.moduleIcon),
+              useIconEverywhere: row.moduleUseIconEverywhere ?? false,
+            }).cardArtworkUrl,
+          }
         : null,
   }));
 }

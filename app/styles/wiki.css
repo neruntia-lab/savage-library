@@ -1,14 +1,31 @@
-.wiki-panel,
-.wiki-topic-group {
+.wiki-panel {
   border: 1px solid var(--color-border-strong);
   background: var(--color-surface);
   padding: clamp(1rem, 3vw, 2rem);
   margin-block: 1.5rem;
   min-width: 0;
 }
-.wiki-topic-group > h2 {
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--color-border);
+.wiki-card .resource-card-top {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.wiki-card :is(.resource-kicker, h3, .resource-description) {
+  overflow-wrap: anywhere;
+}
+.wiki-card .resource-card-footer {
+  flex-wrap: wrap;
+}
+.wiki-card-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 960px) {
+  .wiki-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .wiki-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .wiki-search {
   display: grid;
@@ -47,11 +64,6 @@
 .wiki-topic > div {
   min-width: 0;
   overflow-wrap: anywhere;
-}
-.wiki-topic-title {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.5rem;
-  color: var(--color-text);
 }
 .wiki-topic p {
   color: var(--color-text-muted);

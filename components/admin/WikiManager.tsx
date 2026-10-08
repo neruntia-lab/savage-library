@@ -111,6 +111,11 @@ export function WikiManager({ modules }: { modules: WikiModule[] }) {
           </div>
           <div className="wiki-topic-meta">
             <span>{guide.isPublished ? "Published" : "Draft"}</span>
+            {guide.starterResourceId &&
+            !guide.isPublished &&
+            !guide.draft.translations[guide.draft.defaultLocale].body.trim() ? (
+              <span>Starter draft — add documentation</span>
+            ) : null}
             <button
               className="button button-secondary"
               type="button"
