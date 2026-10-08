@@ -38,6 +38,10 @@ export function ResourcePresentation({
     !artworkUrl.endsWith("/logo.png") &&
     !artworkUrl.endsWith("/savage-library-logo.svg"),
   );
+  const showHeroAction =
+    !publicManifestUrl &&
+    ((!isModule && resource.files[0] && (isPreview || canAccessDownloads)) ||
+      (isPublic && resource.projectUrl));
 
   return (
     <article className="section page-section">
@@ -82,52 +86,40 @@ export function ResourcePresentation({
             </div>
             <h1>{resource.title}</h1>
             <p className="resource-lead">{resource.shortDescription}</p>
-            <div className="resource-hero-status">
-              <CompatibilityBadge status={resource.compatibilityStatus} />
-              {resource.accessMode === "patreon" ? (
+            {resource.accessMode === "patreon" ? (
+              <div className="resource-hero-status">
                 <span className="patreon-badge">Patreon access</span>
-              ) : null}
-              <span>
-                Version <strong>{resource.currentVersion}</strong>
-              </span>
-              <span>
-                {resource.pricing === "free"
-                  ? "Free"
-                  : (resource.priceLabel ?? "Premium")}
-              </span>
-            </div>
-            <div className="resource-actions">
-              {isPreview &&
-              (publicManifestUrl || (!isModule && resource.files[0])) ? (
-                <button
-                  className="button button-primary"
-                  type="button"
-                  disabled
-                >
-                  {isModule
-                    ? "Copy manifest link"
-                    : `Download ${resource.files[0]?.kind.toUpperCase()}`}
-                </button>
-              ) : publicManifestUrl ? (
-                <CopyButton value={publicManifestUrl} />
-              ) : !isModule && canAccessDownloads && resource.files[0] ? (
-                <Link
-                  className="button button-primary"
-                  href={ROUTES.download(resource.files[0].id)}
-                >
-                  Download {resource.files[0].kind.toUpperCase()}
-                </Link>
-              ) : isPublic && resource.projectUrl ? (
-                <a
-                  className="button button-primary"
-                  href={resource.projectUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  View project
-                </a>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
+            {showHeroAction ? (
+              <div className="resource-actions">
+                {isPreview && !isModule && resource.files[0] ? (
+                  <button
+                    className="button button-primary"
+                    type="button"
+                    disabled
+                  >
+                    Download {resource.files[0].kind.toUpperCase()}
+                  </button>
+                ) : !isModule && canAccessDownloads && resource.files[0] ? (
+                  <Link
+                    className="button button-primary"
+                    href={ROUTES.download(resource.files[0].id)}
+                  >
+                    Download {resource.files[0].kind.toUpperCase()}
+                  </Link>
+                ) : isPublic && resource.projectUrl ? (
+                  <a
+                    className="button button-primary"
+                    href={resource.projectUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    View project
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -347,7 +339,42 @@ export function ResourcePresentation({
           </div>
 
           <aside className="details-sidebar" aria-label="Resource information">
+            {publicManifestUrl ? (
+              <div className="resource-manifest-action">
+                {isPreview ? (
+                  <button
+                    className="button button-secondary button-small"
+                    type="button"
+                    disabled
+                  >
+                    Copy manifest link
+                  </button>
+                ) : (
+                  <CopyButton value={publicManifestUrl} />
+                )}
+              </div>
+            ) : null}
             <dl className="metadata-list">
+              <div>
+                <dt>Compatibility</dt>
+                <dd>
+                  <CompatibilityBadge status={resource.compatibilityStatus} />
+                </dd>
+              </div>
+              <div>
+                <dt>Version</dt>
+                <dd>
+                  <strong>{resource.currentVersion}</strong>
+                </dd>
+              </div>
+              <div>
+                <dt>Cost</dt>
+                <dd>
+                  {resource.pricing === "free"
+                    ? "Free"
+                    : (resource.priceLabel ?? "Premium")}
+                </dd>
+              </div>
               <div>
                 <dt>Author</dt>
                 <dd>

@@ -195,6 +195,22 @@ test("resource detail flow exposes attribution, compatibility, and manifest acti
   assert.match(details, /All rights reserved/);
   assert.doesNotMatch(details, /<h2>Files<\/h2>/);
   assert.doesNotMatch(details, /Download module/i);
+  const hero = details.match(
+    /<div class="resource-hero">([\s\S]*?)<div class="details-layout">/,
+  )?.[1];
+  const sidebar = details.match(
+    /<aside class="details-sidebar"[\s\S]*?<\/aside>/,
+  )?.[0];
+  assert.ok(hero);
+  assert.ok(sidebar);
+  assert.doesNotMatch(
+    hero,
+    /Copy manifest|class="status status-|Version <strong>/,
+  );
+  assert.match(sidebar, /Copy manifest/);
+  assert.match(sidebar, /<dt>Compatibility<\/dt>/);
+  assert.match(sidebar, /<dt>Version<\/dt>/);
+  assert.match(sidebar, /<dt>Cost<\/dt>/);
 });
 
 test("category and discovery metadata routes are available", async () => {

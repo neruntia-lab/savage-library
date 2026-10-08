@@ -606,6 +606,17 @@ textarea:focus {
   top: 105px;
 }
 
+.resource-manifest-action {
+  margin-bottom: 1.15rem;
+}
+
+.resource-manifest-action .button {
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .resource-cover {
   background:
     radial-gradient(circle, rgb(188 44 0 / 10%), transparent 70%),
