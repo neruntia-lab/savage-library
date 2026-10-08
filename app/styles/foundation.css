@@ -84,6 +84,29 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Restore content markers removed by Preflight; UI lists opt out explicitly. */
+ul,
+ol {
+  list-style-position: outside;
+  padding-inline-start: 1.5rem;
+}
+
+ul {
+  list-style-type: disc;
+}
+
+ol {
+  list-style-type: decimal;
+}
+
+ul ul {
+  list-style-type: circle;
+}
+
+ul ul ul {
+  list-style-type: square;
+}
+
 img {
   display: block;
   max-width: 100%;

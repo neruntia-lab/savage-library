@@ -1,6 +1,40 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import postcss from "postcss";
+
+test("shared list defaults restore markers while wizard controls opt out", () => {
+  const foundation = postcss.parse(
+    readFileSync(
+      new URL("../app/styles/foundation.css", import.meta.url),
+      "utf8",
+    ),
+  );
+  const wizard = postcss.parse(
+    readFileSync(new URL("../app/styles/wizard.css", import.meta.url), "utf8"),
+  );
+  function declaration(root: postcss.Root, selector: string, property: string) {
+    let result: string | undefined;
+    root.walkRules(selector, (rule) => {
+      rule.walkDecls(property, (decl) => {
+        result = decl.value;
+      });
+    });
+    return result;
+  }
+  assert.equal(declaration(foundation, "ul", "list-style-type"), "disc");
+  assert.equal(declaration(foundation, "ol", "list-style-type"), "decimal");
+  assert.equal(declaration(foundation, "ul ul", "list-style-type"), "circle");
+  assert.equal(
+    declaration(foundation, "ul ul ul", "list-style-type"),
+    "square",
+  );
+  assert.equal(declaration(wizard, ".wizard-stepper", "list-style"), "none");
+  assert.equal(
+    declaration(wizard, ".wizard-check-list ul", "list-style"),
+    "none",
+  );
+});
 
 function luminance(hex: string) {
   const channels = hex

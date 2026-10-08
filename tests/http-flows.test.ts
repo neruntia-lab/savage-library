@@ -273,7 +273,7 @@ test("legal disclosures are publicly available", async () => {
   const privacy = await get("/privacy");
   assert.match(privacy, /Privacy policy/);
   assert.match(privacy, /Patreon account identifiers/);
-  assert.match(privacy, /library@neruntia-lab\.com/);
+  assert.match(privacy, /savagelibraryofficial@gmail\.com/);
 
   const terms = await get("/terms");
   assert.match(terms, /Terms of service/);
