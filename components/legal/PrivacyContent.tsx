@@ -57,47 +57,18 @@ export function PrivacyContent() {
 
       <h2>Cookies and sign-in links</h2>
       <p>
-        Cookies are small pieces of data stored by your browser on your device.
-        Your browser sends them back to Savage Library on matching requests.
-        We use essential cookies to keep members and administrators signed in,
-        protect sign-in requests against forgery, remember the return location
-        after authentication, and securely connect Patreon accounts. These
-        cookies let us recognize your session without asking you to sign in on
-        every page; membership eligibility is checked separately.
-      </p>
-      <ul>
-        <li>
-          Sign-in sessions use an encrypted token stored in a browser cookie,
-          with a configured lifetime of up to 30 days. The session may be renewed
-          during use, and signing out clears the session cookie.
-        </li>
-        <li>
-          Temporary security cookies validate authentication and account-linking
-          requests. Authentication state and proof-key cookies expire after
-          15 minutes; the explicit Patreon account-linking cookie expires after
-          10 minutes and is cleared when linking succeeds. Other authentication
-          cookies may last for the browser session.
-        </li>
-        <li>
-          Authentication cookies are marked HttpOnly so page scripts cannot read
-          them, use SameSite restrictions to limit cross-site sending, and are
-          marked Secure on HTTPS deployments. They are not stored in browser
-          local storage.
-        </li>
-      </ul>
-      <p>
-        Email sign-in links are separate from cookies. They contain a one-time
-        verification token that expires after 15 minutes. A hashed verification
-        record is stored in our database and consumed when the link is used;
-        successful sign-in then creates a session cookie. Your account and
-        membership records are stored separately in the database, not solely
-        in cookies.
+        Savage Library uses essential cookies to keep you signed in, protect
+        account access, remember your return location, and connect your Patreon
+        account securely.
       </p>
       <p>
-        We do not use advertising cookies or include analytics tracking cookies
-        in the application. You can delete or block cookies through your browser
-        settings. Public content remains available, but blocking essential cookies
-        can prevent sign-in, Patreon linking, and authenticated downloads.
+        We do not use advertising or analytics cookies. You can block or delete
+        cookies in your browser, but doing so may prevent sign-in, Patreon
+        linking, and member downloads.
+      </p>
+      <p>
+        Email sign-in links use one-time verification tokens that expire after
+        15 minutes.
       </p>
 
       <h2>Retention and security</h2>
