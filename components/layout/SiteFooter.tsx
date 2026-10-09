@@ -18,7 +18,7 @@ export function SiteFooter() {
             </span>
             <span className="brand-copy">
               <strong>{SITE_CONFIG.name}</strong>
-              <small>The adventurer&apos;s archive</small>
+              <small>D&amp;D Content &amp; Foundry Modules</small>
             </span>
           </Link>
           <p>{SITE_CONFIG.tagline}</p>
