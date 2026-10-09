@@ -3,6 +3,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { scryptSync } from "node:crypto";
 import path from "node:path";
 import { after, before, test } from "node:test";
+import { encode } from "next-auth/jwt";
 
 const port = 31_000 + (process.pid % 1_000);
 const origin = `http://localhost:${port}`;
@@ -30,6 +31,7 @@ before(async () => {
       env: {
         ...testEnvironment,
         SAVAGE_LIBRARY_LOCAL_PREVIEW: "1",
+        PATREON_MEMBER_CONNECTIONS_ENABLED: "false",
         AUTH_SECRET: "http-flow-test-auth-secret-not-for-production",
         ADMIN_PASSWORD_HASH: testAdminHash,
         NEXTAUTH_URL: origin,
@@ -70,6 +72,140 @@ test("public pages load without the retired construction login", async () => {
   assert.doesNotMatch(html, /href="\/admin"/);
   assert.doesNotMatch(html, /Site under construction/);
   assert.match(html, /href="\/legal"/);
+});
+
+test("paused Patreon member connections hide controls and reject linking before authentication", async () => {
+  const account = await get("/account");
+  assert.match(account, /New Patreon connections are temporarily unavailable/);
+  assert.doesNotMatch(
+    account,
+    /Sign in with Patreon|Link Patreon|href="\/api\/account\/link-patreon"/,
+  );
+  assert.match(account, /type="email"/);
+  const providers = await fetch(`${origin}/api/auth/providers`).then(
+    (response) => response.json(),
+  );
+  assert.equal(providers.patreon, undefined);
+  assert.ok(providers["admin-password"]);
+  for (const path of [
+    "/api/account/link-patreon",
+    "/api/account/link-patreon/callback?code=old-code&state=old-state",
+  ]) {
+    const response = await fetch(origin + path, {
+      headers: { Cookie: "sl_patreon_link_state=old-state" },
+      redirect: "manual",
+    });
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).code, "patreon_connections_paused");
+    assert.match(
+      response.headers.get("set-cookie") ?? "",
+      /sl_patreon_link_state=;.*Max-Age=0/,
+    );
+    assert.match(
+      response.headers.get("set-cookie") ?? "",
+      /Path=\/api\/account\/link-patreon\/callback/,
+    );
+  }
+  for (const path of [
+    "/api/auth/signin/patreon",
+    "/api/auth/callback/patreon?code=old-code&state=old-state",
+  ]) {
+    const response = await fetch(origin + path, { redirect: "manual" });
+    assert.doesNotMatch(
+      response.headers.get("location") ?? "",
+      /www\.patreon\.com/,
+    );
+    assert.notEqual(response.status, 200);
+  }
+});
+
+test("explicit server opt-in restores Patreon member controls and provider", async () => {
+  const enabledOrigin = `http://localhost:${port + 2000}`;
+  const enabledEnvironment = { ...process.env };
+  delete enabledEnvironment.VERCEL;
+  const enabledServer = spawn(
+    process.execPath,
+    [
+      path.join(process.cwd(), "node_modules/next/dist/bin/next"),
+      "start",
+      "-p",
+      String(port + 2000),
+      "--hostname",
+      "127.0.0.1",
+    ],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...enabledEnvironment,
+        SAVAGE_LIBRARY_LOCAL_PREVIEW: "1",
+        PATREON_MEMBER_CONNECTIONS_ENABLED: "true",
+        AUTH_SECRET: "enabled-http-test-secret",
+        NEXTAUTH_URL: enabledOrigin,
+      },
+      stdio: "ignore",
+      windowsHide: true,
+    },
+  );
+  try {
+    let ready = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      try {
+        ready = (await fetch(`${enabledOrigin}/api/auth/providers`)).ok;
+      } catch {
+        /* server starting */
+      }
+      if (ready) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    assert.ok(ready, "enabled preview starts");
+    const providers = await fetch(`${enabledOrigin}/api/auth/providers`).then(
+      (response) => response.json(),
+    );
+    assert.ok(providers.patreon);
+    assert.ok(providers["admin-password"]);
+    const account = await fetch(`${enabledOrigin}/account`).then((response) =>
+      response.text(),
+    );
+    assert.match(account, /Sign in with Patreon/);
+    assert.doesNotMatch(
+      account,
+      /New Patreon connections are temporarily unavailable/,
+    );
+    const linking = await fetch(`${enabledOrigin}/api/account/link-patreon`, {
+      redirect: "manual",
+    });
+    assert.equal(
+      linking.status,
+      401,
+      "enabled linking still requires authentication",
+    );
+  } finally {
+    enabledServer.kill();
+  }
+});
+
+test("pausing connections preserves existing Patreon sessions", async () => {
+  const token = await encode({
+    secret: "http-flow-test-auth-secret-not-for-production",
+    token: {
+      sub: "existing-patron",
+      id: "existing-patron",
+      role: "patron",
+      provider: "patreon",
+      name: "Existing patron",
+    },
+  });
+  const headers = { Cookie: `next-auth.session-token=${token}` };
+  const session = await fetch(`${origin}/api/auth/session`, { headers }).then(
+    (response) => response.json(),
+  );
+  assert.equal(session.user.provider, "patreon");
+  assert.equal(session.user.id, "existing-patron");
+  const account = await fetch(`${origin}/account`, { headers }).then(
+    (response) => response.text(),
+  );
+  assert.match(account, /Patreon connected/);
+  assert.doesNotMatch(account, /Link Patreon|Sign in with Patreon/);
 });
 
 test("home-to-library discovery flow renders searchable catalog content", async () => {
@@ -400,6 +536,14 @@ test("admin credentials callback creates an administrator session", async () => 
   };
   assert.equal(session.user?.role, "admin");
   const headers = { Cookie: [...csrfCookies, ...sessionCookies].join("; ") };
+  const signedInAccount = await fetch(`${origin}/account`, { headers }).then(
+    (response) => response.text(),
+  );
+  assert.doesNotMatch(
+    signedInAccount,
+    /Link Patreon|href="\/api\/account\/link-patreon"/,
+  );
+  assert.match(signedInAccount, /Browse the library/);
   assert.equal((await fetch(`${origin}/api/resources?admin=1`)).status, 401);
   const resourcesRead = await fetch(
     `${origin}/api/resources?admin=1&q=CRAFT&page=9999`,

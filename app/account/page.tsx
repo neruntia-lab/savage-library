@@ -4,15 +4,18 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../auth";
 import { EmailSignInForm } from "../../components/account/EmailSignInForm";
 import { getAccountMembership } from "../../lib/repositories/membership-repository";
+import { patreonMemberConnectionsEnabled } from "../../lib/config/patreon-members";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Member access",
-  description: "Connect Patreon or use complimentary Savage Library access.",
+  description:
+    "Manage your Savage Library membership and complimentary access.",
 };
 
 export default async function AccountPage() {
+  const connectionsEnabled = patreonMemberConnectionsEnabled();
   const session = await getServerSession(authOptions);
   const isPatron = session?.user?.provider === "patreon";
   const signedIn = Boolean(session?.user?.id);
@@ -37,35 +40,44 @@ export default async function AccountPage() {
               ? "Your current Savage Library membership is checked directly with Patreon whenever you request a protected download."
               : signedIn
                 ? "You are signed in with a verified email account. Any complimentary tiers granted by an administrator are applied to protected downloads."
-                : "Use Patreon for a paid membership or your email address for complimentary access granted by an administrator."}
+                : connectionsEnabled
+                  ? "Use Patreon for a paid membership or your email address for complimentary access granted by an administrator."
+                  : "Use your email address for complimentary access granted by an administrator."}
           </p>
+          {!connectionsEnabled ? (
+            <p role="status">
+              New Patreon connections are temporarily unavailable. Existing
+              memberships remain connected.
+            </p>
+          ) : null}
           <div className="profile-actions">
             {signedIn ? (
               <>
                 <Link className="button button-primary" href="/library">
                   Browse the library
                 </Link>
-                <Link
-                  className="button button-secondary"
-                  href="/api/account/link-patreon"
-                >
-                  Link Patreon
-                </Link>
-                <Link
-                  className="button button-secondary"
-                  href="/logout"
-                >
+                {connectionsEnabled ? (
+                  <Link
+                    className="button button-secondary"
+                    href="/api/account/link-patreon"
+                  >
+                    Link Patreon
+                  </Link>
+                ) : null}
+                <Link className="button button-secondary" href="/logout">
                   Disconnect
                 </Link>
               </>
             ) : (
               <>
-                <Link
-                  className="button button-primary"
-                  href="/api/auth/signin/patreon?callbackUrl=/account"
-                >
-                  Sign in with Patreon
-                </Link>
+                {connectionsEnabled ? (
+                  <Link
+                    className="button button-primary"
+                    href="/api/auth/signin/patreon?callbackUrl=/account"
+                  >
+                    Sign in with Patreon
+                  </Link>
+                ) : null}
                 <EmailSignInForm />
               </>
             )}
@@ -73,10 +85,14 @@ export default async function AccountPage() {
           {signedIn ? (
             <div className="account-access-summary">
               <strong>
-                Access source: {membership?.source ?? (isPatron ? "Patreon" : "none")}
+                Access source:{" "}
+                {membership?.source ?? (isPatron ? "Patreon" : "none")}
               </strong>
               <span>
-                Tiers: {membership?.tiers.length ? membership.tiers.join(", ") : "none currently verified"}
+                Tiers:{" "}
+                {membership?.tiers.length
+                  ? membership.tiers.join(", ")
+                  : "none currently verified"}
               </span>
               {membership?.expiresAt ? (
                 <span>

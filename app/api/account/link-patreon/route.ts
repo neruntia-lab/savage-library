@@ -1,12 +1,19 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "../../../../lib/services/auth";
+import { patreonMemberConnectionsEnabled } from "../../../../lib/config/patreon-members";
+import { patreonConnectionsPausedResponse } from "../../../../lib/services/patreon-member-connections";
 
 export async function GET(request: Request) {
+  if (!patreonMemberConnectionsEnabled())
+    return patreonConnectionsPausedResponse();
   const auth = await requireApiUser();
   if (!auth.ok) return auth.response;
   const state = randomBytes(24).toString("base64url");
-  const callback = new URL("/api/account/link-patreon/callback", request.url).toString();
+  const callback = new URL(
+    "/api/account/link-patreon/callback",
+    request.url,
+  ).toString();
   const target = new URL("https://www.patreon.com/oauth2/authorize");
   target.searchParams.set("response_type", "code");
   target.searchParams.set("client_id", process.env.PATREON_CLIENT_ID ?? "");
