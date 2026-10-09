@@ -13,7 +13,7 @@ const browser = await chromium.launch({
     : {}),
 });
 try {
-  for (const width of [320, 390, 820, 1440]) {
+  for (const width of [320, 390, 620, 820, 930, 960, 1440]) {
     const context = await browser.newContext({
       viewport: { width, height: 1000 },
       reducedMotion: "reduce",
@@ -29,6 +29,33 @@ try {
           () => document.documentElement.scrollWidth <= innerWidth + 2,
         ),
       );
+      if (await page.locator(".hero.hero-image").count())
+        assert.ok(
+          await page.locator(".hero.hero-image").evaluate((hero) => {
+            const bounds = hero.getBoundingClientRect();
+            const frame = getComputedStyle(hero, "::after");
+            const left = bounds.left + parseFloat(frame.left);
+            const right = bounds.right - parseFloat(frame.right);
+            const top = bounds.top + parseFloat(frame.top);
+            const bottom = bounds.bottom - parseFloat(frame.bottom);
+            return (
+              [
+                ...hero.querySelectorAll(
+                  ".hero-search, .celestial-ornament, h1, .archive-subtitle",
+                ),
+              ].every((element) => {
+                const box = element.getBoundingClientRect();
+                return (
+                  box.left >= left + 4 &&
+                  box.right <= right - 4 &&
+                  box.top >= top + 4 &&
+                  box.bottom <= bottom - 4
+                );
+              }) && frame.pointerEvents === "none"
+            );
+          }),
+          `Banner frame intersects content at ${width}px (${name})`,
+        );
       await page.screenshot({
         path: `${output}/${width}-${name}.png`,
         fullPage: true,
@@ -54,6 +81,28 @@ try {
     ).toHaveCount(0);
     assert.equal(await page.locator("fieldset select[name=sort]").count(), 0);
     await capture("catalog");
+    await page
+      .locator("#home-search")
+      .fill(
+        "A long module title with additional search words to verify contained search text",
+      );
+    await page.locator("#home-search").focus();
+    await capture("search-focus");
+    await page.locator("#home-search").fill("");
+    if (process.argv.includes("--banner-only")) {
+      await page.locator("html").evaluate((element) => {
+        element.style.zoom = "2";
+      });
+      await capture("zoom");
+      await page.locator("html").evaluate((element) => {
+        element.style.zoom = "";
+      });
+      console.log(
+        `${width}px: banner containment, long search, focus, and 200% zoom passed`,
+      );
+      await context.close();
+      continue;
+    }
     if (width === 390) {
       await page.route("**/*", async (route) => {
         if (route.request().headers().rsc)

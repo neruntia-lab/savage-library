@@ -1,46 +1,4 @@
-/* Search-first homepage banner */
-.hero.hero-image {
-  align-items: end;
-  background-color: #080808;
-  background-repeat: no-repeat;
-  display: flex;
-  height: clamp(520px, 72vh, 700px);
-  overflow: hidden;
-  position: relative;
-}
-
-.hero.hero-image::before {
-  border: 0;
-  content: "";
-  inset: 0;
-  height: auto;
-  pointer-events: none;
-  position: absolute;
-  transform: none;
-  width: auto;
-  z-index: -1;
-}
-
-.hero.hero-image::after {
-  bottom: 0;
-  content: "";
-  left: 8%;
-  position: absolute;
-  top: auto;
-}
-
-.hero-search-wrap {
-  justify-content: center;
-  padding-bottom: clamp(2.75rem, 8vh, 5rem);
-  width: 100%;
-}
-
-.hero.hero-image .hero-search {
-  backdrop-filter: blur(12px);
-  border-color: rgb(239 210 143 / 36%);
-  max-width: 780px;
-}
-
+/* Homepage appearance administration; banner layout lives in ornamental.css. */
 .appearance-settings {
   display: grid;
   gap: 1.6rem;
@@ -169,15 +127,6 @@
 }
 
 @media (max-width: 820px) {
-  .hero.hero-image {
-    background-position: 66% center;
-    height: 560px;
-  }
-
-  .hero-search-wrap {
-    padding-bottom: 2.5rem;
-  }
-
   .appearance-heading {
     align-items: stretch;
     flex-direction: column;
@@ -193,19 +142,6 @@
 }
 
 @media (max-width: 620px) {
-  .hero.hero-image {
-    background-position: 68% center;
-    height: 520px;
-  }
-
-  .hero.hero-image .hero-search {
-    margin-inline: 1rem;
-  }
-
-  .hero.hero-image .hero-search .button {
-    width: 100%;
-  }
-
   .appearance-actions .button {
     width: 100%;
   }

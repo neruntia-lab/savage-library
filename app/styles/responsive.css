@@ -711,10 +711,6 @@
     margin: 1rem 0 0;
   }
 
-  .hero.hero-image {
-    min-height: clamp(390px, 72vh, 580px);
-  }
-
   .hero.hero-image .hero-search,
   .filter-search > div {
     grid-template-columns: 1fr;
@@ -957,10 +953,6 @@
 
   .brand-mark img {
     height: 36px;
-  }
-
-  .hero.hero-image {
-    min-height: 360px;
   }
 
   .resource-card {

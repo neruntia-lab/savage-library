@@ -157,22 +157,46 @@ input[type="radio"] {
 }
 
 .hero.hero-image {
+  --hero-frame-inline: clamp(0.6rem, 3.5vw, 2rem);
+  --hero-frame-block: 1rem;
+  --hero-inner-gap: clamp(1rem, 2vw, 1.5rem);
+  background-color: var(--color-background);
+  background-repeat: no-repeat;
+  overflow: hidden;
+  position: relative;
   height: auto;
   background-size: cover;
   background-position: center;
   min-height: 0;
   isolation: isolate;
-  padding: clamp(2rem, 5vw, 4rem) 0;
+  padding: max(
+      clamp(2rem, 5vw, 4rem),
+      calc(var(--hero-frame-block) + var(--hero-inner-gap))
+    )
+    0;
   border-bottom: 1px solid var(--color-border-strong);
 }
 .hero.hero-image::before {
+  border: 0;
+  content: "";
+  width: auto;
+  height: auto;
+  transform: none;
+  inset: 0;
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
   background: rgb(9 11 15 / 95%);
   opacity: 1;
 }
 .hero.hero-image::after {
   background: none;
   border: 1px solid rgb(199 161 77 / 45%);
-  inset: 1rem 2rem;
+  content: "";
+  position: absolute;
+  inset: var(--hero-frame-block) var(--hero-frame-inline);
+  pointer-events: none;
+  z-index: -1;
   width: auto;
   height: auto;
   transform: none;
@@ -182,6 +206,7 @@ input[type="radio"] {
   gap: 2rem;
   min-height: 0;
   padding-block: 0;
+  padding-inline: calc(var(--hero-frame-inline) + var(--hero-inner-gap));
   grid-template-columns: minmax(0, 1fr);
 }
 .archive-masthead {
@@ -251,6 +276,8 @@ input[type="radio"] {
   border: 1px solid var(--color-border-strong);
   background: var(--color-surface);
   box-shadow: none;
+  min-width: 0;
+  backdrop-filter: blur(12px);
 }
 .hero-search::before,
 .hero-search::after {
@@ -485,8 +512,8 @@ input[type="radio"] {
   body::before {
     inset: 0.5rem;
   }
-  .hero.hero-image::after {
-    inset: 0.6rem;
+  .hero.hero-image {
+    --hero-frame-block: 0.6rem;
   }
   .archive-masthead {
     grid-template-columns: 1fr;
