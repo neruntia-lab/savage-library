@@ -1,7 +1,7 @@
-name: Development quality checks
+name: Release quality checks
 on:
   push:
-    branches: [development]
+    branches: [development, main]
   pull_request:
     branches: [development, main]
 permissions:

@@ -6,7 +6,7 @@
     "savage-library": "./scripts/savage-library.mjs"
   },
   "engines": {
-    "node": ">=22.13.0"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "next dev",
