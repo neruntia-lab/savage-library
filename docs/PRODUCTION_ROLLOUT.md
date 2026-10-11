@@ -131,6 +131,35 @@
 
 ## Live acceptance and recovery
 
+### October 11 rollout
+
+- Merge commit `5636221` has both maintenance `main` and verified `development`
+  parents. Staged production deployment `dpl_3p8T9n953AukAdNg1BdVMEDVnuP8`
+  passed production configuration, migrations, compilation, and TypeScript before
+  domain promotion. The maintenance deployment remains available for rollback.
+- Production migration ledger now has 13 entries. Baseline resource/publication
+  counts and 4,690 download requests were preserved. The 11 generated Wiki
+  starters are private drafts; no guides were published during migration.
+- Pushed the merge to `main` and promoted the checked deployment. Live homepage,
+  all seven published resource pages, Wiki, legal, account, health, and catalog
+  checks passed. `/dev/preview`, retired `/news`, and the unpublished test module
+  manifest return 404. Public payloads expose no private Blob destinations.
+- Existing Craft `1.4.1` and Sounds `3.13.2` manifests remain canonical production
+  URLs. One Craft ZIP request returned a valid 68,267-byte archive with the correct
+  package root, module ID, and version. The dashboard counter increased to 4,691.
+- Existing production administrator session survived the rollout. Persisted
+  public artwork loaded successfully. Member Patreon and email connections remain
+  paused; creator integration is retained.
+- Live admin verification exposed an inner-join defect hiding resources with only
+  draft releases. Changed the admin-only list to a left join, preserving its API
+  contract and publication boundaries. An isolated PostgreSQL regression verifies
+  initial CLI drafts remain visible with their pending-release count. Full lint,
+  TypeScript, build, 110 unit/database tests, and 18 HTTP flows passed again.
+- Provider secrets were never downloaded. Physical Safari/Firefox, assistive
+  technology, and an actual Foundry application installation were not exercised;
+  installation protocol, ZIP contents, responsive Chromium checks, and automated
+  authorization/transaction regressions were verified instead.
+
 Verify real published catalog content, Wiki/legal pages, admin login/logout,
 artwork, hidden protected destinations, existing manifests and ZIP delivery,
 creator sync health, and production-domain URLs. New upload tests must remain

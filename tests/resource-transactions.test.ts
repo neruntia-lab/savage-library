@@ -12,6 +12,7 @@ import { persistUploadedBlob } from "../lib/repositories/file-repository";
 import type { ResourceInput } from "../lib/validation/resource";
 import { listCatalogFromDatabase } from "../lib/repositories/resource-repository";
 import { synchronizationClaim } from "../db/synchronization-lock";
+import { listAdminResources } from "../lib/repositories/resource-admin-read-repository";
 
 test("multi-table resource and artwork writes roll back together", async () => {
   const pg = new PGlite();
@@ -103,6 +104,21 @@ test("multi-table resource and artwork writes roll back together", async () => {
       "Module",
     );
     const version = (await db.select().from(schema.resourceVersions))[0];
+    await db
+      .update(schema.resourceVersions)
+      .set({ isCurrent: false, releaseStatus: "draft" });
+    const draftListing = await listAdminResources({}, db);
+    assert.equal(
+      draftListing.length,
+      1,
+      "Initial CLI drafts remain visible without an active version",
+    );
+    assert.equal(draftListing[0].id, id);
+    assert.equal(draftListing[0].resourceVersionId, "");
+    assert.equal(draftListing[0].pendingReleaseCount, 1);
+    await db
+      .update(schema.resourceVersions)
+      .set({ isCurrent: true, releaseStatus: "published" });
     const artwork = {
       resourceVersionId: version.id,
       kind: "icon" as const,

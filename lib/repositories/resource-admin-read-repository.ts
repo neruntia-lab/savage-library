@@ -110,7 +110,10 @@ export async function adminModuleChoices() {
     .orderBy(asc(resources.title));
 }
 
-export async function listAdminResources(input: AdminListing = {}): Promise<
+export async function listAdminResources(
+  input: AdminListing = {},
+  database?: WriteDatabase,
+): Promise<
   Array<{
     id: string;
     slug: string;
@@ -135,8 +138,8 @@ export async function listAdminResources(input: AdminListing = {}): Promise<
   }>
 > {
   try {
-    await ensureDatabaseSchema();
-    return await getDb()
+    if (!database) await ensureDatabaseSchema();
+    return await (database ?? getDb())
       .select({
         id: resources.id,
         slug: resources.slug,
@@ -147,7 +150,7 @@ export async function listAdminResources(input: AdminListing = {}): Promise<
         isFeatured: resources.isFeatured,
         downloadCount: resources.downloadCount,
         updatedAt: resources.updatedAt,
-        resourceVersionId: resourceVersions.id,
+        resourceVersionId: sql<string>`coalesce(${resourceVersions.id}, '')`,
         accessMode: resources.accessMode,
         defaultLocale: resources.defaultLocale,
         thumbnailKey: resources.thumbnailKey,
@@ -164,7 +167,8 @@ export async function listAdminResources(input: AdminListing = {}): Promise<
         )`,
       })
       .from(resources)
-      .innerJoin(
+      // An initial publisher draft has no active version until explicit publication.
+      .leftJoin(
         resourceVersions,
         and(
           eq(resourceVersions.resourceId, resources.id),
