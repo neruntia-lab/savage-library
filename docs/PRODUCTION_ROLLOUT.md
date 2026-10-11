@@ -80,10 +80,19 @@
   Draft preview rendered the persisted artwork and Markdown bullets correctly.
 - Test content remains unpublished in Preview. No production resource, release,
   counter, artwork, token, or publication state was changed by these workflow tests.
-- Live CLI verification remains pending: the publishing skill explicitly rejects
-  Preview origins. Do not bypass the canonical production-origin restriction.
-  A production-only test credential/draft needs a separately confirmed test scope;
-  no temporary credential was created during the Preview verification.
+- With separately confirmed production test scope, CLI-only packaging, validation,
+  catalog creation, private ZIP upload, and draft persistence succeeded for
+  `savage-rollout-verification-20261011` version `1.0.0`, resource
+  `90891f18-dabb-4fa2-994d-1f10c599cf7b`. SHA-256:
+  `57ec1f9ce52e736380cf46f577e605ff6a4d204fe7dce627ce6b905622926aff`.
+  The approximately 0.7 KB no-op test archive remains an unpublished, validated
+  draft; its public manifest returns 404. No publication scope was granted.
+- Revoked the named temporary administrator CLI credential and cleared only the
+  new test resource's publisher-token hash. The revoked administrator credential
+  was rejected by the CLI with an explicit authentication error. Removed both
+  local temporary credential files; existing publisher credentials remain intact.
+- Existing production manifests still return 200: Savage Craft `1.4.1` and
+  Savage Sounds `3.13.2`. No existing resource or module release was modified.
 
 ## Required gates before pushing main
 
