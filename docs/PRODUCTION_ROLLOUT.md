@@ -66,8 +66,24 @@
   database credentials were rotated or removed.
 - These environment/runtime changes require a new deployment. Production still
   runs the recorded maintenance deployment; no production migration was applied.
-- Preview administrator sign-in is required for real isolated-service workflow
-  verification. The browser is at the Preview admin login, without a session.
+- Preview and production administrator sessions were verified on October 11.
+- Production creator health reports connected, webhook configured, and successful
+  synchronization on October 10. No synchronization or membership mutation was
+  triggered for this check.
+- Live Preview workflow verification created only development taxonomy defaults
+  and an unpublished macro draft `27d65e49-1445-4809-a8f1-51a5fb56388e`
+  (`rollout-verification-unpublished-test`). Wizard steps persisted through review
+  and Save as draft opened the complete editor. Required-file checks passed.
+- Private macro upload succeeded. Icon, cover, and thumbnail uploads succeeded;
+  artwork loaded from the public Blob store and all four saved files survived
+  reloading the editor. Upload percentage and saving/saved feedback were observed.
+  Draft preview rendered the persisted artwork and Markdown bullets correctly.
+- Test content remains unpublished in Preview. No production resource, release,
+  counter, artwork, token, or publication state was changed by these workflow tests.
+- Live CLI verification remains pending: the publishing skill explicitly rejects
+  Preview origins. Do not bypass the canonical production-origin restriction.
+  A production-only test credential/draft needs a separately confirmed test scope;
+  no temporary credential was created during the Preview verification.
 
 ## Required gates before pushing main
 
