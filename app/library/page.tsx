@@ -2,8 +2,14 @@ import type { Metadata } from "next";
 import { CatalogFilters } from "../../components/library/CatalogFilters";
 import { Pagination } from "../../components/library/Pagination";
 import { ResourceGrid } from "../../components/resources/ResourceGrid";
-import { getCatalogFacets, listCatalog } from "../../lib/repositories/resource-repository";
-import { parseCatalogFilters } from "../../lib/services/catalog";
+import {
+  getCatalogFacets,
+  listCatalog,
+} from "../../lib/repositories/resource-repository";
+import {
+  parsePublicCatalogFilters,
+  publicCatalogParams,
+} from "../../lib/services/catalog";
 
 export const metadata: Metadata = {
   title: "Library",
@@ -19,7 +25,7 @@ type LibraryPageProps = {
 
 export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const params = await searchParams;
-  const filters = parseCatalogFilters(params);
+  const filters = parsePublicCatalogFilters(params);
   const [catalog, facets] = await Promise.all([
     listCatalog(filters),
     getCatalogFacets(),
@@ -49,7 +55,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
         <Pagination
           page={catalog.page}
           pageCount={catalog.pageCount}
-          searchParams={params}
+          searchParams={publicCatalogParams(filters)}
         />
       </div>
     </section>

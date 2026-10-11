@@ -66,13 +66,9 @@ export function ResourceCard({ resource }: { resource: ResourceSummary }) {
 
       <div className="tag-list" aria-label="Tags">
         {resource.tags.slice(0, 3).map((tag) => (
-          <Link
-            className="tag"
-            href={`${ROUTES.library}?tag=${encodeURIComponent(tag.slug)}`}
-            key={tag.id}
-          >
+          <span className="tag" key={tag.id}>
             {tag.name}
-          </Link>
+          </span>
         ))}
       </div>
 

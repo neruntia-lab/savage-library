@@ -1,76 +1,108 @@
 "use client";
 
+import {
+  fetchApi,
+  requestJson,
+  type ApiFailure,
+} from "../../lib/client/request";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import type { CatalogFacets } from "../../lib/domain/resource";
 import type { SiteAppearance } from "../../lib/domain/site-appearance";
 import { AdminResourceList } from "./AdminResourceList";
-import { AppearanceSettings } from "./AppearanceSettings";
-import { TaxonomyManager } from "./TaxonomyManager";
 import type { AdminResource } from "./types";
-import { MembershipManager } from "./MembershipManager";
-import { CliTokenManager } from "./CliTokenManager";
+const AppearanceSettings = dynamic(() =>
+  import("./AppearanceSettings").then((m) => m.AppearanceSettings),
+);
+const TaxonomyManager = dynamic(() =>
+  import("./TaxonomyManager").then((m) => m.TaxonomyManager),
+);
+const MembershipManager = dynamic(() =>
+  import("./MembershipManager").then((m) => m.MembershipManager),
+);
+const CliTokenManager = dynamic(() =>
+  import("./CliTokenManager").then((m) => m.CliTokenManager),
+);
+const WikiManager = dynamic(() =>
+  import("./WikiManager").then((m) => m.WikiManager),
+);
+
+type AdminCatalog = {
+  resources: AdminResource[];
+  total: number;
+  page: number;
+  pageCount: number;
+  totals: {
+    total: number;
+    published: number;
+    protected: number;
+    downloads: number;
+  };
+};
 
 export function AdminDashboard({
-  initialResources,
+  initialCatalog,
+  modules,
   facets,
   initialAppearance,
 }: {
-  initialResources: AdminResource[];
+  initialCatalog: AdminCatalog;
+  modules: Array<{ id: string; slug: string; title: string }>;
   facets: CatalogFacets;
   initialAppearance: SiteAppearance;
 }) {
-  const [resources, setResources] = useState(initialResources);
+  const [catalog, setCatalog] = useState(initialCatalog);
+  const [page, setPage] = useState(1);
+  const resources = catalog.resources;
   const [status, setStatus] = useState("");
   const [query, setQuery] = useState("");
   const [visibility, setVisibility] = useState<
     "all" | "published" | "draft" | "patreon"
   >("all");
   const [activePanel, setActivePanel] = useState<
-    "resources" | "metadata" | "appearance" | "patreon" | "cli"
+    "resources" | "metadata" | "appearance" | "patreon" | "cli" | "wiki"
   >("resources");
 
-  const visibleResources = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    return resources.filter((resource) => {
-      if (
-        normalized &&
-        !`${resource.title} ${resource.slug} ${resource.resourceType}`
-          .toLowerCase()
-          .includes(normalized)
-      ) {
-        return false;
-      }
-      if (visibility === "published" && !resource.isPublished) return false;
-      if (visibility === "draft" && resource.isPublished) return false;
-      if (visibility === "patreon" && resource.accessMode !== "patreon") {
-        return false;
-      }
-      return true;
-    });
-  }, [query, resources, visibility]);
-
-  const publishedCount = resources.filter((resource) => resource.isPublished).length;
-  const protectedCount = resources.filter(
-    (resource) => resource.accessMode === "patreon",
-  ).length;
-  const totalDownloads = resources.reduce(
-    (total, resource) => total + resource.downloadCount,
-    0,
+  const refreshResources = useCallback(
+    async (signal?: AbortSignal) => {
+      const params = new URLSearchParams({
+        admin: "1",
+        q: query,
+        visibility,
+        page: String(page),
+      });
+      const result = await requestJson<ApiFailure & AdminCatalog>(
+        `/api/resources?${params}`,
+        { signal },
+      );
+      if (signal?.aborted) return;
+      if (result.ok && Array.isArray(result.body.resources)) {
+        setCatalog(result.body);
+      } else
+        setStatus(
+          result.body.error ?? "Resources could not be loaded. Please retry.",
+        );
+    },
+    [query, visibility, page],
   );
-
-  async function refreshResources() {
-    const response = await fetch("/api/resources?admin=1");
-    if (!response.ok) return;
-    const body = (await response.json()) as { resources: AdminResource[] };
-    setResources(body.resources);
-  }
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => void refreshResources(controller.signal),
+      250,
+    );
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [refreshResources]);
 
   async function togglePublication(resource: AdminResource) {
     setStatus(
       resource.isPublished ? "Returning entry to draft…" : "Publishing entry…",
     );
-    const response = await fetch(`/api/resources/${resource.id}`, {
+    const response = await fetchApi(`/api/resources/${resource.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isPublished: !resource.isPublished }),
@@ -83,7 +115,7 @@ export function AdminDashboard({
         ? resource.isPublished
           ? "Entry returned to drafts."
           : "Entry published."
-        : body.error ?? "Publication status could not be changed.",
+        : (body.error ?? "Publication status could not be changed."),
     );
     if (response.ok) await refreshResources();
   }
@@ -95,11 +127,13 @@ export function AdminDashboard({
     if (confirmed !== resource.title) return;
 
     setStatus(`Deleting ${resource.title}…`);
-    const response = await fetch(`/api/resources/${resource.id}`, {
+    const response = await fetchApi(`/api/resources/${resource.id}`, {
       method: "DELETE",
     });
     setStatus(
-      response.ok ? "Entry permanently deleted." : "The entry could not be deleted.",
+      response.ok
+        ? "Entry permanently deleted."
+        : "The entry could not be deleted.",
     );
     if (response.ok) await refreshResources();
   }
@@ -107,17 +141,25 @@ export function AdminDashboard({
   return (
     <>
       <div className="admin-stats" aria-label="Library statistics">
-        <Stat label="Resources" value={resources.length} detail="all entries" />
-        <Stat label="Published" value={publishedCount} detail="visible now" />
+        <Stat
+          label="Resources"
+          value={catalog.totals.total}
+          detail="all entries"
+        />
+        <Stat
+          label="Published"
+          value={catalog.totals.published}
+          detail="visible now"
+        />
         <Stat
           label="Patreon"
-          value={protectedCount}
+          value={catalog.totals.protected}
           detail="protected entries"
         />
         <Stat
           label="Downloads"
-          value={totalDownloads.toLocaleString()}
-          detail="recorded transfers"
+          value={Number(catalog.totals.downloads).toLocaleString()}
+          detail="download requests"
         />
       </div>
 
@@ -136,6 +178,12 @@ export function AdminDashboard({
             Taxonomy
           </TabButton>
           <TabButton
+            active={activePanel === "wiki"}
+            onClick={() => setActivePanel("wiki")}
+          >
+            Wiki
+          </TabButton>
+          <TabButton
             active={activePanel === "appearance"}
             onClick={() => setActivePanel("appearance")}
           >
@@ -147,7 +195,10 @@ export function AdminDashboard({
           >
             Patreon
           </TabButton>
-          <TabButton active={activePanel === "cli"} onClick={() => setActivePanel("cli")}>
+          <TabButton
+            active={activePanel === "cli"}
+            onClick={() => setActivePanel("cli")}
+          >
             CLI Access
           </TabButton>
         </div>
@@ -168,7 +219,10 @@ export function AdminDashboard({
               <input
                 type="search"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setPage(1);
+                }}
                 placeholder="Search title, slug, or type…"
               />
             </label>
@@ -176,15 +230,13 @@ export function AdminDashboard({
               <span className="sr-only">Filter by publication</span>
               <select
                 value={visibility}
-                onChange={(event) =>
+                onChange={(event) => {
+                  setPage(1);
                   setVisibility(
                     event.target.value as
-                      | "all"
-                      | "published"
-                      | "draft"
-                      | "patreon",
-                  )
-                }
+                      "all" | "published" | "draft" | "patreon",
+                  );
+                }}
               >
                 <option value="all">All content</option>
                 <option value="published">Published</option>
@@ -192,14 +244,41 @@ export function AdminDashboard({
                 <option value="patreon">Patreon-only</option>
               </select>
             </label>
-            <span>{visibleResources.length} shown</span>
+            <span>
+              {resources.length} of {catalog.total} shown
+            </span>
           </div>
           <AdminResourceList
-            resources={visibleResources}
+            resources={resources}
             onPublicationToggle={togglePublication}
             onDelete={deleteResource}
           />
+          {catalog.pageCount > 1 ? (
+            <nav className="pagination" aria-label="Content pages">
+              <button
+                type="button"
+                className="button button-secondary"
+                disabled={catalog.page <= 1}
+                onClick={() => setPage(catalog.page - 1)}
+              >
+                Previous
+              </button>
+              <span>
+                Page {catalog.page} of {catalog.pageCount}
+              </span>
+              <button
+                type="button"
+                className="button button-secondary"
+                disabled={catalog.page >= catalog.pageCount}
+                onClick={() => setPage(catalog.page + 1)}
+              >
+                Next
+              </button>
+            </nav>
+          ) : null}
         </>
+      ) : activePanel === "wiki" ? (
+        <WikiManager modules={modules} />
       ) : activePanel === "metadata" ? (
         <TaxonomyManager facets={facets} onStatus={setStatus} />
       ) : activePanel === "appearance" ? (
@@ -213,54 +292,6 @@ export function AdminDashboard({
         <CliTokenManager onStatus={setStatus} />
       )}
     </>
-  );
-}
-
-// Kept as a compact fallback for deployments that only configure tier sync.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function PatreonSettings({
-  onStatus,
-}: {
-  onStatus: (message: string) => void;
-}) {
-  const [busy, setBusy] = useState(false);
-
-  async function sync() {
-    setBusy(true);
-    onStatus("Synchronizing Patreon tiers…");
-    const response = await fetch("/api/admin/patreon/tiers", { method: "POST" });
-    const body = (await response.json().catch(() => ({}))) as {
-      count?: number;
-      error?: string;
-    };
-    onStatus(
-      response.ok
-        ? `${body.count ?? 0} Patreon tiers synchronized.`
-        : body.error ?? "Patreon could not be synchronized.",
-    );
-    setBusy(false);
-  }
-
-  return (
-    <section className="admin-panel patreon-settings">
-      <div>
-        <p className="eyebrow">Membership connection</p>
-        <h2>Patreon access</h2>
-        <p>
-          Refresh the available campaign tiers before assigning them to protected
-          resources. Membership is checked live whenever a protected file is
-          downloaded.
-        </p>
-      </div>
-      <button
-        type="button"
-        className="button button-primary"
-        onClick={sync}
-        disabled={busy}
-      >
-        {busy ? "Synchronizing…" : "Synchronize tiers"}
-      </button>
-    </section>
   );
 }
 

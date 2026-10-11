@@ -1,0 +1,389 @@
+/* Guided content creation */
+.wizard-progress-nav h1 {
+  margin: 0 0 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+.wizard-progress-nav nav {
+  margin: 0;
+}
+
+.wizard-stepper {
+  display: grid;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wizard-stepper li {
+  align-items: center;
+  border-left: 2px solid var(--color-border);
+  color: var(--color-text-muted);
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 30px minmax(0, 1fr);
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+}
+
+.wizard-stepper li span {
+  align-items: center;
+  border: 1px solid currentColor;
+  display: flex;
+  font: 700 0.7rem/1 var(--font-sans);
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.wizard-stepper li small {
+  font: 700 0.7rem/1.3 var(--font-sans);
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+
+.wizard-stepper li.current {
+  background: rgb(216 181 106 / 6%);
+  border-color: var(--color-gold);
+  color: var(--color-gold);
+}
+
+.wizard-stepper li.complete {
+  border-color: #46c995;
+  color: #46c995;
+}
+
+.wizard-mobile-progress {
+  display: none;
+}
+
+.wizard-form > section {
+  background: rgb(22 21 26 / 92%);
+  border: 1px solid rgb(216 181 106 / 14%);
+  display: grid;
+  gap: 1.5rem;
+  margin: 0 auto 1rem;
+  max-width: 980px;
+  min-width: 0;
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.wizard-section-heading {
+  border-bottom: 1px solid rgb(216 181 106 / 12%);
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding-bottom: 1.25rem;
+}
+
+.wizard-section-heading > span {
+  color: var(--color-gold);
+  font: 700 0.72rem/1 var(--font-sans);
+  letter-spacing: 0.16em;
+  padding-top: 0.35rem;
+}
+
+.wizard-section-heading > div {
+  min-width: 0;
+}
+
+.wizard-section-heading h2,
+.wizard-section-heading p {
+  margin: 0;
+}
+
+.wizard-section-heading p {
+  color: var(--color-text-muted);
+  margin-top: 0.35rem;
+}
+
+.wizard-type-grid,
+.wizard-access-grid,
+.wizard-tier-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.wizard-type-grid label,
+.wizard-access-grid label,
+.wizard-tier-grid label {
+  align-content: start;
+  background: #111216;
+  border: 1px solid rgb(216 181 106 / 16%);
+  cursor: pointer;
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.wizard-type-grid label:hover,
+.wizard-access-grid label:hover,
+.wizard-tier-grid label:hover,
+.wizard-tag-grid label:hover {
+  border-color: rgb(216 181 106 / 48%);
+}
+
+.wizard-type-grid label.selected,
+.wizard-access-grid label.selected,
+.wizard-tier-grid label.selected,
+.wizard-tag-grid label.selected {
+  background: rgb(216 181 106 / 7%);
+  border-color: var(--color-gold);
+}
+
+.wizard-type-grid input,
+.wizard-access-grid input,
+.wizard-tier-grid input {
+  justify-self: start;
+  min-height: 0;
+  width: auto;
+}
+
+.wizard-type-grid span,
+.wizard-access-grid span,
+.wizard-tier-grid span {
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.wizard-language-fields {
+  display: grid;
+  gap: 1rem;
+}
+
+.wizard-description {
+  min-height: 230px;
+}
+
+.wizard-secondary-toggle {
+  align-items: center;
+  background: #111216;
+  border: 1px solid rgb(216 181 106 / 16%);
+  display: flex !important;
+  gap: 0.7rem;
+  padding: 0.9rem 1rem;
+}
+
+.wizard-secondary-toggle input {
+  min-height: 0 !important;
+  width: auto !important;
+}
+
+.wizard-advanced {
+  border: 1px solid rgb(216 181 106 / 16%);
+  min-width: 0;
+  padding: 1rem;
+}
+
+.wizard-advanced summary {
+  color: var(--color-gold);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.wizard-advanced[open] summary {
+  margin-bottom: 1rem;
+}
+
+.wizard-tag-grid {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.wizard-tag-grid label {
+  border: 1px solid rgb(216 181 106 / 16%);
+  cursor: pointer;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 0.7rem 0.8rem;
+}
+
+.wizard-tag-grid input {
+  margin-right: 0.5rem;
+  min-height: 0 !important;
+  width: auto !important;
+}
+
+.wizard-primary-upload {
+  max-width: 540px;
+}
+
+.wizard-artwork-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.wizard-artwork-grid > div {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.wizard-artwork-grid img {
+  background: #0c0d10;
+  border: 1px solid rgb(216 181 106 / 16%);
+  height: 160px;
+  object-fit: contain;
+  width: 100%;
+}
+
+.wizard-upload {
+  background: #111216;
+  border: 1px dashed rgb(216 181 106 / 28%);
+  cursor: pointer;
+  display: grid !important;
+  gap: 0.4rem;
+  min-width: 0;
+  overflow: hidden;
+  padding: 1rem;
+  position: relative;
+}
+
+.wizard-upload:hover {
+  border-color: var(--color-gold);
+}
+
+.wizard-upload input {
+  cursor: pointer;
+  inset: 0;
+  opacity: 0;
+  position: absolute;
+}
+
+.wizard-upload > span {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.wizard-upload.complete { border-color: #46c995; }
+.wizard-upload.error { border-color: #d95252; }
+.wizard-warning { background: rgb(180 32 32 / 8%); border: 1px solid #d95252; color: #ffaaaa; padding: 1rem; }
+
+.required-marker {
+  color: #ff5d5d;
+  font-size: 1.05em;
+  margin-left: 0.15rem;
+}
+
+.wizard-form :is(input, select, textarea)[aria-invalid="true"] {
+  background: rgb(118 17 24 / 12%);
+  border-color: #d95252;
+  box-shadow: 0 0 0 1px rgb(217 82 82 / 25%);
+}
+
+.wizard-form :is(input, select, textarea)[aria-invalid="true"]:focus {
+  border-color: #ff7777;
+  box-shadow: 0 0 0 2px rgb(217 82 82 / 30%);
+  outline: none;
+}
+
+.wizard-required-panel,
+.wizard-tier-fieldset {
+  border: 1px solid rgb(216 181 106 / 16%);
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.wizard-required-panel.has-error,
+.wizard-tier-fieldset.has-error {
+  background: rgb(118 17 24 / 10%);
+  border-color: #d95252;
+  box-shadow: 0 0 0 1px rgb(217 82 82 / 20%);
+}
+
+.wizard-required-panel:focus,
+.wizard-tier-fieldset:focus {
+  outline: 2px solid rgb(217 82 82 / 55%);
+  outline-offset: 2px;
+}
+
+.wizard-required-panel > .admin-editor-section {
+  margin: 0;
+}
+
+.wizard-tier-fieldset legend {
+  padding: 0 0.35rem;
+}
+
+.wizard-check-columns {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.wizard-check-list {
+  border: 1px solid rgb(216 181 106 / 16%);
+  min-width: 0;
+  padding: 1rem;
+}
+
+.wizard-check-list h3 { font-size: 1rem; margin-top: 0; }
+.wizard-check-list ul { list-style: none; padding: 0; margin: 0; }
+.wizard-check-list li { align-items: start; display: grid; gap: 0.5rem; grid-template-columns: 20px minmax(0, 1fr); overflow-wrap: anywhere; margin-top: .75rem; }
+.wizard-check-list.required { border-color: #d95252; }
+.wizard-check-list.confirmed { border-color: #46c995; }
+.wizard-preview iframe { background: #08090b; border: 1px solid rgb(216 181 106 / 16%); min-height: 720px; width: 100%; }
+
+.wizard-actions {
+  margin-top: 0;
+}
+
+.field-error {
+  color: #ff8f8f !important;
+  display: block;
+  font-weight: 700;
+  margin-top: 0.2rem;
+}
+
+@media (max-width: 960px) {
+  .wizard-mobile-progress {
+    background: #151419;
+    border: 1px solid rgb(216 181 106 / 14%);
+    display: grid;
+    gap: 0.35rem;
+    margin: 0 auto 1rem;
+    max-width: 980px;
+    padding: 1rem;
+  }
+
+  .wizard-mobile-progress span {
+    color: var(--color-text-muted);
+    font: 700 0.68rem/1 var(--font-sans);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .wizard-mobile-progress i {
+    background: rgb(216 181 106 / 14%);
+    display: block;
+    height: 3px;
+    margin-top: 0.4rem;
+    overflow: hidden;
+  }
+
+  .wizard-mobile-progress b {
+    background: var(--color-gold);
+    display: block;
+    height: 100%;
+  }
+}
+
+@media (max-width: 620px) {
+  .wizard-type-grid,
+  .wizard-access-grid,
+  .wizard-artwork-grid,
+  .wizard-check-columns { grid-template-columns: 1fr; }
+  .wizard-form > section { padding: 1rem; }
+  .wizard-section-heading { grid-template-columns: 1fr; }
+  .wizard-section-heading > span { padding-top: 0; }
+  .wizard-preview iframe { min-height: 560px; }
+}

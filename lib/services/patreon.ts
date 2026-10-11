@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../../db";
 import { patreonTiers } from "../../db/schema";
 import { getCreatorAccessToken } from "./creator-credentials";
+import { patreonRead } from "./patreon-http";
 
 type PatreonResource = {
   id: string;
@@ -9,7 +10,9 @@ type PatreonResource = {
   attributes?: Record<string, unknown>;
   relationships?: Record<
     string,
-    { data?: { id: string; type: string } | Array<{ id: string; type: string }> }
+    {
+      data?: { id: string; type: string } | Array<{ id: string; type: string }>;
+    }
   >;
 };
 
@@ -32,10 +35,7 @@ export async function verifyPatreonEntitlement(
   url.searchParams.set("fields[member]", "patron_status,last_charge_status");
   url.searchParams.set("fields[tier]", "title,amount_cents");
 
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    cache: "no-store",
-  });
+  const response = await patreonRead(url, accessToken);
   if (!response.ok) throw new Error("Patreon membership could not be checked.");
 
   const body = (await response.json()) as PatreonResponse;
@@ -47,7 +47,8 @@ export async function verifyPatreonEntitlement(
   });
   if (!membership) return { entitled: false, tierIds: [] };
 
-  const tierRelationship = membership.relationships?.currently_entitled_tiers?.data;
+  const tierRelationship =
+    membership.relationships?.currently_entitled_tiers?.data;
   const tierIds = Array.isArray(tierRelationship)
     ? tierRelationship.map((tier) => tier.id)
     : [];
@@ -79,10 +80,7 @@ export async function syncPatreonTiers(): Promise<number> {
     "fields[tier]",
     "title,description,amount_cents,published,url",
   );
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${creatorToken}` },
-    cache: "no-store",
-  });
+  const response = await patreonRead(url, creatorToken);
   if (!response.ok) throw new Error("Patreon tiers could not be synchronized.");
 
   const body = (await response.json()) as PatreonResponse;

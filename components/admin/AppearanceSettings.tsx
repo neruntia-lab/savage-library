@@ -1,5 +1,7 @@
 "use client";
+import { formatBytes } from "../../lib/format";
 
+import { fetchApi } from "../../lib/client/request";
 import { upload } from "@vercel/blob/client";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -25,10 +27,9 @@ export function AppearanceSettings({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const loadAppearance = useCallback(async () => {
-    const response = await fetch("/api/admin/site-settings");
+    const response = await fetchApi("/api/admin/site-settings");
     const body = (await response.json().catch(() => ({}))) as
-      | SiteAppearance
-      | { error?: string };
+      SiteAppearance | { error?: string };
     if (!response.ok || !("heroImageUrl" in body)) {
       onStatus(
         "error" in body && body.error
@@ -105,8 +106,12 @@ export function AppearanceSettings({
     }
     setBusy(true);
     onStatus("Restoring the bundled banner…");
-    const response = await fetch("/api/admin/hero-upload", { method: "DELETE" });
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    const response = await fetchApi("/api/admin/hero-upload", {
+      method: "DELETE",
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
     if (response.ok) {
       await loadAppearance();
       onStatus("Bundled banner restored.");
@@ -176,8 +181,16 @@ export function AppearanceSettings({
       ) : null}
 
       <div className="appearance-preview-grid">
-        <Preview label="Desktop preview" className="appearance-preview-desktop" url={imageUrl} />
-        <Preview label="Mobile preview" className="appearance-preview-mobile" url={imageUrl} />
+        <Preview
+          label="Desktop preview"
+          className="appearance-preview-desktop"
+          url={imageUrl}
+        />
+        <Preview
+          label="Mobile preview"
+          className="appearance-preview-mobile"
+          url={imageUrl}
+        />
       </div>
       <p className="appearance-file-note">
         {appearance.isDefault
@@ -215,7 +228,9 @@ function Preview({
   );
 }
 
-function readDimensions(file: File): Promise<{ width: number; height: number }> {
+function readDimensions(
+  file: File,
+): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const image = new Image();
@@ -232,10 +247,8 @@ function readDimensions(file: File): Promise<{ width: number; height: number }> 
 }
 
 function safeFilename(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").slice(-120);
-}
-
-function formatBytes(bytes: number): string {
-  if (!bytes) return "size unavailable";
-  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .slice(-120);
 }

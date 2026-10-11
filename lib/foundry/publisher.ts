@@ -23,7 +23,8 @@ export type FoundryManifest = {
   [key: string]: unknown;
 };
 
-const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const VERSION_PATTERN =
+  /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const MODULE_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const FOUNDRY_VERSION_PATTERN = /^\d+(?:\.\d+){0,2}$/;
 
@@ -36,13 +37,29 @@ export function inspectFoundryModule(
   try {
     zip = new AdmZip(Buffer.from(bytes));
   } catch {
-    return { manifest: null, errors: ["The uploaded file is not a readable ZIP archive."] };
+    return {
+      manifest: null,
+      errors: ["The uploaded file is not a readable ZIP archive."],
+    };
   }
 
   const entries = zip.getEntries();
   if (!entries.length) errors.push("The ZIP archive is empty.");
+  if (
+    entries.length > 20_000 ||
+    entries.reduce((size, entry) => size + entry.header.size, 0) > 2 * 1024 ** 3
+  ) {
+    return {
+      manifest: null,
+      errors: ["The archive exceeds the safe expanded size or entry limit."],
+    };
+  }
+  const seenPaths = new Set<string>();
   for (const entry of entries) {
     const normalized = entry.entryName.replaceAll("\\", "/");
+    if (seenPaths.has(normalized))
+      errors.push(`Duplicate archive path: ${normalized}`);
+    seenPaths.add(normalized);
     if (
       normalized.startsWith("/") ||
       /^[A-Za-z]:\//.test(normalized) ||
@@ -54,10 +71,13 @@ export function inspectFoundryModule(
     const fileName = parts.at(-1)?.toLowerCase() ?? "";
     if (
       fileName === ".savage-library.json" ||
+      fileName === "savage-library.json" ||
       fileName === ".env" ||
-      fileName === ".env.local"
+      fileName.startsWith(".env.")
     ) {
-      errors.push(`Publisher credentials or environment files are not allowed: ${entry.entryName}`);
+      errors.push(
+        `Publisher credentials or environment files are not allowed: ${entry.entryName}`,
+      );
     }
     if (parts.length > 1 && fileName.endsWith(".zip")) {
       errors.push(`Nested ZIP archives are not allowed: ${entry.entryName}`);
@@ -67,8 +87,11 @@ export function inspectFoundryModule(
   const manifests = entries.filter(
     (entry) =>
       !entry.isDirectory &&
-      entry.entryName.replaceAll("\\", "/").split("/").filter(Boolean).at(-1) ===
-        "module.json",
+      entry.entryName
+        .replaceAll("\\", "/")
+        .split("/")
+        .filter(Boolean)
+        .at(-1) === "module.json",
   );
   if (manifests.length !== 1) {
     errors.push("The archive must contain exactly one module.json file.");
@@ -76,6 +99,12 @@ export function inspectFoundryModule(
   }
 
   const manifestEntry = manifests[0];
+  if (manifestEntry.header.size > 1024 * 1024) {
+    return {
+      manifest: null,
+      errors: [...errors, "module.json exceeds the 1 MB limit."],
+    };
+  }
   const parts = manifestEntry.entryName
     .replaceAll("\\", "/")
     .split("/")
@@ -86,20 +115,43 @@ export function inspectFoundryModule(
 
   let manifest: FoundryManifest;
   try {
-    manifest = JSON.parse(manifestEntry.getData().toString("utf8")) as FoundryManifest;
+    const parsed: unknown = JSON.parse(
+      manifestEntry.getData().toString("utf8"),
+    );
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {
+        manifest: null,
+        errors: [...errors, "module.json must contain a JSON object."],
+      };
+    }
+    manifest = parsed as FoundryManifest;
   } catch {
-    return { manifest: null, errors: [...errors, "module.json is not valid JSON."] };
+    return {
+      manifest: null,
+      errors: [...errors, "module.json is not valid JSON."],
+    };
   }
 
-  if (!manifest.id || !MODULE_ID_PATTERN.test(manifest.id)) {
-    errors.push("The manifest id must use lowercase letters, numbers, and hyphens.");
+  if (typeof manifest.id !== "string" || !MODULE_ID_PATTERN.test(manifest.id)) {
+    errors.push(
+      "The manifest id must use lowercase letters, numbers, and hyphens.",
+    );
   }
-  if (!manifest.title?.trim()) errors.push("The manifest title is required.");
-  if (!manifest.description?.trim()) {
+  if (typeof manifest.title !== "string" || !manifest.title.trim())
+    errors.push("The manifest title is required.");
+  if (
+    typeof manifest.description !== "string" ||
+    !manifest.description.trim()
+  ) {
     errors.push("The manifest description is required by Foundry VTT.");
   }
-  if (!manifest.version || !VERSION_PATTERN.test(manifest.version)) {
-    errors.push("The manifest version must be a semantic version such as 1.2.0.");
+  if (
+    typeof manifest.version !== "string" ||
+    !VERSION_PATTERN.test(manifest.version)
+  ) {
+    errors.push(
+      "The manifest version must be a semantic version such as 1.2.0.",
+    );
   }
   if (parts[0] && manifest.id && parts[0] !== manifest.id) {
     errors.push("The top-level module directory must match the manifest id.");
@@ -113,13 +165,21 @@ export function inspectFoundryModule(
       return first && first !== manifest.id;
     });
     if (unexpected) {
-      errors.push("The archive must contain only the module's top-level directory.");
+      errors.push(
+        "The archive must contain only the module's top-level directory.",
+      );
     }
   }
   if (expectedModuleId && manifest.id !== expectedModuleId) {
     errors.push(`This resource is linked to module id "${expectedModuleId}".`);
   }
   const compatibility = manifest.compatibility;
+  if (
+    compatibility != null &&
+    (typeof compatibility !== "object" || Array.isArray(compatibility))
+  ) {
+    errors.push("Foundry compatibility must be a JSON object.");
+  }
   for (const [label, value] of Object.entries(compatibility ?? {})) {
     if (
       value != null &&

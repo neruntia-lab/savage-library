@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "../../db";
+import { withWriteTransaction, type WriteDatabase } from "../../db/transaction";
 import {
   authors,
   categories,
@@ -85,7 +86,9 @@ export async function updateImportCandidate(
             detectedType: input.payload.resourceType ?? null,
           }
         : {}),
-      ...(input.resourceId !== undefined ? { resourceId: input.resourceId } : {}),
+      ...(input.resourceId !== undefined
+        ? { resourceId: input.resourceId }
+        : {}),
       ...(input.status ? { reviewStatus: input.status } : {}),
       ...(input.status === "rejected" ? { rejectedAt: now } : {}),
       updatedAt: now,
@@ -95,10 +98,20 @@ export async function updateImportCandidate(
   return Boolean(rows[0]);
 }
 
-export async function approveImportCandidate(id: string) {
-  const db = getDb();
+export async function approveImportCandidate(
+  id: string,
+  transaction?: WriteDatabase,
+): Promise<string> {
+  if (!transaction)
+    return withWriteTransaction((db) => approveImportCandidate(id, db));
+  const db = transaction;
   const candidate = (
-    await db.select().from(patreonPosts).where(eq(patreonPosts.id, id)).limit(1)
+    await db
+      .select()
+      .from(patreonPosts)
+      .where(eq(patreonPosts.id, id))
+      .limit(1)
+      .for("update")
   )[0];
   if (!candidate) throw new Error("Import candidate was not found.");
   if (candidate.reviewStatus === "source_deleted") {
@@ -108,12 +121,21 @@ export async function approveImportCandidate(id: string) {
     parseJson<unknown>(candidate.extractedPayload, {}),
     candidate.title,
   );
-  if (!payload.resourceType) throw new Error("Choose a content type before approval.");
+  if (!payload.resourceType)
+    throw new Error("Choose a content type before approval.");
 
-  await ensureImportTaxonomy(payload.tags);
+  await ensureImportTaxonomy(payload.tags, db);
   const tierIds = parseJson<string[]>(candidate.requiredTierIds, []);
   const resourceId = candidate.resourceId;
-  const existing = resourceId ? await getAdminResource(resourceId) : null;
+  if (resourceId)
+    await db
+      .select({ id: resources.id })
+      .from(resources)
+      .where(eq(resources.id, resourceId))
+      .for("update");
+  const existing = resourceId ? await getAdminResource(resourceId, db) : null;
+  if (resourceId && !existing)
+    throw new Error("The selected resource no longer exists.");
   const slug = payload.resourceKey || slugify(payload.title);
   const categoryId =
     payload.resourceType === "module"
@@ -121,12 +143,15 @@ export async function approveImportCandidate(id: string) {
       : payload.resourceType === "pdf"
         ? "category-pdfs"
         : "category-macros";
-  const tagIds = payload.tags.map((tag) => `tag-${slugify(tag)}`).filter((id) => id !== "tag-");
+  const tagIds = payload.tags
+    .map((tag) => `tag-${slugify(tag)}`)
+    .filter((id) => id !== "tag-");
   const accessMode = tierIds.length ? "patreon" : "public";
   const base: ResourceInput = existing ?? {
     title: payload.title,
     slug,
-    shortDescription: payload.shortDescription || payload.description.slice(0, 240),
+    shortDescription:
+      payload.shortDescription || payload.description.slice(0, 240),
     description: payload.description,
     resourceType: payload.resourceType,
     categoryId,
@@ -143,11 +168,17 @@ export async function approveImportCandidate(id: string) {
     translations: {
       en: {
         title: payload.title,
-        shortDescription: payload.shortDescription || payload.description.slice(0, 240),
+        shortDescription:
+          payload.shortDescription || payload.description.slice(0, 240),
         description: payload.description,
         isPublished: false,
       },
-      es: { title: "", shortDescription: "", description: "", isPublished: false },
+      es: {
+        title: "",
+        shortDescription: "",
+        description: "",
+        isPublished: false,
+      },
     },
     isFeatured: false,
     useIconEverywhere: false,
@@ -157,7 +188,8 @@ export async function approveImportCandidate(id: string) {
     ...base,
     title: payload.title,
     slug: existing?.slug ?? slug,
-    shortDescription: payload.shortDescription || payload.description.slice(0, 240),
+    shortDescription:
+      payload.shortDescription || payload.description.slice(0, 240),
     description: payload.description,
     resourceType: payload.resourceType,
     categoryId,
@@ -176,7 +208,8 @@ export async function approveImportCandidate(id: string) {
       en: {
         ...base.translations.en,
         title: payload.title,
-        shortDescription: payload.shortDescription || payload.description.slice(0, 240),
+        shortDescription:
+          payload.shortDescription || payload.description.slice(0, 240),
         description: payload.description,
         isPublished: base.translations.en.isPublished,
       },
@@ -185,8 +218,8 @@ export async function approveImportCandidate(id: string) {
   };
 
   const approvedResourceId = existing
-    ? (await updateResource(existing.id, input), existing.id)
-    : await createResource(input);
+    ? (await updateResource(existing.id, input, db), existing.id)
+    : await createResource(input, db);
   const now = new Date().toISOString();
   await db
     .update(resources)
@@ -209,8 +242,7 @@ export async function approveImportCandidate(id: string) {
   return approvedResourceId;
 }
 
-async function ensureImportTaxonomy(tagNames: string[]) {
-  const db = getDb();
+async function ensureImportTaxonomy(tagNames: string[], db: WriteDatabase) {
   await db
     .insert(authors)
     .values({
@@ -232,7 +264,12 @@ async function ensureImportTaxonomy(tagNames: string[]) {
         slug: "foundry-modules",
         description: "Installable Foundry VTT packages and manifests.",
       },
-      { id: "category-pdfs", name: "PDFs", slug: "pdfs", description: "Printable resources." },
+      {
+        id: "category-pdfs",
+        name: "PDFs",
+        slug: "pdfs",
+        description: "Printable resources.",
+      },
       {
         id: "category-macros",
         name: "Macros",

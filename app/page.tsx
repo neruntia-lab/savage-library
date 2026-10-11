@@ -1,16 +1,34 @@
-import Link from "next/link";
-import { ResourceGrid } from "../components/resources/ResourceGrid";
-import { CATEGORY_LINKS, ROUTES } from "../lib/config/site";
-import { getFeaturedResources } from "../lib/repositories/resource-repository";
+import { CelestialOrnament } from "../components/ui/CelestialOrnament";
+import { CatalogFilters } from "../components/library/CatalogFilters";
+import { ProgressiveCatalog } from "../components/library/ProgressiveCatalog";
+import {
+  getCatalogFacets,
+  listCatalog,
+} from "../lib/repositories/resource-repository";
 import { getSiteAppearance } from "../lib/repositories/site-settings-repository";
+import {
+  catalogFilterParams,
+  parsePublicCatalogFilters,
+} from "../lib/services/catalog";
 
-export const revalidate = 300;
+export const revalidate = 120;
 
-export default async function HomePage() {
-  const [featured, appearance] = await Promise.all([
-    getFeaturedResources(3),
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const filters = parsePublicCatalogFilters(await searchParams, {
+    pageSize: 24,
+  });
+  const [catalog, facets, appearance] = await Promise.all([
+    listCatalog(filters),
+    getCatalogFacets(),
     getSiteAppearance(),
   ]);
+  const searchFields = Object.entries(catalogFilterParams(filters)).filter(
+    ([name]) => name !== "q",
+  );
 
   return (
     <>
@@ -20,14 +38,32 @@ export default async function HomePage() {
         aria-label="Search the Savage Library"
       >
         <div className="container hero-search-wrap">
-          <form className="hero-search" action={ROUTES.library} method="get">
+          <div className="archive-masthead">
+            <CelestialOrnament variant="sun" className="archive-sun" />
+            <div>
+              <h1>Savage Library</h1>
+              <p className="archive-subtitle">
+                Expand your campaign. Enhance your game.
+              </p>
+              <span className="archive-divider" aria-hidden="true">
+                ✦
+              </span>
+            </div>
+            <CelestialOrnament variant="moon" className="archive-moon" />
+          </div>
+          <form className="hero-search" action="/#library" method="get">
+            {searchFields.map(([name, value]) => (
+              <input key={name} type="hidden" name={name} value={value} />
+            ))}
             <label className="sr-only" htmlFor="home-search">
               Search the library
             </label>
             <input
+              key={filters.query ?? ""}
               id="home-search"
               name="q"
               type="search"
+              defaultValue={filters.query}
               placeholder="Search modules, classes, authors, or tags"
               autoComplete="off"
             />
@@ -39,62 +75,33 @@ export default async function HomePage() {
       </section>
 
       <section
-        className="section section-tight category-section"
-        aria-labelledby="categories-title"
+        id="library"
+        className="section home-library"
+        aria-labelledby="library-title"
       >
         <div className="container">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Choose your path</p>
-              <h2 id="categories-title">Explore the collection</h2>
+              <p className="eyebrow">Resource catalog</p>
+              <h2 id="library-title">Browse the library</h2>
             </div>
-            <p className="section-intro">
-              From ready-to-run modules to character options and field guides,
-              every entry is organized for quick discovery.
-            </p>
-            <Link className="text-link" href={ROUTES.library}>
-              Browse everything <span aria-hidden="true">→</span>
-            </Link>
           </div>
-          <div className="category-grid">
-            {CATEGORY_LINKS.map((category, index) => (
-              <Link
-                className="category-card"
-                href={ROUTES.category(category.slug)}
-                key={category.slug}
-              >
-                <span className="category-index" aria-hidden="true">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <span className="category-icon" aria-hidden="true">
-                  <span>{category.name.charAt(0)}</span>
-                </span>
-                <span className="category-copy">
-                  <strong>{category.name}</strong>
-                  <small>{category.description}</small>
-                </span>
-                <span className="category-arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </Link>
-            ))}
+          <CatalogFilters
+            filters={filters}
+            facets={facets}
+            action="/#library"
+            showSearch={false}
+          />
+          <div className="catalog-summary" aria-live="polite">
+            <strong>{catalog.total}</strong>{" "}
+            {catalog.total === 1 ? "resource" : "resources"}
+            {filters.query ? ` matching “${filters.query}”` : ""}
           </div>
-        </div>
-      </section>
-
-      <section className="section" aria-labelledby="featured-title">
-        <div className="container">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">From the curator&apos;s desk</p>
-              <h2 id="featured-title">Featured discoveries</h2>
-            </div>
-            <p className="section-intro">
-              Noteworthy additions and recently refined tools for your next
-              session.
-            </p>
-          </div>
-          <ResourceGrid resources={featured} />
+          <ProgressiveCatalog
+            key={JSON.stringify(filters)}
+            initial={catalog}
+            filters={filters}
+          />
         </div>
       </section>
     </>

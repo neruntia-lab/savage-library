@@ -19,6 +19,72 @@ import {
 type SearchParamValue = string | string[] | undefined;
 type SearchParamRecord = Record<string, SearchParamValue>;
 
+// Internal listing policy; URL parameters never enable unbounded API results.
+export type CatalogListingOptions = { paginate?: boolean };
+
+// Browser controls are intentionally smaller than the backwards-compatible API.
+export function parsePublicCatalogFilters(
+  params: SearchParamRecord,
+  overrides: Partial<CatalogFilters> = {},
+): CatalogFilters {
+  return parseCatalogFilters(
+    {
+      q: params.q,
+      type: params.type,
+      system: params.system,
+      sort: params.sort,
+      page: params.page,
+      pageSize: params.pageSize,
+    },
+    overrides,
+  );
+}
+
+export function publicCatalogParams(
+  filters: CatalogFilters,
+): Record<string, string> {
+  const values: Record<string, string | undefined> = {
+    q: filters.query,
+    type: filters.resourceType,
+    system: filters.system,
+    sort: filters.sort,
+    page: filters.page > 1 ? String(filters.page) : undefined,
+    pageSize:
+      filters.pageSize !== SITE_CONFIG.defaultPageSize
+        ? String(filters.pageSize)
+        : undefined,
+  };
+  return Object.fromEntries(
+    Object.entries(values).filter((entry): entry is [string, string] =>
+      Boolean(entry[1]),
+    ),
+  );
+}
+
+export function catalogFilterParams(
+  filters: CatalogFilters,
+): Record<string, string> {
+  const values = {
+    q: filters.query,
+    type: filters.resourceType,
+    system: filters.system,
+    foundry: filters.foundryVersion,
+    version: filters.moduleVersion,
+    class: filters.classOrSubclass,
+    pricing: filters.pricing,
+    tag: filters.tag,
+    author: filters.author,
+    compatibility: filters.compatibility,
+    category: filters.category,
+    sort: filters.sort,
+  };
+  return Object.fromEntries(
+    Object.entries(values).filter((entry): entry is [string, string] =>
+      Boolean(entry[1]),
+    ),
+  );
+}
+
 export function parseCatalogFilters(
   searchParams: SearchParamRecord,
   overrides: Partial<CatalogFilters> = {},
@@ -32,18 +98,14 @@ export function parseCatalogFilters(
 
   return {
     query: cleanFilter(first(searchParams.q)),
-    resourceType: enumValue(
-      first(searchParams.type),
-      RESOURCE_TYPES,
-    ) as ResourceType | undefined,
+    resourceType: enumValue(first(searchParams.type), RESOURCE_TYPES) as
+      ResourceType | undefined,
     system: cleanFilter(first(searchParams.system)),
     foundryVersion: cleanFilter(first(searchParams.foundry)),
     moduleVersion: cleanFilter(first(searchParams.version)),
     classOrSubclass: cleanFilter(first(searchParams.class)),
-    pricing: enumValue(
-      first(searchParams.pricing),
-      PRICING_TYPES,
-    ) as PricingType | undefined,
+    pricing: enumValue(first(searchParams.pricing), PRICING_TYPES) as
+      PricingType | undefined,
     tag: cleanFilter(first(searchParams.tag)),
     author: cleanFilter(first(searchParams.author)),
     compatibility: enumValue(
@@ -53,8 +115,7 @@ export function parseCatalogFilters(
     category: cleanFilter(first(searchParams.category)),
     sort:
       (enumValue(first(searchParams.sort), SORT_OPTIONS) as
-        | ResourceSort
-        | undefined) ?? "recently-added",
+        ResourceSort | undefined) ?? "recently-added",
     page: clampInteger(first(searchParams.page), 1, 10_000, 1),
     pageSize,
     ...overrides,
@@ -64,6 +125,7 @@ export function parseCatalogFilters(
 export function filterCatalog(
   resources: ResourceDetails[],
   filters: CatalogFilters,
+  options: CatalogListingOptions = {},
 ): CatalogResult {
   const query = normalize(filters.query);
   const classQuery = normalize(filters.classOrSubclass);
@@ -99,8 +161,7 @@ export function filterCatalog(
           `${resource.className ?? ""} ${resource.subclassName ?? ""}`,
         ).includes(classQuery)) &&
       (!filters.pricing || resource.pricing === filters.pricing) &&
-      (!filters.tag ||
-        resource.tags.some((tag) => tag.slug === filters.tag)) &&
+      (!filters.tag || resource.tags.some((tag) => tag.slug === filters.tag)) &&
       (!filters.author || resource.author.slug === filters.author) &&
       (!filters.compatibility ||
         resource.compatibilityStatus === filters.compatibility) &&
@@ -108,13 +169,25 @@ export function filterCatalog(
     );
   });
 
-  const sorted = [...filtered].sort(sorter(filters.sort));
+  const compare = sorter(filters.sort);
+  const sorted = [...filtered].sort(
+    (a, b) => compare(a, b) || a.id.localeCompare(b.id),
+  );
+  if (options.paginate === false) {
+    return {
+      items: sorted.map(toSummary),
+      total: sorted.length,
+      page: 1,
+      pageSize: Math.max(1, sorted.length),
+      pageCount: 1,
+    };
+  }
   const pageCount = Math.max(1, Math.ceil(sorted.length / filters.pageSize));
   const page = Math.min(filters.page, pageCount);
   const start = (page - 1) * filters.pageSize;
 
   return {
-    items: sorted.slice(start, start + filters.pageSize),
+    items: sorted.slice(start, start + filters.pageSize).map(toSummary),
     total: sorted.length,
     page,
     pageSize: filters.pageSize,
@@ -143,6 +216,11 @@ export function toSummary(resource: ResourceDetails): ResourceSummary {
     priceLabel: resource.priceLabel,
     tags: resource.tags,
     thumbnailUrl: resource.thumbnailUrl,
+    iconUrl: resource.iconUrl,
+    cardArtworkUrl: resource.cardArtworkUrl,
+    useIconEverywhere: resource.useIconEverywhere,
+    accessMode: resource.accessMode,
+    defaultLocale: resource.defaultLocale,
     isFeatured: resource.isFeatured,
     downloadCount: resource.downloadCount,
     popularityScore: resource.popularityScore,
@@ -165,8 +243,7 @@ function sorter(
       return (left, right) => right.popularityScore - left.popularityScore;
     case "recently-added":
     default:
-      return (left, right) =>
-        right.publishedAt.localeCompare(left.publishedAt);
+      return (left, right) => right.publishedAt.localeCompare(left.publishedAt);
   }
 }
 

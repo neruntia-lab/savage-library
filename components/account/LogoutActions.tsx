@@ -12,6 +12,7 @@ export function LogoutActions({
   cancelHref: string;
 }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   if (!signedIn) {
     return (
@@ -32,11 +33,18 @@ export function LogoutActions({
         disabled={busy}
         onClick={async () => {
           setBusy(true);
-          await signOut({ callbackUrl: "/" });
+          setError("");
+          try {
+            await signOut({ callbackUrl: "/" });
+          } catch {
+            setError("Sign out could not complete. Please retry.");
+            setBusy(false);
+          }
         }}
       >
         {busy ? "Signing out…" : "Sign out"}
       </button>
+      {error ? <p role="alert">{error}</p> : null}
     </div>
   );
 }

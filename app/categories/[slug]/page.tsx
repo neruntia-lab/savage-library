@@ -8,7 +8,10 @@ import {
   getCatalogFacets,
   listCatalog,
 } from "../../../lib/repositories/resource-repository";
-import { parseCatalogFilters } from "../../../lib/services/catalog";
+import {
+  parsePublicCatalogFilters,
+  publicCatalogParams,
+} from "../../../lib/services/catalog";
 
 type CategoryPageProps = {
   params: Promise<{ slug: string }>;
@@ -36,7 +39,7 @@ export default async function CategoryPage({
   const category = CATEGORY_LINKS.find((entry) => entry.slug === slug);
   if (!category) notFound();
 
-  const filters = parseCatalogFilters(query, { category: slug });
+  const filters = parsePublicCatalogFilters(query, { category: slug });
   const [catalog, facets] = await Promise.all([
     listCatalog(filters),
     getCatalogFacets(),
@@ -63,7 +66,7 @@ export default async function CategoryPage({
         <Pagination
           page={catalog.page}
           pageCount={catalog.pageCount}
-          searchParams={query}
+          searchParams={publicCatalogParams(filters)}
           basePath={`/categories/${encodeURIComponent(slug)}`}
         />
       </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchApi } from "../../lib/client/request";
 import { useEffect, useState } from "react";
 
 type TokenRow = { id: string; name: string; tokenPrefix: string; scopes: string[]; createdAt: string; expiresAt: string | null; lastUsedAt: string | null; revokedAt: string | null };
@@ -15,7 +16,7 @@ export function CliTokenManager({ onStatus }: { onStatus: (message: string) => v
   const [loadedAt] = useState(() => Date.now());
 
   async function load() {
-    const response = await fetch("/api/admin/cli-tokens");
+    const response = await fetchApi("/api/admin/cli-tokens");
     const body = (await response.json().catch(() => ({}))) as { tokens?: TokenRow[]; error?: string };
     if (response.ok) setTokens(body.tokens ?? []); else onStatus(body.error ?? "CLI tokens could not be loaded.");
   }
@@ -25,7 +26,7 @@ export function CliTokenManager({ onStatus }: { onStatus: (message: string) => v
 
   async function create() {
     setBusy(true); setPlainToken("");
-    const response = await fetch("/api/admin/cli-tokens", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, scopes: selected, expiresAt: expiresAt || null }) });
+    const response = await fetchApi("/api/admin/cli-tokens", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, scopes: selected, expiresAt: expiresAt || null }) });
     const body = (await response.json().catch(() => ({}))) as { token?: string; error?: string };
     if (response.ok && body.token) { setPlainToken(body.token); onStatus("Administrator CLI token created. Copy it now."); await load(); }
     else onStatus(body.error ?? "CLI token could not be created.");
@@ -34,7 +35,7 @@ export function CliTokenManager({ onStatus }: { onStatus: (message: string) => v
 
   async function revoke(id: string) {
     if (!window.confirm("Revoke this CLI token immediately?")) return;
-    const response = await fetch(`/api/admin/cli-tokens/${id}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: "Revoked from admin dashboard" }) });
+    const response = await fetchApi(`/api/admin/cli-tokens/${id}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: "Revoked from admin dashboard" }) });
     onStatus(response.ok ? "CLI token revoked." : "CLI token could not be revoked.");
     if (response.ok) await load();
   }

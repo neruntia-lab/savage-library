@@ -3,29 +3,42 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "../../../../../db";
 import { accounts, patreonMembers } from "../../../../../db/schema";
 import { requireApiUser } from "../../../../../lib/services/auth";
+import { patreonMemberConnectionsEnabled } from "../../../../../lib/config/patreon-members";
+import { patreonConnectionsPausedResponse } from "../../../../../lib/services/patreon-member-connections";
 
 export async function GET(request: NextRequest) {
+  if (!patreonMemberConnectionsEnabled())
+    return patreonConnectionsPausedResponse();
   const auth = await requireApiUser();
   if (!auth.ok) return auth.response;
   const state = request.nextUrl.searchParams.get("state");
   const expected = request.cookies.get("sl_patreon_link_state")?.value;
   const code = request.nextUrl.searchParams.get("code");
   if (!state || state !== expected || !code) {
-    return Response.json({ error: "Invalid Patreon linking state." }, { status: 400 });
+    return Response.json(
+      { error: "Invalid Patreon linking state." },
+      { status: 400 },
+    );
   }
-  const callback = new URL("/api/account/link-patreon/callback", request.url).toString();
-  const tokenResponse = await fetch("https://www.patreon.com/api/oauth2/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      client_id: process.env.PATREON_CLIENT_ID ?? "",
-      client_secret: process.env.PATREON_CLIENT_SECRET ?? "",
-      redirect_uri: callback,
-    }),
-    cache: "no-store",
-  });
+  const callback = new URL(
+    "/api/account/link-patreon/callback",
+    request.url,
+  ).toString();
+  const tokenResponse = await fetch(
+    "https://www.patreon.com/api/oauth2/token",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        client_id: process.env.PATREON_CLIENT_ID ?? "",
+        client_secret: process.env.PATREON_CLIENT_SECRET ?? "",
+        redirect_uri: callback,
+      }),
+      cache: "no-store",
+    },
+  );
   if (!tokenResponse.ok) {
     return Response.json({ error: "Patreon linking failed." }, { status: 502 });
   }
@@ -38,23 +51,43 @@ export async function GET(request: NextRequest) {
   };
   const identityResponse = await fetch(
     "https://www.patreon.com/api/oauth2/v2/identity",
-    { headers: { Authorization: `Bearer ${token.access_token}` }, cache: "no-store" },
+    {
+      headers: { Authorization: `Bearer ${token.access_token}` },
+      cache: "no-store",
+    },
   );
   if (!identityResponse.ok) {
-    return Response.json({ error: "Patreon identity could not be verified." }, { status: 502 });
+    return Response.json(
+      { error: "Patreon identity could not be verified." },
+      { status: 502 },
+    );
   }
-  const identity = (await identityResponse.json()) as { data?: { id?: string } };
+  const identity = (await identityResponse.json()) as {
+    data?: { id?: string };
+  };
   const patreonUserId = identity.data?.id;
-  if (!patreonUserId) return Response.json({ error: "Missing Patreon identity." }, { status: 502 });
+  if (!patreonUserId)
+    return Response.json(
+      { error: "Missing Patreon identity." },
+      { status: 502 },
+    );
   const existing = (
     await getDb()
       .select({ userId: accounts.userId })
       .from(accounts)
-      .where(and(eq(accounts.provider, "patreon"), eq(accounts.providerAccountId, patreonUserId)))
+      .where(
+        and(
+          eq(accounts.provider, "patreon"),
+          eq(accounts.providerAccountId, patreonUserId),
+        ),
+      )
       .limit(1)
   )[0];
   if (existing && existing.userId !== auth.user.id) {
-    return Response.json({ error: "That Patreon account is already linked." }, { status: 409 });
+    return Response.json(
+      { error: "That Patreon account is already linked." },
+      { status: 409 },
+    );
   }
   const accountValues = {
     access_token: token.access_token,
@@ -64,13 +97,15 @@ export async function GET(request: NextRequest) {
     scope: token.scope,
   };
   if (!existing) {
-    await getDb().insert(accounts).values({
-      userId: auth.user.id,
-      type: "oauth",
-      provider: "patreon",
-      providerAccountId: patreonUserId,
-      ...accountValues,
-    });
+    await getDb()
+      .insert(accounts)
+      .values({
+        userId: auth.user.id,
+        type: "oauth",
+        provider: "patreon",
+        providerAccountId: patreonUserId,
+        ...accountValues,
+      });
   } else {
     await getDb()
       .update(accounts)
@@ -86,7 +121,9 @@ export async function GET(request: NextRequest) {
     .update(patreonMembers)
     .set({ websiteUserId: auth.user.id, updatedAt: new Date().toISOString() })
     .where(eq(patreonMembers.patreonUserId, patreonUserId));
-  const response = NextResponse.redirect(new URL("/account?patreon=linked", request.url));
+  const response = NextResponse.redirect(
+    new URL("/account?patreon=linked", request.url),
+  );
   response.cookies.delete("sl_patreon_link_state");
   return response;
 }

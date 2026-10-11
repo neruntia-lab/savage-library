@@ -1,0 +1,93 @@
+/* Compact public-browser controls; sorting is outside the filter fieldset. */
+.catalog-browser-controls {
+  margin-bottom: 1rem;
+  min-width: 0;
+}
+.catalog-browser-controls .filter-search {
+  margin-bottom: 1.25rem;
+}
+.catalog-control-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+  align-items: end;
+  gap: 2rem;
+  padding-block: 1rem;
+  border-block: 1px solid var(--color-border);
+}
+.catalog-filter-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 220px));
+  gap: 1rem;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+}
+.catalog-control-bar label {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.catalog-control-bar label > span {
+  color: var(--color-gold);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.catalog-control-bar select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  background: var(--color-ink);
+  border-color: var(--color-border);
+  border-radius: var(--radius-small);
+}
+.catalog-sort {
+  padding-left: 1.5rem;
+  border-left: 1px solid var(--color-border);
+}
+.catalog-control-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  gap: 1rem;
+}
+.catalog-control-feedback p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+.catalog-clear {
+  min-height: 44px;
+  padding: 0.5rem 0;
+  background: transparent;
+  border: 0;
+  color: var(--color-gold-bright);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.catalog-clear:hover {
+  text-decoration: underline;
+}
+@media (max-width: 720px) {
+  .catalog-control-bar {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+  .catalog-filter-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .catalog-sort {
+    padding: 1rem 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--color-border);
+  }
+}
+@media (max-width: 360px) {
+  .catalog-filter-group {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

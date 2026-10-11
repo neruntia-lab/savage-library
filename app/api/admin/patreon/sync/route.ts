@@ -1,5 +1,6 @@
 import { requireApiAdmin } from "../../../../../lib/services/auth";
 import { reconcilePatreon } from "../../../../../lib/services/patreon-sync";
+import { SynchronizationBusyError } from "../../../../../db/synchronization-lock";
 
 export async function POST() {
   const auth = await requireApiAdmin();
@@ -8,8 +9,11 @@ export async function POST() {
     return Response.json(await reconcilePatreon());
   } catch (error) {
     return Response.json(
-      { error: error instanceof Error ? error.message : "Synchronization failed." },
-      { status: 502 },
+      {
+        error:
+          error instanceof Error ? error.message : "Synchronization failed.",
+      },
+      { status: error instanceof SynchronizationBusyError ? 409 : 502 },
     );
   }
 }

@@ -3,6 +3,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { scryptSync } from "node:crypto";
 import path from "node:path";
 import { after, before, test } from "node:test";
+import { encode } from "next-auth/jwt";
 
 const port = 31_000 + (process.pid % 1_000);
 const origin = `http://localhost:${port}`;
@@ -13,6 +14,8 @@ let server: ChildProcess;
 let serverOutput = "";
 
 before(async () => {
+  const testEnvironment = { ...process.env };
+  delete testEnvironment.VERCEL;
   server = spawn(
     process.execPath,
     [
@@ -26,7 +29,10 @@ before(async () => {
     {
       cwd: process.cwd(),
       env: {
-        ...process.env,
+        ...testEnvironment,
+        SAVAGE_LIBRARY_LOCAL_PREVIEW: "1",
+        EMAIL_SIGN_IN_ENABLED: "false",
+        PATREON_MEMBER_CONNECTIONS_ENABLED: "false",
         AUTH_SECRET: "http-flow-test-auth-secret-not-for-production",
         ADMIN_PASSWORD_HASH: testAdminHash,
         NEXTAUTH_URL: origin,
@@ -49,41 +55,309 @@ after(() => {
   server?.kill();
 });
 
-test("public pages show the bilingual maintenance screen", async () => {
+test("public pages load without the retired construction login", async () => {
   const home = await fetch(origin);
   assert.equal(home.status, 200);
   const html = await home.text();
   assert.match(html, /Savage Library/);
-  assert.match(html, /The archive is being refined\./);
-  assert.match(html, /Estamos mejorando el archivo\./);
-  assert.match(html, /will bring it back online as soon as possible/);
-  assert.doesNotMatch(html, /Search the archive/);
+  assert.match(html, /Open navigation menu/);
+  assert.match(html, /aria-controls="mobile-navigation"/);
+  assert.match(html, /aria-label="Mobile navigation"/);
+  assert.match(html, /href="\/wiki"/);
+  assert.match(html, /Terms &amp; Privacy/);
+  assert.doesNotMatch(
+    html,
+    /href="\/account"|nav-account|Sign in with Patreon/,
+  );
+  assert.doesNotMatch(html, /footer-seal/);
+  assert.doesNotMatch(html, /href="\/admin"/);
+  assert.doesNotMatch(html, /Site under construction/);
+  assert.match(html, /href="\/legal"/);
 });
 
-test("public catalog routes remain unavailable during maintenance", async () => {
+test("paused Patreon member connections hide controls and reject linking before authentication", async () => {
+  const account = await get("/account");
+  assert.match(account, /New Patreon connections are temporarily unavailable/);
+  assert.doesNotMatch(
+    account,
+    /Sign in with Patreon|Link Patreon|href="\/api\/account\/link-patreon"/,
+  );
+  assert.match(account, /Email sign-in is temporarily unavailable/);
+  assert.doesNotMatch(account, /type="email"/);
+  const providers = await fetch(`${origin}/api/auth/providers`).then(
+    (response) => response.json(),
+  );
+  assert.equal(providers.patreon, undefined);
+  assert.equal(providers.email, undefined);
+  assert.ok(providers["admin-password"]);
+  for (const path of [
+    "/api/account/link-patreon",
+    "/api/account/link-patreon/callback?code=old-code&state=old-state",
+  ]) {
+    const response = await fetch(origin + path, {
+      headers: { Cookie: "sl_patreon_link_state=old-state" },
+      redirect: "manual",
+    });
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).code, "patreon_connections_paused");
+    assert.match(
+      response.headers.get("set-cookie") ?? "",
+      /sl_patreon_link_state=;.*Max-Age=0/,
+    );
+    assert.match(
+      response.headers.get("set-cookie") ?? "",
+      /Path=\/api\/account\/link-patreon\/callback/,
+    );
+  }
+  for (const path of [
+    "/api/auth/signin/patreon",
+    "/api/auth/callback/patreon?code=old-code&state=old-state",
+  ]) {
+    const response = await fetch(origin + path, { redirect: "manual" });
+    assert.doesNotMatch(
+      response.headers.get("location") ?? "",
+      /www\.patreon\.com/,
+    );
+    assert.notEqual(response.status, 200);
+  }
+});
+
+test("explicit server opt-in restores Patreon member controls and provider", async () => {
+  const enabledOrigin = `http://localhost:${port + 2000}`;
+  const enabledEnvironment = { ...process.env };
+  delete enabledEnvironment.VERCEL;
+  const enabledServer = spawn(
+    process.execPath,
+    [
+      path.join(process.cwd(), "node_modules/next/dist/bin/next"),
+      "start",
+      "-p",
+      String(port + 2000),
+      "--hostname",
+      "127.0.0.1",
+    ],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...enabledEnvironment,
+        SAVAGE_LIBRARY_LOCAL_PREVIEW: "1",
+        PATREON_MEMBER_CONNECTIONS_ENABLED: "true",
+        AUTH_SECRET: "enabled-http-test-secret",
+        NEXTAUTH_URL: enabledOrigin,
+      },
+      stdio: "ignore",
+      windowsHide: true,
+    },
+  );
+  try {
+    let ready = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      try {
+        ready = (await fetch(`${enabledOrigin}/api/auth/providers`)).ok;
+      } catch {
+        /* server starting */
+      }
+      if (ready) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    assert.ok(ready, "enabled preview starts");
+    const providers = await fetch(`${enabledOrigin}/api/auth/providers`).then(
+      (response) => response.json(),
+    );
+    assert.ok(providers.patreon);
+    assert.ok(providers["admin-password"]);
+    const account = await fetch(`${enabledOrigin}/account`).then((response) =>
+      response.text(),
+    );
+    assert.match(account, /Sign in with Patreon/);
+    assert.doesNotMatch(
+      account,
+      /New Patreon connections are temporarily unavailable/,
+    );
+    const linking = await fetch(`${enabledOrigin}/api/account/link-patreon`, {
+      redirect: "manual",
+    });
+    assert.equal(
+      linking.status,
+      401,
+      "enabled linking still requires authentication",
+    );
+  } finally {
+    enabledServer.kill();
+  }
+});
+
+test("pausing connections preserves existing Patreon sessions", async () => {
+  const token = await encode({
+    secret: "http-flow-test-auth-secret-not-for-production",
+    token: {
+      sub: "existing-patron",
+      id: "existing-patron",
+      role: "patron",
+      provider: "patreon",
+      name: "Existing patron",
+    },
+  });
+  const headers = { Cookie: `next-auth.session-token=${token}` };
+  const session = await fetch(`${origin}/api/auth/session`, { headers }).then(
+    (response) => response.json(),
+  );
+  assert.equal(session.user.provider, "patreon");
+  assert.equal(session.user.id, "existing-patron");
+  const account = await fetch(`${origin}/account`, { headers }).then(
+    (response) => response.text(),
+  );
+  assert.match(account, /Patreon connected/);
+  assert.doesNotMatch(account, /Link Patreon|Sign in with Patreon/);
+});
+
+test("home-to-library discovery flow renders searchable catalog content", async () => {
   const home = await get("/");
   assert.match(home, /Savage Library/);
-  assert.match(home, /The archive is being refined\./);
+  assert.match(home, /Search the archive/);
+  assert.match(home, /Browse the library/);
 
   const library = await get(
     "/library?q=crafting&type=module&system=dnd5e&foundry=13&sort=most-downloaded",
   );
-  assert.match(library, /Estamos mejorando el archivo\./);
-  assert.doesNotMatch(library, /Savage Craft/);
+  assert.match(library, /Savage Craft/);
+  assert.match(library, /matching/);
+  assert.match(library, /Source type/);
+  assert.match(library, /Sort by/);
+  assert.doesNotMatch(library, /filter-advanced|Apply filters/);
+  assert.doesNotMatch(library, /Vanguard Class/);
 
   const tagSearch = await get("/library?q=Automation");
-  assert.match(tagSearch, /The archive is being refined\./);
+  assert.match(tagSearch, /Savage Craft/);
 });
 
-test("public resource routes show maintenance instead of catalog data", async () => {
+test("homepage is a complete filterable catalog with one banner search", async () => {
+  const home = await get("/?page=99&pageSize=1");
+  assert.match(home, /Browse the library/);
+  assert.match(home, /id="library"/);
+  assert.match(home, /action="\/#library"/);
+  assert.equal((home.match(/type="search"/g) ?? []).length, 1);
+  assert.equal((home.match(/<article class="resource-card"/g) ?? []).length, 5);
+  assert.doesNotMatch(
+    home,
+    /Featured discoveries|Explore the collection|class="category-card"|aria-label="Resource pages"/,
+  );
+  assert.doesNotMatch(home, /href="[^\"]*\?tag=/);
+  const filtered = await get("/?q=crafting&type=module&sort=most-downloaded");
+  assert.equal(
+    (filtered.match(/<article class="resource-card"/g) ?? []).length,
+    1,
+  );
+  assert.match(filtered, /Savage Craft/);
+  assert.match(filtered, /type="hidden" name="q" value="crafting"/);
+  assert.match(filtered, /type="hidden" name="type" value="module"/);
+  assert.match(filtered, /Clear filters/);
+  assert.doesNotMatch(filtered, /Vanguard Class/);
+  const empty = await get("/?q=no-matching-entry");
+  assert.match(empty, /No resources found/);
+  const api = await fetch(`${origin}/api/resources?pageSize=1`);
+  assert.equal(api.status, 200);
+  assert.equal((await api.json()).items.length, 1);
+});
+
+test("zero preview counters and controlled download failures do not imply successful delivery", async () => {
+  const home = await get("/");
+  assert.equal(
+    (home.replace(/<!--[\s\S]*?-->/g, "").match(/0 downloads/g) ?? []).length,
+    5,
+  );
+  for (const url of [
+    "/api/downloads/missing-file",
+    "/api/foundry/modules/missing/releases/missing/module.zip",
+  ]) {
+    const response = await fetch(`${origin}${url}`, { redirect: "manual" });
+    assert.equal(response.status, 502);
+    assert.equal(response.headers.get("location"), null);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(
+      (await response.json()).error,
+      "The download could not be completed. Please try again later.",
+    );
+    const head = await fetch(`${origin}${url}`, {
+      method: "HEAD",
+      redirect: "manual",
+    });
+    assert.equal(head.status, 502);
+    assert.equal(await head.text(), "");
+  }
+  assert.equal(
+    (await get("/")).replace(/<!--[\s\S]*?-->/g, "").match(/0 downloads/g)
+      ?.length,
+    5,
+  );
+});
+
+test("public browser ignores retired filters while the API retains them", async () => {
+  const retired =
+    "tag=nonexistent&author=nonexistent&pricing=premium&foundry=999&version=999&class=nonexistent&compatibility=unsupported&category=nonexistent";
+  for (const route of ["/", "/library"]) {
+    const html = await get(`${route}?${retired}`);
+    assert.equal(
+      (html.match(/<article class="resource-card"/g) ?? []).length,
+      5,
+    );
+    for (const name of [
+      "tag",
+      "author",
+      "pricing",
+      "foundry",
+      "version",
+      "class",
+      "compatibility",
+      "category",
+    ]) {
+      assert.doesNotMatch(html, new RegExp(`name="${name}"`));
+    }
+    assert.equal((html.match(/<select /g) ?? []).length, 3);
+  }
+  const category = await get(`/categories/foundry-modules?${retired}`);
+  assert.equal(
+    (category.match(/<article class="resource-card"/g) ?? []).length,
+    2,
+  );
+  const api = await fetch(`${origin}/api/resources?tag=nonexistent`);
+  assert.equal((await api.json()).total, 0);
+});
+
+test("resource detail flow exposes attribution, compatibility, and manifest actions", async () => {
   const details = await get("/resources/savage-craft");
-  assert.match(details, /The archive is being refined\./);
-  assert.doesNotMatch(details, /Installation instructions/);
+  assert.match(details, /José Felipe/);
+  assert.match(details, /Foundry support/);
+  assert.match(details, /Installation instructions/);
+  assert.match(details, /Copy manifest/);
+  assert.match(details, /api\/foundry\/modules\/savage-craft\/module\.json/);
+  assert.match(details, /All rights reserved/);
+  assert.doesNotMatch(details, /<h2>Files<\/h2>/);
+  assert.doesNotMatch(details, /Download module/i);
+  const hero = details.match(
+    /<div class="resource-hero">([\s\S]*?)<div class="details-layout">/,
+  )?.[1];
+  const sidebar = details.match(
+    /<aside class="details-sidebar"[\s\S]*?<\/aside>/,
+  )?.[0];
+  assert.ok(hero);
+  assert.ok(sidebar);
+  assert.doesNotMatch(
+    hero,
+    /Copy manifest|class="status status-|Version <strong>/,
+  );
+  assert.match(sidebar, /Copy manifest/);
+  assert.match(sidebar, /<dt>Compatibility<\/dt>/);
+  assert.match(sidebar, /<dt>Version<\/dt>/);
+  assert.match(sidebar, /<dt>Required tier<\/dt>/);
+  assert.match(sidebar, /None — Free/);
+  assert.doesNotMatch(sidebar, /<dt>Cost<\/dt>/);
 });
 
 test("category and discovery metadata routes are available", async () => {
   const category = await get("/categories/foundry-modules");
-  assert.match(category, /Estamos mejorando el archivo\./);
+  assert.match(category, /Foundry VTT Modules/);
+  assert.match(category, /Savage Training/);
 
   const sitemap = await get("/sitemap.xml");
   assert.match(sitemap, /resources\/savage-craft/);
@@ -94,13 +368,14 @@ test("category and discovery metadata routes are available", async () => {
   const robots = await get("/robots.txt");
   assert.match(robots, /Disallow: \/admin/);
 
-  const removedNews = await fetch(`${origin}/news`);
-  assert.equal(removedNews.status, 200);
-  assert.match(await removedNews.text(), /The archive is being refined\./);
+  const removedNews = await fetch(`${origin}/news`, {});
+  assert.equal(removedNews.status, 404);
 });
 
 test("publisher catalog orchestration rejects missing administrator credentials", async () => {
-  const verify = await fetch(`${origin}/api/publisher/admin/verify`, { method: "POST" });
+  const verify = await fetch(`${origin}/api/publisher/admin/verify`, {
+    method: "POST",
+  });
   assert.equal(verify.status, 401);
   assert.equal((await verify.json()).code, "admin_cli_token_invalid");
   const catalog = await fetch(`${origin}/api/publisher/catalog`, {
@@ -128,17 +403,66 @@ test("content wizard APIs require administrator authentication", async () => {
   assert.equal(resume.status, 401);
 });
 
-test("legal pages also show maintenance while static metadata remains available", async () => {
+test("legal disclosures are publicly available", async () => {
+  const legal = await get("/legal");
+  assert.match(legal, /id="terms"/);
+  assert.match(legal, /id="privacy"/);
+  assert.match(legal, /Licenses and permitted use/);
+  assert.match(legal, /Patreon account identifiers/);
   const privacy = await get("/privacy");
-  assert.match(privacy, /The archive is being refined\./);
+  assert.match(privacy, /Privacy policy/);
+  assert.match(privacy, /Patreon account identifiers/);
+  assert.match(privacy, /savagelibraryofficial@gmail\.com/);
 
   const terms = await get("/terms");
-  assert.match(terms, /Estamos mejorando el archivo\./);
+  assert.match(terms, /Terms of service/);
+  assert.match(terms, /Licenses and permitted use/);
+  assert.match(terms, /unauthorized redistribution/);
 });
 
-test("public logout and preview routes show maintenance", async () => {
+test("public Wiki exposes sample published guides, search, language fallback and 404 boundaries", async () => {
+  const index = await get("/wiki");
+  assert.match(index, /Getting started with a module/);
+  assert.match(index, /Local preview samples/);
+  const empty = await get("/wiki?q=nonexistent-guide");
+  assert.match(empty, /No guides found/);
+  const general = await get("/wiki?module=general");
+  assert.match(general, /Finding documentation/);
+  assert.doesNotMatch(general, /wiki-topic-title[^>]*>Getting started/);
+  const guide = await get("/wiki/sample-module-installation?lang=es");
+  assert.match(guide, /Primeros pasos/);
+  assert.match(guide, /id="wiki-section-1"/);
+  const fallback = await get("/wiki/sample-library-help?lang=es");
+  assert.match(fallback, /This translation is not available/);
+  // Next.js keeps 200 after streaming starts; the not-found UI and noindex
+  // must still render without any private guide content.
+  const missing = await fetch(`${origin}/wiki/private-draft`);
+  assert.ok([200, 404].includes(missing.status));
+  const missingHtml = await missing.text();
+  assert.match(missingHtml, /noindex/);
+  assert.doesNotMatch(missingHtml, /class="wiki-guide"/);
+  const sitemap = await get("/sitemap.xml");
+  assert.match(sitemap, /\/wiki</);
+  assert.doesNotMatch(sitemap, /sample-module-installation/);
+  for (const [route, method] of [
+    ["/api/admin/wiki", "GET"],
+    ["/api/admin/wiki", "POST"],
+    ["/api/admin/wiki/sample-wiki-general", "GET"],
+    ["/api/admin/wiki/sample-wiki-general", "PUT"],
+    ["/api/admin/wiki/preview", "POST"],
+  ]) {
+    assert.equal((await fetch(origin + route, { method })).status, 401);
+  }
+  const account = await get("/account");
+  assert.match(
+    account,
+    /Sign in with Patreon|Patreon is not configured|Patreon/,
+  );
+});
+
+test("logout confirmation and draft previews fail safely", async () => {
   const logout = await get("/logout");
-  assert.match(logout, /The archive is being refined\./);
+  assert.match(logout, /Sign out · Savage Library/);
   assert.match(logout, /noindex, nofollow/);
 
   const preview = await fetch(
@@ -214,6 +538,102 @@ test("admin credentials callback creates an administrator session", async () => 
     user?: { role?: string };
   };
   assert.equal(session.user?.role, "admin");
+  const headers = { Cookie: [...csrfCookies, ...sessionCookies].join("; ") };
+  const signedInAccount = await fetch(`${origin}/account`, { headers }).then(
+    (response) => response.text(),
+  );
+  assert.doesNotMatch(
+    signedInAccount,
+    /Link Patreon|href="\/api\/account\/link-patreon"/,
+  );
+  assert.match(signedInAccount, /Browse the library/);
+  assert.equal((await fetch(`${origin}/api/resources?admin=1`)).status, 401);
+  const resourcesRead = await fetch(
+    `${origin}/api/resources?admin=1&q=CRAFT&page=9999`,
+    { headers },
+  );
+  assert.equal(resourcesRead.status, 200);
+  assert.equal(resourcesRead.headers.get("cache-control"), "no-store");
+  const adminResources = await resourcesRead.json();
+  assert.equal(adminResources.resources.length, 1);
+  assert.equal(adminResources.total, 1);
+  assert.equal(adminResources.page, 1);
+  assert.equal(adminResources.totals.total, 5);
+  assert.equal(adminResources.totals.downloads, 0);
+  const filteredWiki = await fetch(
+    `${origin}/api/admin/wiki?filter=draft&q=SAVAGE&page=9999`,
+    { headers },
+  );
+  const filteredGuides = await filteredWiki.json();
+  assert.equal(filteredWiki.status, 200);
+  assert.equal(filteredGuides.total, 1);
+  assert.equal(filteredGuides.page, 1);
+  assert.equal(filteredGuides.guides[0].isPublished, false);
+  const wiki = await fetch(`${origin}/api/admin/wiki`, { headers });
+  assert.equal(wiki.status, 200);
+  const adminGuides = (await wiki.json()).guides;
+  assert.equal(adminGuides.length, 3);
+  const starter = adminGuides.find(
+    (guide: { starterResourceId: string | null }) => guide.starterResourceId,
+  );
+  assert.equal(starter.isPublished, false);
+  assert.equal(starter.draft.translations.en.body, "");
+  assert.doesNotMatch(await get("/wiki"), /sample-savage-training-guide/);
+  const wikiRead = await fetch(`${origin}/api/admin/wiki/sample-wiki-general`, {
+    headers,
+  });
+  const wikiDraft = (await wikiRead.json()).guide;
+  assert.equal(wikiDraft.revision, 1);
+  const wikiPreview = await fetch(`${origin}/api/admin/wiki/preview`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      slug: wikiDraft.slug,
+      moduleId: wikiDraft.moduleId,
+      content: wikiDraft.draft,
+      locale: "en",
+    }),
+  });
+  assert.equal(wikiPreview.status, 200);
+  assert.match((await wikiPreview.json()).document.html, /Find a guide/);
+  const wikiSave = await fetch(`${origin}/api/admin/wiki/sample-wiki-general`, {
+    method: "PUT",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "draft",
+      slug: wikiDraft.slug,
+      moduleId: null,
+      content: wikiDraft.draft,
+      revision: 1,
+    }),
+  });
+  assert.equal(wikiSave.status, 503);
+  assert.match((await wikiSave.json()).error, /read-only/);
+  const taxonomy = await fetch(`${origin}/api/taxonomy`, { headers });
+  assert.equal(taxonomy.status, 200);
+  assert.ok((await taxonomy.json()).facets.categories.length > 0);
+  const releases = await fetch(
+    `${origin}/api/admin/resources/resource-savage-craft/releases`,
+    { headers },
+  );
+  assert.equal(releases.status, 200);
+  assert.deepEqual((await releases.json()).releases, []);
+  const preview = await fetch(
+    `${origin}/admin/resources/resource-savage-craft/preview`,
+    { headers },
+  );
+  assert.equal(preview.status, 200);
+  assert.equal(preview.headers.get("X-Frame-Options"), "SAMEORIGIN");
+  assert.equal(
+    preview.headers.get("Content-Security-Policy"),
+    "frame-ancestors 'self'",
+  );
+  const previewPage = await fetch(
+    `${origin}/resources/savage-craft?preview=resource-savage-craft`,
+    { headers },
+  );
+  assert.equal(previewPage.status, 200);
+  assert.match(await previewPage.text(), /Private draft preview/);
 });
 
 test("publisher verification requires a module-scoped bearer token", async () => {

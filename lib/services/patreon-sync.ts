@@ -13,6 +13,10 @@ import {
 import { extractPatreonImport, postSlug } from "./patreon-posts";
 import { syncPatreonTiers } from "./patreon";
 import { getCreatorAccessToken } from "./creator-credentials";
+import { patreonRead } from "./patreon-http";
+import { createImportMatcher } from "./import-matching";
+import { withWriteTransaction, type WriteDatabase } from "../../db/transaction";
+import { withSynchronizationLock } from "../../db/synchronization-lock";
 
 type Resource = {
   id: string;
@@ -20,7 +24,9 @@ type Resource = {
   attributes?: Record<string, unknown>;
   relationships?: Record<
     string,
-    { data?: { id: string; type: string } | Array<{ id: string; type: string }> }
+    {
+      data?: { id: string; type: string } | Array<{ id: string; type: string }>;
+    }
   >;
 };
 type ApiPage = {
@@ -30,14 +36,29 @@ type ApiPage = {
 };
 
 export async function reconcilePatreon() {
+  return withSynchronizationLock(reconcile);
+}
+
+async function reconcile(assertOwned: () => void) {
   const now = new Date().toISOString();
-  await setSyncState({ status: "running", lastStartedAt: now, lastError: null });
+  await setSyncState({
+    status: "running",
+    lastStartedAt: now,
+    lastError: null,
+  });
   try {
     await syncPatreonTiers();
-    const [memberCount, postCount] = await Promise.all([
-      syncAllMembers(),
-      syncAllPosts(),
+    const results = await Promise.allSettled([
+      syncMembers(assertOwned),
+      syncPosts(assertOwned),
     ]);
+    // Do not release ownership while the sibling scan is still making writes.
+    const failed = results.find((result) => result.status === "rejected");
+    if (failed?.status === "rejected") throw failed.reason;
+    const [memberCount, postCount] = results.map((result) =>
+      result.status === "fulfilled" ? result.value : 0,
+    );
+    assertOwned();
     await setSyncState({
       status: "healthy",
       lastSucceededAt: new Date().toISOString(),
@@ -47,6 +68,7 @@ export async function reconcilePatreon() {
     });
     return { memberCount, postCount };
   } catch (error) {
+    assertOwned();
     await setSyncState({
       status: "error",
       lastError: error instanceof Error ? error.message : "Unknown sync error",
@@ -56,6 +78,10 @@ export async function reconcilePatreon() {
 }
 
 export async function syncAllMembers() {
+  return withSynchronizationLock(syncMembers);
+}
+
+async function syncMembers(assertOwned: () => void) {
   const campaignId = required("PATREON_CAMPAIGN_ID");
   const seen = new Set<string>();
   let count = 0;
@@ -70,12 +96,17 @@ export async function syncAllMembers() {
   )) {
     const included = page.included ?? [];
     for (const member of page.data ?? []) {
+      assertOwned();
       const userRel = member.relationships?.user?.data;
       const userId = !Array.isArray(userRel) ? userRel?.id : undefined;
       if (!userId) continue;
       const tierRel = member.relationships?.currently_entitled_tiers?.data;
-      const tierIds = Array.isArray(tierRel) ? tierRel.map((tier) => tier.id) : [];
-      const user = included.find((item) => item.type === "user" && item.id === userId);
+      const tierIds = Array.isArray(tierRel)
+        ? tierRel.map((tier) => tier.id)
+        : [];
+      const user = included.find(
+        (item) => item.type === "user" && item.id === userId,
+      );
       await upsertMember({
         id: member.id,
         userId,
@@ -95,12 +126,16 @@ export async function syncAllMembers() {
       count += 1;
     }
   }
+  assertOwned();
   const existing = await getDb()
     .select({ id: patreonMembers.id })
     .from(patreonMembers)
     .where(eq(patreonMembers.campaignId, campaignId));
-  const stale = existing.filter((row) => !seen.has(row.id)).map((row) => row.id);
+  const stale = existing
+    .filter((row) => !seen.has(row.id))
+    .map((row) => row.id);
   if (stale.length) {
+    assertOwned();
     await getDb()
       .update(patreonMembers)
       .set({ isActive: false, lastSyncedAt: new Date().toISOString() })
@@ -110,7 +145,12 @@ export async function syncAllMembers() {
 }
 
 export async function syncAllPosts() {
+  return withSynchronizationLock(syncPosts);
+}
+
+async function syncPosts(assertOwned: () => void) {
   const campaignId = required("PATREON_CAMPAIGN_ID");
+  const match = await importMatcher();
   const seen = new Set<string>();
   let count = 0;
   for await (const page of pages(
@@ -121,17 +161,22 @@ export async function syncAllPosts() {
     },
   )) {
     for (const post of page.data ?? []) {
-      await upsertPost(post, campaignId);
+      assertOwned();
+      await upsertPost(post, campaignId, undefined, match);
       seen.add(post.id);
       count += 1;
     }
   }
+  assertOwned();
   const existing = await getDb()
     .select({ id: patreonPosts.id })
     .from(patreonPosts)
     .where(eq(patreonPosts.campaignId, campaignId));
-  const stale = existing.filter((row) => !seen.has(row.id)).map((row) => row.id);
+  const stale = existing
+    .filter((row) => !seen.has(row.id))
+    .map((row) => row.id);
   if (stale.length) {
+    assertOwned();
     const now = new Date().toISOString();
     await getDb()
       .update(patreonPosts)
@@ -170,15 +215,20 @@ export async function unpublishPost(id: string) {
     .where(eq(patreonPosts.id, id));
 }
 
-async function upsertMember(input: {
-  id: string;
-  userId: string;
-  campaignId: string;
-  displayName: string;
-  patronStatus: string | null;
-  tierIds: string[];
-}) {
-  const db = getDb();
+async function upsertMember(
+  input: {
+    id: string;
+    userId: string;
+    campaignId: string;
+    displayName: string;
+    patronStatus: string | null;
+    tierIds: string[];
+  },
+  transaction?: WriteDatabase,
+): Promise<void> {
+  if (!transaction)
+    return withWriteTransaction((db) => upsertMember(input, db));
+  const db = transaction;
   const now = new Date().toISOString();
   const linked =
     (
@@ -229,9 +279,9 @@ async function upsertMember(input: {
     .delete(patreonMemberTiers)
     .where(eq(patreonMemberTiers.memberId, input.id));
   if (input.tierIds.length) {
-    await db.insert(patreonMemberTiers).values(
-      input.tierIds.map((tierId) => ({ memberId: input.id, tierId })),
-    );
+    await db
+      .insert(patreonMemberTiers)
+      .values(input.tierIds.map((tierId) => ({ memberId: input.id, tierId })));
     if (linked) {
       await db
         .update(manualGrants)
@@ -251,7 +301,19 @@ async function upsertMember(input: {
   }
 }
 
-async function upsertPost(post: Resource, campaignId: string) {
+async function upsertPost(
+  post: Resource,
+  campaignId: string,
+  transaction?: WriteDatabase,
+  matcher?: ReturnType<typeof createImportMatcher>,
+): Promise<void> {
+  if (!transaction) {
+    const index = matcher ?? (await importMatcher());
+    return withWriteTransaction((db) =>
+      upsertPost(post, campaignId, db, index),
+    );
+  }
+  const db = transaction;
   const attributes = post.attributes ?? {};
   const title = String(attributes.title ?? "Patreon update");
   const tierIds = Array.isArray(attributes.tiers)
@@ -264,7 +326,7 @@ async function upsertPost(post: Resource, campaignId: string) {
   );
   const now = new Date().toISOString();
   const existing = (
-    await getDb()
+    await db
       .select({
         resourceId: patreonPosts.resourceId,
         slug: patreonPosts.slug,
@@ -277,7 +339,7 @@ async function upsertPost(post: Resource, campaignId: string) {
   )[0];
   const match = existing?.resourceId
     ? { resourceId: existing.resourceId, matchedBy: "preserved" }
-    : await matchResource(parsed.payload);
+    : matcher!(parsed.payload);
   const serializedPayload = JSON.stringify(parsed.payload);
   const reviewStatus =
     existing?.reviewStatus === "approved" &&
@@ -286,7 +348,7 @@ async function upsertPost(post: Resource, campaignId: string) {
       : parsed.warnings.length
         ? "needs_review"
         : "pending";
-  await getDb()
+  await db
     .insert(patreonPosts)
     .values({
       id: post.id,
@@ -349,11 +411,11 @@ async function upsertPost(post: Resource, campaignId: string) {
         updatedAt: now,
       },
     });
-  await getDb()
+  await db
     .delete(protectedPostLinks)
     .where(eq(protectedPostLinks.postId, post.id));
   if (parsed.links.length) {
-    await getDb().insert(protectedPostLinks).values(
+    await db.insert(protectedPostLinks).values(
       parsed.links.map((link) => ({
         ...link,
         postId: post.id,
@@ -366,63 +428,18 @@ async function upsertPost(post: Resource, campaignId: string) {
   }
 }
 
-async function matchResource(payload: {
-  resourceKey?: string;
-  title: string;
-  manifestUrl?: string;
-  projectUrl?: string;
-}) {
-  const rows = await getDb()
-    .select({
-      id: resources.id,
-      slug: resources.slug,
-      title: resources.title,
-      manifestUrl: resources.manifestUrl,
-      projectUrl: resources.projectUrl,
-    })
-    .from(resources);
-  if (payload.resourceKey) {
-    const found = rows.find((row) => row.slug === payload.resourceKey);
-    if (found) return { resourceId: found.id, matchedBy: "resource_key" };
-  }
-  for (const [field, value] of [
-    ["manifest_url", payload.manifestUrl],
-    ["project_url", payload.projectUrl],
-  ] as const) {
-    if (!value) continue;
-    const normalized = normalizeUrl(value);
-    const found = rows.find((row) =>
-      normalizeUrl(field === "manifest_url" ? row.manifestUrl : row.projectUrl) ===
-      normalized,
-    );
-    if (found) return { resourceId: found.id, matchedBy: field };
-  }
-  const normalizedTitle = normalizeTitle(payload.title);
-  const titleMatches = rows.filter(
-    (row) => normalizeTitle(row.title) === normalizedTitle,
+async function importMatcher() {
+  return createImportMatcher(
+    await getDb()
+      .select({
+        id: resources.id,
+        slug: resources.slug,
+        title: resources.title,
+        manifestUrl: resources.manifestUrl,
+        projectUrl: resources.projectUrl,
+      })
+      .from(resources),
   );
-  return titleMatches.length === 1
-    ? { resourceId: titleMatches[0].id, matchedBy: "title" }
-    : { resourceId: null, matchedBy: titleMatches.length ? "ambiguous_title" : null };
-}
-
-function normalizeUrl(value: string | null | undefined) {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    url.hash = "";
-    return url.toString().replace(/\/$/, "").toLowerCase();
-  } catch {
-    return value.trim().toLowerCase();
-  }
-}
-
-function normalizeTitle(value: string) {
-  return value
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/gi, "")
-    .toLowerCase();
 }
 
 async function* pages(path: string, params: Record<string, string>) {
@@ -439,15 +456,9 @@ async function* pages(path: string, params: Record<string, string>) {
 
 async function patreonFetch(path: string) {
   const token = await getCreatorAccessToken();
-  if (!token) throw new Error("Patreon creator authorization is not configured.");
-  const response = await fetch(`https://www.patreon.com/api/oauth2/v2${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    throw new Error(`Patreon returned ${response.status}.`);
-  }
-  return response;
+  if (!token)
+    throw new Error("Patreon creator authorization is not configured.");
+  return patreonRead(`https://www.patreon.com/api/oauth2/v2${path}`, token);
 }
 
 async function setSyncState(

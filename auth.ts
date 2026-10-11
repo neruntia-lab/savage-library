@@ -4,14 +4,11 @@ import type { OAuthConfig } from "next-auth/providers/oauth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import EmailProvider from "next-auth/providers/email";
 import { getDb, isDatabaseConfigured } from "./db";
-import {
-  accounts,
-  sessions,
-  users,
-  verificationTokens,
-} from "./db/schema";
+import { accounts, sessions, users, verificationTokens } from "./db/schema";
 import { verifyScryptPassword } from "./lib/services/password";
 import { CANONICAL_SITE_ORIGIN } from "./lib/config/site";
+import { patreonMemberConnectionsEnabled } from "./lib/config/patreon-members";
+import { emailSignInEnabled } from "./lib/config/email-sign-in";
 
 // Never let a stale Preview variable generate development OAuth callbacks on
 // the production deployment.
@@ -83,14 +80,11 @@ const providers: NextAuthOptions["providers"] = [
       };
     },
   }),
-  patreonProvider,
 ];
 
-if (
-  process.env.EMAIL_SERVER &&
-  process.env.EMAIL_FROM &&
-  isDatabaseConfigured()
-) {
+if (patreonMemberConnectionsEnabled()) providers.push(patreonProvider);
+
+if (emailSignInEnabled() && isDatabaseConfigured()) {
   providers.push(
     EmailProvider({
       server: process.env.EMAIL_SERVER,
@@ -119,6 +113,11 @@ export const authOptions: NextAuthOptions = {
   },
   providers,
   callbacks: {
+    async signIn({ account }) {
+      return (
+        account?.provider !== "patreon" || patreonMemberConnectionsEnabled()
+      );
+    },
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;

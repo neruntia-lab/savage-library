@@ -1,0 +1,16 @@
+# Keep local/private source assets and scratch verification output off Vercel.
+.git
+.env*
+!.env.example
+node_modules
+.next
+.codex-remote-attachments
+share
+work
+outputs
+.npm-cache
+Logo
+Macros
+Mods
+**/.savage-library.json
+**/*.secret

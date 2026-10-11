@@ -4,10 +4,24 @@ import {
 } from "../../../../lib/repositories/membership-repository";
 import { requireApiAdmin } from "../../../../lib/services/auth";
 import { sendComplimentaryInvite } from "../../../../lib/services/magic-link";
+import { isLocalPreview } from "../../../../lib/config/local-preview";
 
 export async function GET() {
   const auth = await requireApiAdmin();
   if (!auth.ok) return auth.response;
+  if (isLocalPreview())
+    return Response.json({
+      members: [],
+      grants: [],
+      tiers: [],
+      integration: {
+        connected: false,
+        webhookConfigured: false,
+        sync: null,
+        lastWebhook: null,
+      },
+      preview: true,
+    });
   return Response.json(await listMemberships());
 }
 
@@ -27,7 +41,10 @@ export async function POST(request: Request) {
     !Array.isArray(body.tierIds) ||
     !body.tierIds.length
   ) {
-    return Response.json({ error: "Email and at least one tier are required." }, { status: 400 });
+    return Response.json(
+      { error: "Email and at least one tier are required." },
+      { status: 400 },
+    );
   }
   const result = await createManualGrant({
     email: body.email,
