@@ -50,8 +50,24 @@
 - Required non-email production variable names are present. SMTP is intentionally
   absent and email sign-in is paused; secret values have not been exported.
 - Database credentials are `sensitive`/non-exportable through Vercel's API.
-  No production credential file was created. Provider-side Neon recovery access
-  is required before migration/push; browser automation access is not available.
+  No production credential file was created or needed for provider-side recovery.
+- Authenticated Vercel-to-Neon console access was verified on October 11, 2026.
+  Created a non-expiring manual snapshot of production branch
+  `br-square-wind-aw5q8v7i` in project `patient-wave-12674613` at
+  `2026-10-11 06:12:57 UTC`. Snapshot label:
+  `Pre-rollout main 5849563 — 2026-10-11`.
+- Read-only production migration ledger contains 11 entries through `0010`
+  (`created_at=1787883665533`); only `0011` and `0012` remain pending.
+- Set Vercel project Node runtime to `22.x` and verified the saved setting.
+- Set `NEXTAUTH_URL` to the production origin. With explicit user confirmation,
+  replaced the legacy Secret `NEXT_PUBLIC_SITE_URL` with a Config variable set
+  to the production origin, preserving Production and Preview scopes. Vercel
+  rejects editing public-prefix variables as Secrets. No authentication or
+  database credentials were rotated or removed.
+- These environment/runtime changes require a new deployment. Production still
+  runs the recorded maintenance deployment; no production migration was applied.
+- Preview administrator sign-in is required for real isolated-service workflow
+  verification. The browser is at the Preview admin login, without a session.
 
 ## Required gates before pushing main
 
