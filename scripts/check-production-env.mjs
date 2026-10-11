@@ -1,5 +1,15 @@
 #!/usr/bin/env node
 
+if (
+  process.argv.includes("--if-production") &&
+  process.env.VERCEL_ENV !== "production"
+) {
+  console.log(
+    "Production configuration check skipped for non-production build.",
+  );
+  process.exit(0);
+}
+
 const canonicalOrigin = "https://savage-library.vercel.app";
 const missing = [];
 
@@ -17,12 +27,16 @@ for (const name of [
   "PATREON_CAMPAIGN_ID",
   "PATREON_CAMPAIGN_URL",
   "PATREON_TOKEN_ENCRYPTION_KEY",
-  "EMAIL_SERVER",
-  "EMAIL_FROM",
   "CRON_SECRET",
   "PUBLIC_MEDIA_BLOB_READ_WRITE_TOKEN",
 ]) {
   if (!process.env[name]?.trim()) missing.push(name);
+}
+
+if (process.env.EMAIL_SIGN_IN_ENABLED !== "false") {
+  for (const name of ["EMAIL_SERVER", "EMAIL_FROM"]) {
+    if (!process.env[name]?.trim()) missing.push(name);
+  }
 }
 
 for (const name of ["NEXTAUTH_URL", "NEXT_PUBLIC_SITE_URL"]) {

@@ -31,6 +31,7 @@ before(async () => {
       env: {
         ...testEnvironment,
         SAVAGE_LIBRARY_LOCAL_PREVIEW: "1",
+        EMAIL_SIGN_IN_ENABLED: "false",
         PATREON_MEMBER_CONNECTIONS_ENABLED: "false",
         AUTH_SECRET: "http-flow-test-auth-secret-not-for-production",
         ADMIN_PASSWORD_HASH: testAdminHash,
@@ -81,11 +82,13 @@ test("paused Patreon member connections hide controls and reject linking before 
     account,
     /Sign in with Patreon|Link Patreon|href="\/api\/account\/link-patreon"/,
   );
-  assert.match(account, /type="email"/);
+  assert.match(account, /Email sign-in is temporarily unavailable/);
+  assert.doesNotMatch(account, /type="email"/);
   const providers = await fetch(`${origin}/api/auth/providers`).then(
     (response) => response.json(),
   );
   assert.equal(providers.patreon, undefined);
+  assert.equal(providers.email, undefined);
   assert.ok(providers["admin-password"]);
   for (const path of [
     "/api/account/link-patreon",

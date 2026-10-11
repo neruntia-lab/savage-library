@@ -5,6 +5,7 @@ import { authOptions } from "../../auth";
 import { EmailSignInForm } from "../../components/account/EmailSignInForm";
 import { getAccountMembership } from "../../lib/repositories/membership-repository";
 import { patreonMemberConnectionsEnabled } from "../../lib/config/patreon-members";
+import { emailSignInEnabled } from "../../lib/config/email-sign-in";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export const metadata: Metadata = {
 
 export default async function AccountPage() {
   const connectionsEnabled = patreonMemberConnectionsEnabled();
+  const emailEnabled = emailSignInEnabled();
   const session = await getServerSession(authOptions);
   const isPatron = session?.user?.provider === "patreon";
   const signedIn = Boolean(session?.user?.id);
@@ -42,7 +44,9 @@ export default async function AccountPage() {
                 ? "You are signed in with a verified email account. Any complimentary tiers granted by an administrator are applied to protected downloads."
                 : connectionsEnabled
                   ? "Use Patreon for a paid membership or your email address for complimentary access granted by an administrator."
-                  : "Use your email address for complimentary access granted by an administrator."}
+                  : emailEnabled
+                    ? "Use your email address for complimentary access granted by an administrator."
+                    : "New member sign-ins are temporarily unavailable. Existing member sessions remain active."}
           </p>
           {!connectionsEnabled ? (
             <p role="status">
@@ -78,7 +82,11 @@ export default async function AccountPage() {
                     Sign in with Patreon
                   </Link>
                 ) : null}
-                <EmailSignInForm />
+                {emailEnabled ? (
+                  <EmailSignInForm />
+                ) : (
+                  <p role="status">Email sign-in is temporarily unavailable.</p>
+                )}
               </>
             )}
           </div>

@@ -14,11 +14,15 @@
 
 - Node engine restricted to `22.x`, matching the quality workflow's Node 22.
 - Quality workflow runs on pushes to both `development` and `main`.
+- Vercel production builds validate required configuration before migrations.
+- Email sign-in and complimentary invitations respect `EMAIL_SIGN_IN_ENABLED`.
+  Production is explicitly paused; missing SMTP also hides unavailable email UI.
+  Admin authentication and existing member sessions are preserved.
 
 ## Verified locally
 
 - ESLint and TypeScript passed.
-- Unit/database suite: 108 tests passed, including isolated PostgreSQL Wiki
+- Unit/database suite: 110 tests, including isolated PostgreSQL Wiki
   migrations, private/idempotent starter drafts, resource publication transactions,
   download tracking, artwork rollback, publisher validation, and access boundaries.
 - Production build passed; isolated HTTP suite: 18 tests passed. Build and both
@@ -39,6 +43,15 @@
 - Savage Sounds manifest returns JSON, version `3.13.2`.
 - Both manifests and their download origins point to production.
 - No download request or production database mutation was made during these checks.
+- Vercel CLI is authenticated. Recorded rollback deployment:
+  `dpl_CdLZDfFym2dcEBRZbRVtmiX9LDyF`.
+- Production database store: `store_lL1dF9SfsQH1N1sH`; Preview database store:
+  `store_igoKj6R2cT2ZzXwn`. Vercel metadata confirms they are separate.
+- Required non-email production variable names are present. SMTP is intentionally
+  absent and email sign-in is paused; secret values have not been exported.
+- Database credentials are `sensitive`/non-exportable through Vercel's API.
+  No production credential file was created. Provider-side Neon recovery access
+  is required before migration/push; browser automation access is not available.
 
 ## Required gates before pushing main
 
