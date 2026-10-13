@@ -473,7 +473,7 @@
   }
 
   .details-sidebar {
-    position: static;
+    position: relative;
   }
 
   .content-section,

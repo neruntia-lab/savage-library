@@ -300,18 +300,59 @@ input[type="radio"] {
   background:
     linear-gradient(140deg, rgb(199 161 77 / 4%), transparent 40%),
     var(--color-surface);
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid transparent;
   border-radius: 3px;
-  background-image:
-    url("/ornament-corners.svg"),
-    linear-gradient(140deg, rgb(199 161 77 / 4%), transparent 40%);
-  background-size:
-    100% 100%,
-    auto;
-  background-repeat: no-repeat;
+  isolation: isolate;
+  overflow: visible;
+}
+/* Low specificity preserves existing relative/sticky positioning. */
+:where(
+  .resource-card,
+  .admin-panel,
+  .admin-editor-section,
+  .wizard-form > section,
+  .details-sidebar,
+  .auth-card,
+  .account-panel,
+  .error-state,
+  .empty-state,
+  .legal-content,
+  .admin-login-card,
+  .publisher-release-card
+) {
+  position: relative;
+}
+:is(
+  .resource-card,
+  .admin-panel,
+  .admin-editor-section,
+  .wizard-form > section,
+  .details-sidebar,
+  .auth-card,
+  .account-panel,
+  .error-state,
+  .empty-state,
+  .legal-content,
+  .admin-login-card,
+  .publisher-release-card
+)::before {
+  content: "";
+  position: absolute;
+  /* 104px SVG line centers, plus the reserved 1px container border. */
+  inset: -9.644946px -9.818713px;
+  background: url("/ornament-corners.svg") 0 0 / 100% 100% no-repeat;
+  pointer-events: none;
+  z-index: -1;
+}
+.resource-card-accent {
+  display: none;
+}
+.resource-card,
+.details-sidebar {
+  padding: 2rem;
 }
 .resource-card:hover {
-  border-color: var(--color-gold);
+  border-color: transparent;
   background-color: var(--color-surface-raised);
 }
 .section-heading {
