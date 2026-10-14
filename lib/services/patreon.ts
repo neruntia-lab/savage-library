@@ -26,9 +26,7 @@ export async function verifyPatreonEntitlement(
   allowedTierIds: string[],
 ): Promise<{ entitled: boolean; tierIds: string[] }> {
   const campaignId = process.env.PATREON_CAMPAIGN_ID;
-  if (!campaignId || !allowedTierIds.length) {
-    return { entitled: false, tierIds: [] };
-  }
+  if (!campaignId) throw new Error("Patreon campaign is not configured.");
 
   const url = new URL("https://www.patreon.com/api/oauth2/v2/identity");
   url.searchParams.set("include", "memberships.currently_entitled_tiers");

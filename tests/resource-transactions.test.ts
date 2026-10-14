@@ -13,6 +13,61 @@ import type { ResourceInput } from "../lib/validation/resource";
 import { listCatalogFromDatabase } from "../lib/repositories/resource-repository";
 import { synchronizationClaim } from "../db/synchronization-lock";
 import { listAdminResources } from "../lib/repositories/resource-admin-read-repository";
+import {
+  getActiveFoundryRelease,
+  getPublicFoundryArtifact,
+} from "../lib/repositories/publisher-repository";
+
+test("shared Foundry distribution includes paid modules but excludes unpublished and draft releases", async () => {
+  const pg = new PGlite();
+  try {
+    const migrations = new URL("../drizzle/", import.meta.url);
+    for (const file of readdirSync(migrations)
+      .filter((file) => file.endsWith(".sql"))
+      .sort())
+      await pg.exec(readFileSync(new URL(file, migrations), "utf8"));
+    const db = drizzle(pg, { schema });
+    await pg.exec(`INSERT INTO authors(id,name,slug) VALUES('author','Author','author');
+      INSERT INTO categories(id,name,slug) VALUES('category','Modules','modules');
+      INSERT INTO game_systems(id,name,slug) VALUES('system','System','system');
+      INSERT INTO resources(id,slug,title,short_description,resource_type,category_id,author_id,game_system_id,current_version,compatibility_status,access_mode,is_published)
+      VALUES('module','paid-module','Paid module','Description','module','category','author','system','1.0.0','untested','patreon',true);
+      INSERT INTO resource_versions(id,resource_id,version,released_at,is_current,release_status,manifest_snapshot)
+      VALUES('release','module','1.0.0','2026-10-14',true,'published','{}');
+      INSERT INTO files(id,resource_version_id,kind,storage_key,original_name,mime_type,extension,size_bytes,is_restricted)
+      VALUES('zip','release','module','private/module.zip','module.zip','application/zip','zip',100,true);`);
+    assert.ok(await getActiveFoundryRelease("paid-module", db));
+    assert.ok(await getPublicFoundryArtifact("paid-module", "release", db));
+    await pg.exec("UPDATE resources SET is_published=false WHERE id='module'");
+    assert.equal(await getActiveFoundryRelease("paid-module", db), null);
+    assert.equal(
+      await getPublicFoundryArtifact("paid-module", "release", db),
+      null,
+    );
+    await pg.exec(
+      "UPDATE resources SET is_published=true WHERE id='module'; UPDATE resource_versions SET release_status='draft' WHERE id='release'",
+    );
+    assert.equal(await getActiveFoundryRelease("paid-module", db), null);
+    assert.equal(
+      await getPublicFoundryArtifact("paid-module", "release", db),
+      null,
+    );
+    await pg.exec(
+      "UPDATE resource_versions SET release_status='superseded' WHERE id='release'",
+    );
+    assert.equal(await getActiveFoundryRelease("paid-module", db), null);
+    assert.ok(await getPublicFoundryArtifact("paid-module", "release", db));
+    await pg.exec(
+      "UPDATE resource_versions SET release_status='failed' WHERE id='release'",
+    );
+    assert.equal(
+      await getPublicFoundryArtifact("paid-module", "release", db),
+      null,
+    );
+  } finally {
+    await pg.close();
+  }
+});
 
 test("multi-table resource and artwork writes roll back together", async () => {
   const pg = new PGlite();

@@ -162,7 +162,7 @@ export function wizardContentChecks(
     checks.push({ level: "recommended", message: "Add a full description to help visitors understand the content.", step: 2 });
   if (resource.resourceType === "module") {
     if (resource.accessMode === "patreon")
-      checks.push({ level: "required", message: "Paid Foundry module distribution is not supported yet.", step: 5 });
+      checks.push({ level: "recommended", message: "Shared module links work without a subscription once shared or discovered, including after cancellation.", step: 5 });
     if (!capabilities.hasValidatedModuleRelease)
       checks.push({ level: "required", message: "Upload a valid Foundry module ZIP.", step: 4 });
     else checks.push({ level: "confirmed", message: "Validated Foundry release is ready.", step: 4 });

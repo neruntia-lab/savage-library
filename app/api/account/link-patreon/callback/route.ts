@@ -5,16 +5,22 @@ import { accounts, patreonMembers } from "../../../../../db/schema";
 import { requireApiUser } from "../../../../../lib/services/auth";
 import { patreonMemberConnectionsEnabled } from "../../../../../lib/config/patreon-members";
 import { patreonConnectionsPausedResponse } from "../../../../../lib/services/patreon-member-connections";
+import { memberReturnPath, memberLinkStateMatches } from "../../../../../lib/config/member-navigation";
 
 export async function GET(request: NextRequest) {
   if (!patreonMemberConnectionsEnabled())
     return patreonConnectionsPausedResponse();
   const auth = await requireApiUser();
   if (!auth.ok) return auth.response;
+  if (auth.user.isAdmin)
+    return Response.json(
+      { error: "Administrator sessions cannot link member identities." },
+      { status: 403 },
+    );
   const state = request.nextUrl.searchParams.get("state");
   const expected = request.cookies.get("sl_patreon_link_state")?.value;
   const code = request.nextUrl.searchParams.get("code");
-  if (!state || state !== expected || !code) {
+  if (!memberLinkStateMatches(state, expected, auth.user.id) || !code) {
     return Response.json(
       { error: "Invalid Patreon linking state." },
       { status: 400 },
@@ -83,6 +89,26 @@ export async function GET(request: NextRequest) {
       )
       .limit(1)
   )[0];
+  const ownAccount = (
+    await getDb()
+      .select({ identity: accounts.providerAccountId })
+      .from(accounts)
+      .where(
+        and(
+          eq(accounts.userId, auth.user.id),
+          eq(accounts.provider, "patreon"),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (ownAccount && ownAccount.identity !== patreonUserId)
+    return Response.json(
+      {
+        error:
+          "Your website account already has a different Patreon identity linked.",
+      },
+      { status: 409 },
+    );
   if (existing && existing.userId !== auth.user.id) {
     return Response.json(
       { error: "That Patreon account is already linked." },
@@ -122,8 +148,15 @@ export async function GET(request: NextRequest) {
     .set({ websiteUserId: auth.user.id, updatedAt: new Date().toISOString() })
     .where(eq(patreonMembers.patreonUserId, patreonUserId));
   const response = NextResponse.redirect(
-    new URL("/account?patreon=linked", request.url),
+    new URL(
+      memberReturnPath(request.cookies.get("sl_patreon_link_return")?.value),
+      request.url,
+    ),
   );
-  response.cookies.delete("sl_patreon_link_state");
+  for (const name of ["sl_patreon_link_state", "sl_patreon_link_return"])
+    response.cookies.set(name, "", {
+      path: "/api/account/link-patreon/callback",
+      maxAge: 0,
+    });
   return response;
 }

@@ -9,6 +9,7 @@ import { verifyScryptPassword } from "./lib/services/password";
 import { CANONICAL_SITE_ORIGIN } from "./lib/config/site";
 import { patreonMemberConnectionsEnabled } from "./lib/config/patreon-members";
 import { emailSignInEnabled } from "./lib/config/email-sign-in";
+import { and, eq } from "drizzle-orm";
 
 // Never let a stale Preview variable generate development OAuth callbacks on
 // the production deployment.
@@ -109,7 +110,8 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60,
   },
   pages: {
-    signIn: "/admin/login",
+    signIn: "/account",
+    error: "/account",
   },
   providers,
   callbacks: {
@@ -137,7 +139,8 @@ export const authOptions: NextAuthOptions = {
       ) {
         const refreshed = await refreshPatreonCredentials(
           token.patreonRefreshToken,
-        );
+          String(token.id ?? token.sub ?? ""),
+        ).catch(() => null);
         if (refreshed) {
           token.patreonAccessToken = refreshed.accessToken;
           token.patreonRefreshToken =
@@ -158,7 +161,7 @@ export const authOptions: NextAuthOptions = {
   },
 };
 
-async function refreshPatreonCredentials(refreshToken: string) {
+async function refreshPatreonCredentials(refreshToken: string, userId: string) {
   const clientId = process.env.PATREON_CLIENT_ID;
   const clientSecret = process.env.PATREON_CLIENT_SECRET;
   if (!clientId || !clientSecret) return null;
@@ -180,9 +183,21 @@ async function refreshPatreonCredentials(refreshToken: string) {
     expires_in?: number;
   };
   if (!body.access_token) return null;
-  return {
+  const credentials = {
     accessToken: body.access_token,
     refreshToken: body.refresh_token,
     expiresAt: Math.floor(Date.now() / 1000) + (body.expires_in ?? 2_592_000),
   };
+  if (isDatabaseConfigured() && userId)
+    await getDb()
+      .update(accounts)
+      .set({
+        access_token: credentials.accessToken,
+        refresh_token: credentials.refreshToken ?? refreshToken,
+        expires_at: credentials.expiresAt,
+      })
+      .where(
+        and(eq(accounts.userId, userId), eq(accounts.provider, "patreon")),
+      );
+  return credentials;
 }

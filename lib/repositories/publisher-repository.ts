@@ -1,6 +1,7 @@
 import { del, get, list, put, type PutBlobResult } from "@vercel/blob";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "../../db";
+import type { WriteDatabase } from "../../db/transaction";
 import { privateBlobToken } from "../config/blob";
 import { foundryManifestUrl, resourcePublicUrl } from "../config/site";
 import {
@@ -520,9 +521,6 @@ export async function publishRelease(
     .limit(1);
   const row = rows[0];
   if (!row) throw new Error("Draft release not found.");
-  if (row.resource.accessMode !== "public") {
-    throw new Error("Paid modules cannot publish a public Foundry manifest in this release.");
-  }
   if (!row.resource.isPublished && !options.publishCatalog) {
     throw new Error("Publish the catalog resource before activating its Foundry release.");
   }
@@ -690,7 +688,6 @@ export async function rollbackRelease(resourceId: string, releaseId: string) {
   if (!row || !["published", "superseded"].includes(row.release.releaseStatus)) {
     throw new Error("Published release not found.");
   }
-  if (row.resource.accessMode !== "public") throw new Error("Paid modules cannot expose public manifests.");
   const now = new Date().toISOString();
   const clearCurrentQuery = db
     .update(resourceVersions)
@@ -713,8 +710,8 @@ export async function rollbackRelease(resourceId: string, releaseId: string) {
   await db.batch([clearCurrentQuery, activateQuery, updateResourceQuery]);
 }
 
-export async function getActiveFoundryRelease(slug: string) {
-  const rows = await getDb()
+export async function getActiveFoundryRelease(slug: string, db: WriteDatabase = getDb()) {
+  const rows = await db
     .select({
       resource: resources,
       release: resourceVersions,
@@ -741,7 +738,7 @@ export async function getActiveFoundryRelease(slug: string) {
       and(
         eq(resources.slug, slug),
         eq(resources.isPublished, true),
-        eq(resources.accessMode, "public"),
+        eq(resources.resourceType, "module"),
         eq(resourceVersions.releaseStatus, "published"),
       ),
     )
@@ -749,8 +746,8 @@ export async function getActiveFoundryRelease(slug: string) {
   return rows[0] ?? null;
 }
 
-export async function getPublicFoundryArtifact(slug: string, releaseId: string) {
-  const rows = await getDb()
+export async function getPublicFoundryArtifact(slug: string, releaseId: string, db: WriteDatabase = getDb()) {
+  const rows = await db
     .select({ resource: resources, release: resourceVersions, file: files })
     .from(resources)
     .innerJoin(resourceVersions, eq(resourceVersions.resourceId, resources.id))
@@ -765,7 +762,7 @@ export async function getPublicFoundryArtifact(slug: string, releaseId: string) 
       and(
         eq(resources.slug, slug),
         eq(resources.isPublished, true),
-        eq(resources.accessMode, "public"),
+        eq(resources.resourceType, "module"),
         eq(resourceVersions.id, releaseId),
         inArray(resourceVersions.releaseStatus, ["published", "superseded"]),
       ),

@@ -203,8 +203,7 @@ export function ModuleReleaseManager({
       </div>
       {accessMode === "patreon" ? (
         <div className="admin-callout">
-          Paid module releases remain website-only. Public Foundry manifests are
-          disabled.
+          Website access requires the selected tier. Shared Foundry manifest links can be redistributed or guessed from the slug and remain usable after cancellation. They are not piracy protection.
         </div>
       ) : null}
       <div className="publisher-toolbar">
@@ -371,7 +370,7 @@ export function ModuleReleaseManager({
                     <button
                       type="button"
                       className="button button-primary button-small"
-                      disabled={busy || accessMode !== "public"}
+                      disabled={busy}
                       onClick={() => void action(release.id, "publish")}
                     >
                       Publish
@@ -382,7 +381,7 @@ export function ModuleReleaseManager({
                   <button
                     type="button"
                     className="button button-secondary button-small"
-                    disabled={busy || accessMode !== "public"}
+                    disabled={busy}
                     onClick={() => void action(release.id, "rollback")}
                   >
                     Roll back

@@ -4,9 +4,18 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { NextRequest } from "next/server";
 import { foundryManifestUrl } from "../../../lib/config/site";
-import { getResourceBySlug, getResourcePreview } from "../../../lib/repositories/resource-repository";
-import { getAuthorizedUser, requireAdminPage } from "../../../lib/services/auth";
+import {
+  getResourceBySlug,
+  getResourcePreview,
+} from "../../../lib/repositories/resource-repository";
+import {
+  getAuthorizedUser,
+  requireAdminPage,
+} from "../../../lib/services/auth";
 import { resolveEntitlement } from "../../../lib/services/entitlements";
+import { getActiveFoundryRelease } from "../../../lib/repositories/publisher-repository";
+import { patreonMemberConnectionsEnabled } from "../../../lib/config/patreon-members";
+import { isLocalPreview } from "../../../lib/config/local-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -54,19 +63,22 @@ export default async function ResourcePage({
   if (previewId && resource.slug !== slug) notFound();
   const isPreview = Boolean(previewId);
   const user =
-    resource.accessMode === "patreon" && !isPreview ? await getAuthorizedUser() : null;
-  const requiredTierIds = resource.allowedPatreonTiers?.map((tier) => tier.id) ?? [];
+    resource.accessMode === "patreon" && !isPreview
+      ? await getAuthorizedUser()
+      : null;
+  const requiredTierIds =
+    resource.allowedPatreonTiers?.map((tier) => tier.id) ?? [];
   const entitlement =
     resource.accessMode === "patreon" && !isPreview
       ? await (async () => {
           const requestHeaders = await headers();
           return resolveEntitlement({
-          user,
-          request: new NextRequest("https://savage-library.local/resource", {
-            headers: requestHeaders,
-          }),
-          requiredTierIds,
-          allowAnyPaidTier: requiredTierIds.length === 0,
+            user,
+            request: new NextRequest("https://savage-library.local/resource", {
+              headers: requestHeaders,
+            }),
+            requiredTierIds,
+            allowAnyPaidTier: requiredTierIds.length === 0,
           });
         })()
       : null;
@@ -75,10 +87,27 @@ export default async function ResourcePage({
     isPreview || isPublic || Boolean(entitlement?.entitled);
   const isModule = resource.resourceType === "module";
   const publicManifestUrl =
-    isModule && isPublic
+    isModule &&
+    (isPreview || canAccessDownloads) &&
+    (isPreview ||
+      isLocalPreview() ||
+      (await getActiveFoundryRelease(slug).catch(() => null)))
       ? foundryManifestUrl(resource.slug)
       : null;
-  return <ResourcePresentation resource={resource} isPreview={isPreview} previewId={previewId} user={user}
-    entitled={Boolean(entitlement?.entitled)} canAccessDownloads={canAccessDownloads} isModule={isModule}
-    isPublic={isPublic} publicManifestUrl={publicManifestUrl} patreonRequired={query?.patreon === "required"} />;
+  return (
+    <ResourcePresentation
+      resource={resource}
+      isPreview={isPreview}
+      previewId={previewId}
+      user={user}
+      entitled={Boolean(entitlement?.entitled)}
+      canAccessDownloads={canAccessDownloads}
+      isModule={isModule}
+      isPublic={isPublic}
+      publicManifestUrl={publicManifestUrl}
+      patreonRequired={query?.patreon === "required"}
+      denialReason={entitlement?.denialReason}
+      patreonConnectionsEnabled={patreonMemberConnectionsEnabled()}
+    />
+  );
 }

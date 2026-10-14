@@ -91,6 +91,7 @@ test("paused Patreon member connections hide controls and reject linking before 
   assert.equal(providers.email, undefined);
   assert.ok(providers["admin-password"]);
   for (const path of [
+    "/api/account/connect-patreon",
     "/api/account/link-patreon",
     "/api/account/link-patreon/callback?code=old-code&state=old-state",
   ]) {
@@ -169,7 +170,13 @@ test("explicit server opt-in restores Patreon member controls and provider", asy
     const account = await fetch(`${enabledOrigin}/account`).then((response) =>
       response.text(),
     );
-    assert.match(account, /Sign in with Patreon/);
+    assert.match(account, /Connect Patreon/);
+    const home = await fetch(enabledOrigin).then((response) => response.text());
+    assert.match(home, /Connect Patreon/);
+    const connect = await fetch(`${enabledOrigin}/api/account/connect-patreon?returnTo=%2Fresources%2Fsavage-craft`, { redirect: "manual" });
+    assert.equal(connect.status, 307);
+    assert.equal(new URL(connect.headers.get("location")!).pathname, "/account");
+    assert.equal(new URL(connect.headers.get("location")!).searchParams.get("returnTo"), "/resources/savage-craft");
     assert.doesNotMatch(
       account,
       /New Patreon connections are temporarily unavailable/,

@@ -234,7 +234,7 @@ async function getResourceDetails(input: {
         row.resource.installationInstructions,
       licenseName: row.resource.licenseName,
       licenseUrl: row.resource.licenseUrl,
-      manifestUrl: row.resource.manifestUrl,
+      manifestUrl: row.resource.accessMode === "patreon" ? null : row.resource.manifestUrl,
       projectUrl: row.resource.projectUrl,
       files: fileRows.map(({ file }) => ({
         id: file.id,

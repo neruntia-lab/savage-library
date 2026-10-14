@@ -1,6 +1,18 @@
 import { and, eq } from "drizzle-orm";
-import { getDb } from "../../db";
+import { getDb, isDatabaseConfigured } from "../../db";
 import { accounts } from "../../db/schema";
+
+export async function hasLinkedPatreonAccount(
+  userId: string,
+): Promise<boolean> {
+  if (!isDatabaseConfigured()) return false;
+  const rows = await getDb()
+    .select({ userId: accounts.userId })
+    .from(accounts)
+    .where(and(eq(accounts.userId, userId), eq(accounts.provider, "patreon")))
+    .limit(1);
+  return rows.length > 0;
+}
 
 export async function getLinkedPatreonAccessToken(userId: string) {
   const account = (

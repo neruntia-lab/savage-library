@@ -3,6 +3,9 @@ import { headers } from "next/headers";
 import { SiteFooter } from "../components/layout/SiteFooter";
 import { SiteHeader } from "../components/layout/SiteHeader";
 import { SITE_CONFIG } from "../lib/config/site";
+import { getAuthorizedUser } from "../lib/services/auth";
+import { hasLinkedPatreonAccount } from "../lib/services/linked-patreon";
+import { patreonMemberConnectionsEnabled } from "../lib/config/patreon-members";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -59,13 +62,24 @@ export const viewport: Viewport = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const user = await getAuthorizedUser();
+  const connected =
+    user?.provider === "patreon" ||
+    Boolean(
+      user &&
+      !user.isAdmin &&
+      (await hasLinkedPatreonAccount(user.id).catch(() => false)),
+    );
   return (
     <html lang="en">
       <body>
         <a className="skip-link" href="#main-content">
           Skip to content
         </a>
-        <SiteHeader />
+        <SiteHeader
+          patreonEnabled={patreonMemberConnectionsEnabled()}
+          patreonConnected={connected}
+        />
         <main id="main-content">{children}</main>
         <SiteFooter />
       </body>

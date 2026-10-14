@@ -14,6 +14,9 @@ import {
 import type { ResourceDetails } from "../../lib/domain/resource";
 import type { AuthorizedUser } from "../../lib/services/auth";
 import { parseReleaseNotes } from "../../lib/validation/release-notes";
+import { resourceAccessState } from "../../lib/services/resource-access-state";
+import type { EntitlementResult } from "../../lib/services/entitlements";
+import { patreonConnectUrl } from "../../lib/config/member-navigation";
 
 export function ResourcePresentation({
   resource,
@@ -26,6 +29,8 @@ export function ResourcePresentation({
   isPublic,
   publicManifestUrl,
   patreonRequired,
+  denialReason,
+  patreonConnectionsEnabled = false,
 }: {
   resource: ResourceDetails;
   isPreview: boolean;
@@ -37,7 +42,46 @@ export function ResourcePresentation({
   isPublic: boolean;
   publicManifestUrl: string | null;
   patreonRequired: boolean;
+  denialReason?: EntitlementResult["denialReason"];
+  patreonConnectionsEnabled?: boolean;
 }) {
+  const accessState = resourceAccessState({
+    preview: isPreview,
+    protected: !isPublic,
+    signedIn: Boolean(user),
+    entitled,
+    denialReason,
+    available: isModule
+      ? Boolean(publicManifestUrl)
+      : Boolean(resource.files.length),
+  });
+  const blockedAction =
+    accessState === "connect" ? (
+      patreonConnectionsEnabled ? (
+        <a
+          className="button button-secondary"
+          href={patreonConnectUrl(ROUTES.resource(resource.slug))}
+        >
+          Connect Patreon
+        </a>
+      ) : (
+        <button className="button button-secondary" disabled>
+          Connections paused
+        </button>
+      )
+    ) : accessState === "missing-tier" ||
+      accessState === "unverified" ||
+      accessState === "unavailable" ? (
+      <button className="button button-secondary" disabled>
+        {accessState === "missing-tier"
+          ? "Required tier missing"
+          : accessState === "unverified"
+            ? "Unable to verify membership"
+            : isModule
+              ? "Module release unavailable"
+              : "Download unavailable"}
+      </button>
+    ) : null;
   const artworkUrl = resource.heroArtworkUrl ?? "/logo.png";
   const hasCustomCover = Boolean(
     !artworkUrl.endsWith("/logo.png") &&
@@ -45,7 +89,9 @@ export function ResourcePresentation({
   );
   const showHeroAction =
     !publicManifestUrl &&
-    ((!isModule && resource.files[0] && (isPreview || canAccessDownloads)) ||
+    ((!isModule &&
+      (blockedAction || resource.files[0]) &&
+      (blockedAction || isPreview || canAccessDownloads)) ||
       (isPublic && resource.projectUrl));
 
   return (
@@ -98,7 +144,9 @@ export function ResourcePresentation({
             ) : null}
             {showHeroAction ? (
               <div className="resource-actions">
-                {isPreview && !isModule && resource.files[0] ? (
+                {!isModule && blockedAction ? (
+                  blockedAction
+                ) : isPreview && !isModule && resource.files[0] ? (
                   <button
                     className="button button-primary"
                     type="button"
@@ -159,13 +207,15 @@ export function ResourcePresentation({
             <div>
               <p className="eyebrow">Member download</p>
               <h2 id="patreon-access-title">
-                Unlock this resource through Patreon
+                {entitled ? "Membership verified" : "Patreon membership required"}
               </h2>
               <p>
                 {entitled
                   ? "Your membership is verified. Eligible downloads are available below."
                   : user
-                    ? "Your account does not currently have an eligible membership tier."
+                    ? denialReason === "verification_unavailable"
+                      ? "Membership verification is temporarily unavailable. Please try again."
+                      : "Your account does not currently have an eligible membership tier."
                     : "The complete details are public. Downloads require a verified eligible membership."}
               </p>
               {resource.allowedPatreonTiers?.length ? (
@@ -342,6 +392,9 @@ export function ResourcePresentation({
           </div>
 
           <aside className="details-sidebar" aria-label="Resource information">
+            {isModule && blockedAction ? (
+              <div className="resource-manifest-action">{blockedAction}</div>
+            ) : null}
             {publicManifestUrl ? (
               <div className="resource-manifest-action">
                 {isPreview ? (

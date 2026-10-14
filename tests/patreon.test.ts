@@ -4,6 +4,75 @@ import { spawnSync } from "node:child_process";
 import { verifyPatreonEntitlement } from "../lib/services/patreon";
 import { patreonMemberConnectionsEnabled } from "../lib/config/patreon-members";
 import { emailSignInEnabled } from "../lib/config/email-sign-in";
+import {
+  memberReturnPath,
+  memberLinkStateMatches,
+  patreonConnectUrl,
+} from "../lib/config/member-navigation";
+import { resourceAccessState } from "../lib/services/resource-access-state";
+
+test("OAuth returns stay on the site", () => {
+  assert.equal(memberLinkStateMatches("nonce", "nonce:member-1", "member-1"), true);
+  assert.equal(memberLinkStateMatches("nonce", "nonce:member-1", "member-2"), false);
+  assert.equal(memberLinkStateMatches(null, "nonce:member-1", "member-1"), false);
+  for (const value of [
+    "https://evil.test",
+    "//evil.test",
+    "/\\evil.test",
+    "/\ninvalid",
+    null,
+  ])
+    assert.equal(memberReturnPath(value), "/account");
+  assert.equal(
+    memberReturnPath("/resources/craft?lang=es"),
+    "/resources/craft?lang=es",
+  );
+  assert.match(
+    patreonConnectUrl("/resources/craft"),
+    /returnTo=%2Fresources%2Fcraft/,
+  );
+});
+
+test("resource controls distinguish connection, tier, verification, preview and missing-file states", () => {
+  const input = {
+    preview: false,
+    protected: true,
+    signedIn: false,
+    entitled: false,
+    available: true,
+  };
+  assert.equal(resourceAccessState(input), "connect");
+  assert.equal(
+    resourceAccessState({ ...input, signedIn: true }),
+    "missing-tier",
+  );
+  assert.equal(
+    resourceAccessState({
+      ...input,
+      signedIn: true,
+      denialReason: "verification_unavailable",
+    }),
+    "unverified",
+  );
+  assert.equal(
+    resourceAccessState({ ...input, signedIn: true, entitled: true }),
+    "available",
+  );
+  assert.equal(
+    resourceAccessState({
+      ...input,
+      signedIn: true,
+      entitled: true,
+      available: false,
+    }),
+    "unavailable",
+  );
+  assert.equal(
+    resourceAccessState({ ...input, protected: false }),
+    "available",
+  );
+  assert.equal(resourceAccessState({ ...input, preview: true }), "preview");
+});
 
 test("production preflight requires SMTP unless email sign-in is explicitly paused", () => {
   const env = { ...process.env };

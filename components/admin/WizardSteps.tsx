@@ -528,8 +528,7 @@ export function AccessStep({
       </div>
       {draft.resourceType === "module" && draft.accessMode === "patreon" ? (
         <div className="wizard-warning">
-          Paid Foundry module distribution is not supported yet. You can save
-          this setup as a draft, but it cannot be published.
+          Shared module manifest links can be redistributed or guessed from the slug and remain usable after cancellation. Website access requires the selected tier, but Foundry links do not.
         </div>
       ) : null}
       {draft.accessMode === "patreon" ? (

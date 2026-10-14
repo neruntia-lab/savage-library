@@ -4,8 +4,27 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ROUTES, PUBLIC_NAVIGATION } from "../../lib/config/site";
+import { usePathname } from "next/navigation";
+import { patreonConnectUrl } from "../../lib/config/member-navigation";
 
-export function SiteHeader() {
+export function SiteHeader({
+  patreonEnabled = false,
+  patreonConnected = false,
+}: {
+  patreonEnabled?: boolean;
+  patreonConnected?: boolean;
+}) {
+  const pathname = usePathname();
+  const memberLink = patreonConnected
+    ? ROUTES.account
+    : patreonConnectUrl(pathname);
+  const memberLabel = patreonConnected ? "Patreon account" : "Connect Patreon";
+  function preserveReturnLocation(event: React.MouseEvent<HTMLAnchorElement>) {
+    if (!patreonConnected)
+      event.currentTarget.href = patreonConnectUrl(
+        `${window.location.pathname}${window.location.search}${window.location.hash}`,
+      );
+  }
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mobileNavigationRef = useRef<HTMLElement>(null);
@@ -78,6 +97,15 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
+            {patreonEnabled ? (
+              <a
+                className="nav-account"
+                href={memberLink}
+                onClick={preserveReturnLocation}
+              >
+                {memberLabel}
+              </a>
+            ) : null}
           </nav>
           <button
             ref={menuButtonRef}
@@ -116,6 +144,17 @@ export function SiteHeader() {
             {item.label}
           </Link>
         ))}
+        {patreonEnabled ? (
+          <a
+            href={memberLink}
+            onClick={(event) => {
+              preserveReturnLocation(event);
+              closeMenu();
+            }}
+          >
+            {memberLabel}
+          </a>
+        ) : null}
       </nav>
     </>
   );

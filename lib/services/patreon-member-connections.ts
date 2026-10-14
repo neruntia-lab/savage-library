@@ -14,5 +14,11 @@ export function patreonConnectionsPausedResponse() {
     httpOnly: true,
     sameSite: "lax",
   });
+  response.cookies.set("sl_patreon_link_return", "", {
+    path: "/api/account/link-patreon/callback",
+    maxAge: 0,
+    httpOnly: true,
+    sameSite: "lax",
+  });
   return response;
 }

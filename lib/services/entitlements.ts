@@ -1,11 +1,7 @@
 import { and, eq, gt, isNull, or } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { getDb, isDatabaseConfigured } from "../../db";
-import {
-  manualGrants,
-  manualGrantTiers,
-  patreonTiers,
-} from "../../db/schema";
+import { manualGrants, manualGrantTiers, patreonTiers } from "../../db/schema";
 import type { AuthorizedUser } from "./auth";
 import { getPatreonAccessToken } from "./auth";
 import { verifyPatreonEntitlement } from "./patreon";
@@ -17,7 +13,8 @@ export type EntitlementResult = {
   source: "patreon" | "complimentary" | "admin" | "none";
   verifiedAt: string;
   expiresAt: string | null;
-  denialReason?: "signed_out" | "no_qualifying_tier" | "verification_unavailable";
+  denialReason?:
+    "signed_out" | "no_qualifying_tier" | "verification_unavailable";
 };
 
 export async function resolveEntitlement(input: {
@@ -49,13 +46,11 @@ export async function resolveEntitlement(input: {
 
   let liveUnavailable = false;
   if (input.request) {
-    const accessToken =
-      (await getPatreonAccessToken(input.request)) ??
-      (isDatabaseConfigured()
+    try {
+      const accessToken = isDatabaseConfigured()
         ? await getLinkedPatreonAccessToken(input.user.id)
-        : null);
-    if (accessToken) {
-      try {
+        : await getPatreonAccessToken(input.request);
+      if (accessToken) {
         const allowedIds =
           input.requiredTierIds.length || !input.allowAnyPaidTier
             ? input.requiredTierIds
@@ -72,13 +67,16 @@ export async function resolveEntitlement(input: {
             denialReason: result.entitled ? undefined : "no_qualifying_tier",
           };
         }
-      } catch {
-        liveUnavailable = true;
-      }
+      } else if (input.user.provider === "patreon") liveUnavailable = true;
+    } catch {
+      liveUnavailable = true;
     }
   }
 
-  const grant = await activeManualGrant(input.user.id);
+  const grant = await activeManualGrant(input.user.id).catch(() => {
+    liveUnavailable = true;
+    return null;
+  });
   if (grant) {
     const qualifies = input.requiredTierIds.length
       ? grant.tierIds.some((id) => input.requiredTierIds.includes(id))
@@ -118,10 +116,7 @@ async function activeManualGrant(userId: string) {
       amountCents: patreonTiers.amountCents,
     })
     .from(manualGrants)
-    .innerJoin(
-      manualGrantTiers,
-      eq(manualGrantTiers.grantId, manualGrants.id),
-    )
+    .innerJoin(manualGrantTiers, eq(manualGrantTiers.grantId, manualGrants.id))
     .innerJoin(patreonTiers, eq(patreonTiers.id, manualGrantTiers.tierId))
     .where(
       and(
@@ -145,7 +140,9 @@ async function paidTierIds() {
   const rows = await getDb()
     .select({ id: patreonTiers.id })
     .from(patreonTiers)
-    .where(and(eq(patreonTiers.isPublished, true), gt(patreonTiers.amountCents, 0)));
+    .where(
+      and(eq(patreonTiers.isPublished, true), gt(patreonTiers.amountCents, 0)),
+    );
   return rows.map((row) => row.id);
 }
 
@@ -161,9 +158,6 @@ export async function replaceManualGrants(userId: string) {
       updatedAt: now,
     })
     .where(
-      and(
-        eq(manualGrants.userId, userId),
-        eq(manualGrants.status, "active"),
-      ),
+      and(eq(manualGrants.userId, userId), eq(manualGrants.status, "active")),
     );
 }
