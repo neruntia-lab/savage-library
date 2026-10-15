@@ -1,6 +1,7 @@
 import { SITE_CONFIG } from "../../lib/config/site";
 
-export function PrivacyContent() {
+export function PrivacyContent({ nested = false }: { nested?: boolean } = {}) {
+  const Heading = nested ? "h3" : "h2";
   return (
     <div className="legal-content">
       <p>
@@ -9,7 +10,7 @@ export function PrivacyContent() {
         operate those services.
       </p>
 
-      <h2>Information we process</h2>
+      <Heading>Information we process</Heading>
       <ul>
         <li>
           Account identity, display name, email address, and verification
@@ -38,7 +39,7 @@ export function PrivacyContent() {
         Patreon&apos;s privacy practices.
       </p>
 
-      <h2>How information is used</h2>
+      <Heading>How information is used</Heading>
       <p>
         Information is used to authenticate users, verify paid or complimentary
         access, deliver authorized files, prevent abuse, synchronize creator
@@ -46,7 +47,7 @@ export function PrivacyContent() {
         not sell personal information.
       </p>
 
-      <h2>Service providers</h2>
+      <Heading>Service providers</Heading>
       <p>
         Savage Library relies on Vercel for application and file hosting, Neon
         for database hosting, Patreon for membership verification, Auth.js for
@@ -55,7 +56,7 @@ export function PrivacyContent() {
         their services and under their own applicable terms.
       </p>
 
-      <h2>Cookies and sign-in links</h2>
+      <Heading>Cookies and sign-in links</Heading>
       <p>
         Savage Library uses essential cookies to keep you signed in, protect
         account access, remember your return location, and connect your Patreon
@@ -71,7 +72,7 @@ export function PrivacyContent() {
         15 minutes.
       </p>
 
-      <h2>Retention and security</h2>
+      <Heading>Retention and security</Heading>
       <p>
         Records are retained for as long as necessary to operate accounts,
         enforce access, meet legal obligations, resolve disputes, and protect
@@ -80,7 +81,7 @@ export function PrivacyContent() {
         can guarantee absolute security.
       </p>
 
-      <h2>Your choices</h2>
+      <Heading>Your choices</Heading>
       <p>
         You may disconnect Patreon through your account controls where
         available. To request access to, correction of, or deletion of your
@@ -92,7 +93,7 @@ export function PrivacyContent() {
         needed to protect the service.
       </p>
 
-      <h2>Policy changes</h2>
+      <Heading>Policy changes</Heading>
       <p>
         Material changes will be posted on this page with a revised effective
         date. Continued use after a change means the updated policy applies to

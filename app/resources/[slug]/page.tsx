@@ -1,3 +1,9 @@
+import {
+  pageMetadata,
+  canonicalUrl,
+  jsonLd,
+  breadcrumbSchema,
+} from "../../../lib/seo";
 import { ResourcePresentation } from "../../../components/resources/ResourcePresentation";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
@@ -33,15 +39,30 @@ export async function generateMetadata({
     return { title: "Draft preview", robots: { index: false, follow: false } };
   }
   const { slug } = await params;
-  const resource = await getResourceBySlug(slug);
+  const resource = await getResourceBySlug(
+    slug,
+    query?.lang === "es" ? "es" : "en",
+  );
   return resource
     ? {
-        title: resource.title,
-        description: resource.shortDescription,
-        openGraph: {
-          title: resource.title,
-          description: resource.shortDescription,
-          type: "article",
+        ...pageMetadata(
+          resource.title,
+          resource.shortDescription,
+          `/resources/${encodeURIComponent(slug)}${query?.lang === "es" && resource.availableLocales?.includes("es") ? "?lang=es" : ""}`,
+          resource.heroArtworkUrl ?? "/og-social.jpg",
+        ),
+        alternates: {
+          canonical: canonicalUrl(
+            `/resources/${encodeURIComponent(slug)}${query?.lang === "es" && resource.availableLocales?.includes("es") ? "?lang=es" : ""}`,
+          ),
+          languages: Object.fromEntries(
+            (resource.availableLocales ?? ["en"]).map((locale) => [
+              locale,
+              canonicalUrl(
+                `/resources/${encodeURIComponent(slug)}${locale === "es" ? "?lang=es" : ""}`,
+              ),
+            ]),
+          ),
         },
       }
     : {};
@@ -95,19 +116,62 @@ export default async function ResourcePage({
       ? foundryManifestUrl(resource.slug)
       : null;
   return (
-    <ResourcePresentation
-      resource={resource}
-      isPreview={isPreview}
-      previewId={previewId}
-      user={user}
-      entitled={Boolean(entitlement?.entitled)}
-      canAccessDownloads={canAccessDownloads}
-      isModule={isModule}
-      isPublic={isPublic}
-      publicManifestUrl={publicManifestUrl}
-      patreonRequired={query?.patreon === "required"}
-      denialReason={entitlement?.denialReason}
-      patreonConnectionsEnabled={patreonMemberConnectionsEnabled()}
-    />
+    <>
+      {!isPreview ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: jsonLd(
+              breadcrumbSchema([
+                { name: "Library", path: "/" },
+                {
+                  name: resource.title,
+                  path: `/resources/${encodeURIComponent(slug)}`,
+                },
+              ]),
+            ),
+          }}
+        />
+      ) : null}
+      {!isPreview ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: jsonLd({
+              "@context": "https://schema.org",
+              "@type":
+                resource.resourceType === "module" ||
+                resource.resourceType === "macro"
+                  ? "SoftwareApplication"
+                  : "CreativeWork",
+              name: resource.title,
+              description: resource.shortDescription,
+              url: canonicalUrl(`/resources/${encodeURIComponent(slug)}`),
+              author: { "@type": "Organization", name: resource.author.name },
+              ...(isModule
+                ? {
+                    softwareVersion: resource.currentVersion,
+                    applicationCategory: "GameApplication",
+                  }
+                : {}),
+            }),
+          }}
+        />
+      ) : null}
+      <ResourcePresentation
+        resource={resource}
+        isPreview={isPreview}
+        previewId={previewId}
+        user={user}
+        entitled={Boolean(entitlement?.entitled)}
+        canAccessDownloads={canAccessDownloads}
+        isModule={isModule}
+        isPublic={isPublic}
+        publicManifestUrl={publicManifestUrl}
+        patreonRequired={query?.patreon === "required"}
+        denialReason={entitlement?.denialReason}
+        patreonConnectionsEnabled={patreonMemberConnectionsEnabled()}
+      />
+    </>
   );
 }

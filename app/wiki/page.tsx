@@ -1,3 +1,4 @@
+import { pageMetadata } from "../../lib/seo";
 import type { Metadata } from "next";
 import {
   browsePublicWiki,
@@ -6,10 +7,11 @@ import {
 import { Pagination } from "../../components/library/Pagination";
 import { WikiCard } from "../../components/wiki/WikiCard";
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = {
-  title: "Wiki",
-  description: "Module documentation and guides from Savage Library.",
-};
+export const metadata: Metadata = pageMetadata(
+  "Wiki",
+  "Learn how to install, configure, and use Savage Library modules with documentation and guides.",
+  "/wiki",
+);
 export default async function WikiPage({
   searchParams,
 }: {

@@ -1,11 +1,13 @@
+import { pageMetadata } from "../../lib/seo";
 import type { Metadata } from "next";
 import { TermsContent } from "../../components/legal/TermsContent";
 import { PrivacyContent } from "../../components/legal/PrivacyContent";
 
-export const metadata: Metadata = {
-  title: "Terms & Privacy",
-  description: "Savage Library terms of service and privacy policy.",
-};
+export const metadata: Metadata = pageMetadata(
+  "Terms & Privacy",
+  "Read Savage Library’s terms of service, membership conditions, and privacy policy.",
+  "/legal",
+);
 export default function LegalPage() {
   return (
     <section className="page-section legal-page">
@@ -25,7 +27,7 @@ export default function LegalPage() {
           aria-labelledby="terms-title"
         >
           <h2 id="terms-title">Terms & Conditions</h2>
-          <TermsContent />
+          <TermsContent nested />
         </section>
         <section
           id="privacy"
@@ -33,7 +35,7 @@ export default function LegalPage() {
           aria-labelledby="privacy-title"
         >
           <h2 id="privacy-title">Privacy policy</h2>
-          <PrivacyContent />
+          <PrivacyContent nested />
         </section>
       </div>
     </section>

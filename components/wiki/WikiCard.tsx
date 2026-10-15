@@ -11,7 +11,7 @@ export function WikiCard({
   lang: WikiLocale;
 }) {
   const language = wikiLanguage(guide.content, lang);
-  const href = `/wiki/${encodeURIComponent(guide.slug)}?lang=${lang}`;
+  const href = `/wiki/${encodeURIComponent(guide.slug)}${language.locale === "es" ? "?lang=es" : ""}`;
   return (
     <article className="resource-card wiki-card">
       <span className="resource-card-accent" aria-hidden="true" />
@@ -28,9 +28,9 @@ export function WikiCard({
           <div className="resource-kicker">
             {guide.module?.title ?? "General guide"}
           </div>
-          <h3>
+          <h2>
             <Link href={href}>{language.translation.title}</Link>
-          </h3>
+          </h2>
         </div>
       </div>
       <p className="resource-description">{language.translation.summary}</p>

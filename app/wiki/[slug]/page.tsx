@@ -1,3 +1,9 @@
+import {
+  pageMetadata,
+  canonicalUrl,
+  jsonLd,
+  breadcrumbSchema,
+} from "../../../lib/seo";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPublicWikiBySlug } from "../../../lib/repositories/wiki-repository";
@@ -20,9 +26,24 @@ export async function generateMetadata({
     current.content,
     (await searchParams).lang === "es" ? "es" : "en",
   );
+  const path = `/wiki/${encodeURIComponent(slug)}`;
   return {
-    title: language.translation.title,
-    description: language.translation.summary,
+    ...pageMetadata(
+      language.translation.title,
+      language.translation.summary,
+      path + (language.locale === "es" ? "?lang=es" : ""),
+    ),
+    alternates: {
+      canonical: canonicalUrl(
+        path + (language.locale === "es" ? "?lang=es" : ""),
+      ),
+      languages: Object.fromEntries(
+        language.available.map((locale) => [
+          locale,
+          canonicalUrl(path + (locale === "es" ? "?lang=es" : "")),
+        ]),
+      ),
+    },
   };
 }
 export default async function WikiGuidePage({ params, searchParams }: Props) {
@@ -33,6 +54,35 @@ export default async function WikiGuidePage({ params, searchParams }: Props) {
   const language = wikiLanguage(guide.content, requestedLocale);
   return (
     <section className="page-section">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLd(
+            breadcrumbSchema([
+              { name: "Library", path: "/" },
+              { name: "Wiki", path: "/wiki" },
+              {
+                name: language.translation.title,
+                path: `/wiki/${encodeURIComponent(slug)}`,
+              },
+            ]),
+          ),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLd({
+            "@context": "https://schema.org",
+            "@type": "Article",
+            headline: language.translation.title,
+            description: language.translation.summary,
+            datePublished: guide.publishedAt,
+            url: canonicalUrl(`/wiki/${encodeURIComponent(slug)}`),
+            author: { "@type": "Organization", name: "Savage Library" },
+          }),
+        }}
+      />
       <div className="container">
         <GuidePresentation
           guide={guide}

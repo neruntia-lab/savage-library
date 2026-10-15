@@ -377,11 +377,11 @@ textarea:focus {
   object-fit: contain;
 }
 
-.resource-card-heading h3 {
+.resource-card-heading :is(h2, h3) {
   margin: 0.2rem 0 0;
 }
 
-.resource-card-heading h3 a:hover {
+.resource-card-heading :is(h2, h3) a:hover {
   color: var(--color-gold-bright);
 }
 

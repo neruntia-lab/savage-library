@@ -1,6 +1,7 @@
 import { SITE_CONFIG } from "../../lib/config/site";
 
-export function TermsContent() {
+export function TermsContent({ nested = false }: { nested?: boolean } = {}) {
+  const Heading = nested ? "h3" : "h2";
   return (
     <div className="legal-content">
       <p>
@@ -9,7 +10,7 @@ export function TermsContent() {
         using the service, you agree to these terms.
       </p>
 
-      <h2>Accounts and access</h2>
+      <Heading>Accounts and access</Heading>
       <p>
         You are responsible for activity under your session and for protecting
         sign-in links and connected accounts. Patreon access depends on the
@@ -17,7 +18,7 @@ export function TermsContent() {
         be revoked according to the grant issued by an administrator.
       </p>
 
-      <h2>Licenses and permitted use</h2>
+      <Heading>Licenses and permitted use</Heading>
       <p>
         Each resource remains subject to the license and attribution displayed
         on its catalog page or included in its files. Access to a download is
@@ -27,7 +28,7 @@ export function TermsContent() {
         credentials.
       </p>
 
-      <h2>Membership and availability</h2>
+      <Heading>Membership and availability</Heading>
       <p>
         Member-only access is available only while a qualifying Patreon
         entitlement or active complimentary grant can be verified. Cancellation,
@@ -36,7 +37,7 @@ export function TermsContent() {
         refunds, and billing disputes under Patreon&apos;s own terms.
       </p>
 
-      <h2>Acceptable use</h2>
+      <Heading>Acceptable use</Heading>
       <p>
         Do not attempt to bypass access checks, probe private file destinations,
         interfere with the service, automate abusive traffic, upload malicious
@@ -44,7 +45,7 @@ export function TermsContent() {
         law or third-party rights.
       </p>
 
-      <h2>Service changes and termination</h2>
+      <Heading>Service changes and termination</Heading>
       <p>
         Resources, compatibility information, and service features may change.
         Access may be suspended or terminated for abuse, unauthorized
@@ -53,7 +54,7 @@ export function TermsContent() {
         permanent availability is not guaranteed.
       </p>
 
-      <h2>Disclaimers</h2>
+      <Heading>Disclaimers</Heading>
       <p>
         The service and resources are provided on an “as available” basis to the
         extent permitted by law. Compatibility labels are informational and may
@@ -62,7 +63,7 @@ export function TermsContent() {
         not responsible for their availability or policies.
       </p>
 
-      <h2>Contact</h2>
+      <Heading>Contact</Heading>
       <p>
         Questions about these terms may be sent to{" "}
         <a href={`mailto:${SITE_CONFIG.supportEmail}`}>

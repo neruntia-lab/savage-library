@@ -8,6 +8,7 @@ import {
   unpublishPost,
 } from "../../../../lib/services/patreon-sync";
 import { getWebhookSecret } from "../../../../lib/services/creator-credentials";
+import { webhookDeliveryDisposition } from "../../../../lib/services/webhook-delivery";
 
 export async function POST(request: Request) {
   const raw = await request.text();
@@ -88,24 +89,6 @@ export async function POST(request: Request) {
   }
 }
 
-export function webhookDeliveryDisposition(
-  delivery:
-    | {
-        processedAt: string | null;
-        error: string | null;
-        receivedAt: string;
-      }
-    | undefined,
-  now: number,
-): "new" | "duplicate" | "in_progress" | "retry" {
-  if (!delivery) return "new";
-  if (delivery.processedAt) return "duplicate";
-  if (delivery.error) return "retry";
-  const receivedAt = Date.parse(delivery.receivedAt);
-  return Number.isFinite(receivedAt) && now - receivedAt < 5 * 60 * 1_000
-    ? "in_progress"
-    : "retry";
-}
 
 function validSignature(body: string, signature: string, secret: string) {
   const expected = createHmac("md5", secret).update(body).digest("hex");

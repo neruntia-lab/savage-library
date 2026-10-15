@@ -1,3 +1,4 @@
+import { pageMetadata } from "../lib/seo";
 import { CelestialOrnament } from "../components/ui/CelestialOrnament";
 import { CatalogFilters } from "../components/library/CatalogFilters";
 import { ProgressiveCatalog } from "../components/library/ProgressiveCatalog";
@@ -10,6 +11,12 @@ import {
   catalogFilterParams,
   parsePublicCatalogFilters,
 } from "../lib/services/catalog";
+
+export const metadata = pageMetadata(
+  "D&D Content & Foundry Modules",
+  "Browse Savage Library’s Foundry VTT modules, macros, classes, subclasses, PDFs, and guides.",
+  "/",
+);
 
 export const revalidate = 120;
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { webhookDeliveryDisposition } from "../app/api/patreon/webhook/route";
+import { webhookDeliveryDisposition } from "../lib/services/webhook-delivery";
 
 const now = Date.parse("2026-07-29T18:00:00.000Z");
 

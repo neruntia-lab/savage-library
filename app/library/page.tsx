@@ -1,3 +1,4 @@
+import { pageMetadata } from "../../lib/seo";
 import type { Metadata } from "next";
 import { CatalogFilters } from "../../components/library/CatalogFilters";
 import { Pagination } from "../../components/library/Pagination";
@@ -11,11 +12,11 @@ import {
   publicCatalogParams,
 } from "../../lib/services/catalog";
 
-export const metadata: Metadata = {
-  title: "Library",
-  description:
-    "Search and filter authorized Foundry VTT modules, classes, subclasses, and PDFs.",
-};
+export const metadata: Metadata = pageMetadata(
+  "Library",
+  "Search and filter Savage Library’s Foundry VTT modules, macros, classes, subclasses, and PDFs.",
+  "/",
+);
 
 export const revalidate = 120;
 
@@ -51,7 +52,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
           {filters.query ? ` matching “${filters.query}”` : ""}
         </div>
 
-        <ResourceGrid resources={catalog.items} />
+        <ResourceGrid resources={catalog.items} headingLevel={2} />
         <Pagination
           page={catalog.page}
           pageCount={catalog.pageCount}

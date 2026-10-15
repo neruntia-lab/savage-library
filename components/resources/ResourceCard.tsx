@@ -13,7 +13,14 @@ const typeLabels: Record<ResourceSummary["resourceType"], string> = {
   macro: "Macro",
 };
 
-export function ResourceCard({ resource }: { resource: ResourceSummary }) {
+export function ResourceCard({
+  resource,
+  headingLevel = 3,
+}: {
+  resource: ResourceSummary;
+  headingLevel?: 2 | 3;
+}) {
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
     <article className="resource-card">
       <span className="resource-card-accent" aria-hidden="true" />
@@ -32,9 +39,9 @@ export function ResourceCard({ resource }: { resource: ResourceSummary }) {
             <span aria-hidden="true">·</span>
             <span>{resource.gameSystem.name}</span>
           </div>
-          <h3>
+          <Heading>
             <Link href={ROUTES.resource(resource.slug)}>{resource.title}</Link>
-          </h3>
+          </Heading>
         </div>
         <CompatibilityBadge status={resource.compatibilityStatus} />
       </div>

@@ -11,10 +11,10 @@
   "scripts": {
     "dev": "next dev",
     "preview:local": "node scripts/preview.mjs",
-    "build": "next build",
-    "build:vercel": "node scripts/check-production-env.mjs --if-production && node scripts/check-preview-migrations.mjs && drizzle-kit migrate && next build",
+    "build": "next build --webpack",
+    "build:vercel": "node scripts/check-production-env.mjs --if-production && node scripts/check-preview-migrations.mjs && drizzle-kit migrate && next build --webpack",
     "start": "next start",
-    "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts tests/markdown.test.ts tests/patreon.test.ts tests/patreon-posts.test.ts tests/foundry-publisher.test.ts tests/webhook.test.ts tests/maintenance.test.ts tests/client-workflows.test.ts tests/design-system.test.ts tests/wiki.test.ts tests/wiki-starters.test.ts tests/downloads.test.ts tests/resource-transactions.test.ts tests/optimization.test.ts",
+    "test": "tsx --test tests/catalog.test.ts tests/validation.test.ts tests/markdown.test.ts tests/patreon.test.ts tests/patreon-posts.test.ts tests/foundry-publisher.test.ts tests/webhook.test.ts tests/maintenance.test.ts tests/client-workflows.test.ts tests/design-system.test.ts tests/wiki.test.ts tests/wiki-starters.test.ts tests/downloads.test.ts tests/resource-transactions.test.ts tests/optimization.test.ts tests/seo.test.ts",
     "audit:structure": "node scripts/audit-structure.mjs",
     "typecheck": "tsc --noEmit",
     "counters:reset": "node scripts/reset-download-counters.mjs",

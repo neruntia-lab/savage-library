@@ -123,10 +123,11 @@ export function ResourcePresentation({
             <Image
               src={artworkUrl}
               className={hasCustomCover ? "custom-artwork" : "fallback-artwork"}
-              alt={`${resource.title} cover`}
+              alt={hasCustomCover ? `${resource.title} cover` : ""}
               width={220}
               height={220}
-              priority
+              sizes="(max-width: 620px) 160px, 220px"
+              preload
             />
           </div>
           <div>
@@ -411,6 +412,7 @@ export function ResourcePresentation({
               </div>
             ) : null}
             <dl className="metadata-list">
+              {isModule && !isPreview ? <div><dt>Documentation</dt><dd><Link href={`/wiki?module=${encodeURIComponent(resource.id)}`}>Read module guides</Link></dd></div> : null}
               <div>
                 <dt>Compatibility</dt>
                 <dd>

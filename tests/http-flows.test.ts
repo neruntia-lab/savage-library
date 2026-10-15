@@ -361,6 +361,21 @@ test("resource detail flow exposes attribution, compatibility, and manifest acti
   assert.doesNotMatch(sidebar, /<dt>Cost<\/dt>/);
 });
 
+test("canonical metadata and AI discovery exclude private destinations", async () => {
+  for (const path of ["/", "/wiki", "/legal", "/resources/savage-craft"]) {
+    const html = await get(path);
+    assert.match(html, /rel="canonical"/);
+    assert.match(html, /property="og:url"/);
+    assert.equal((html.match(/<h1(?:\s[^>]*)?>/g) ?? []).length, 1);
+    const scripts = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+    assert.ok(scripts.length > 0);
+    for (const script of scripts) assert.doesNotThrow(() => JSON.parse(script[1]));
+  }
+  const llms = await get("/llms.txt");
+  assert.match(llms, /# Savage Library/);
+  assert.doesNotMatch(llms, /blob.vercel-storage|\/admin|\/api\/downloads/);
+});
+
 test("category and discovery metadata routes are available", async () => {
   const category = await get("/categories/foundry-modules");
   assert.match(category, /Foundry VTT Modules/);
@@ -368,12 +383,13 @@ test("category and discovery metadata routes are available", async () => {
 
   const sitemap = await get("/sitemap.xml");
   assert.match(sitemap, /resources\/savage-craft/);
-  assert.match(sitemap, /\/privacy/);
-  assert.match(sitemap, /\/terms/);
+  assert.match(sitemap, /https:\/\/savage-library.vercel.app\/legal/);
+  assert.doesNotMatch(sitemap, /\/privacy|\/terms|\/library</);
   assert.doesNotMatch(sitemap, /\/news/);
 
   const robots = await get("/robots.txt");
-  assert.match(robots, /Disallow: \/admin/);
+  assert.match(robots, /Disallow: \//);
+  assert.match(robots, /Sitemap: https:\/\/savage-library.vercel.app\/sitemap.xml/);
 
   const removedNews = await fetch(`${origin}/news`, {});
   assert.equal(removedNews.status, 404);

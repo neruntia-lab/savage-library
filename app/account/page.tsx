@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Member access",
+  robots: { index: false, follow: false },
   description:
     "Manage your Savage Library membership and complimentary access.",
 };

@@ -1,11 +1,12 @@
+import { pageMetadata } from "../../lib/seo";
 import type { Metadata } from "next";
 import { PrivacyContent } from "../../components/legal/PrivacyContent";
 
-export const metadata: Metadata = {
-  title: "Privacy policy",
-  description:
-    "How Savage Library collects, uses, and protects account and membership information.",
-};
+export const metadata: Metadata = pageMetadata(
+  "Privacy policy",
+  "How Savage Library collects, uses, and protects account and membership information.",
+  "/legal#privacy",
+);
 
 export default function PrivacyPage() {
   return (

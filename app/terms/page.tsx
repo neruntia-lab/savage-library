@@ -1,11 +1,12 @@
+import { pageMetadata } from "../../lib/seo";
 import type { Metadata } from "next";
 import { TermsContent } from "../../components/legal/TermsContent";
 
-export const metadata: Metadata = {
-  title: "Terms of service",
-  description:
-    "Terms governing use of Savage Library and its downloadable resources.",
-};
+export const metadata: Metadata = pageMetadata(
+  "Terms of service",
+  "Terms governing use of Savage Library and its downloadable resources.",
+  "/legal#terms",
+);
 
 export default function TermsPage() {
   return (

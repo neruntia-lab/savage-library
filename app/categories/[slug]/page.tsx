@@ -1,3 +1,4 @@
+import { pageMetadata } from "../../../lib/seo";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CatalogFilters } from "../../../components/library/CatalogFilters";
@@ -24,10 +25,11 @@ export async function generateMetadata({
   const { slug } = await params;
   const category = CATEGORY_LINKS.find((entry) => entry.slug === slug);
   return category
-    ? {
-        title: category.name,
-        description: category.description,
-      }
+    ? pageMetadata(
+        category.name,
+        category.description,
+        `/categories/${encodeURIComponent(slug)}`,
+      )
     : {};
 }
 
@@ -62,7 +64,7 @@ export default async function CategoryPage({
           <strong>{catalog.total}</strong>{" "}
           {catalog.total === 1 ? "resource" : "resources"}
         </div>
-        <ResourceGrid resources={catalog.items} />
+        <ResourceGrid resources={catalog.items} headingLevel={2} />
         <Pagination
           page={catalog.page}
           pageCount={catalog.pageCount}

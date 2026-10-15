@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
+import { canonicalUrl, indexingEnabled, jsonLd } from "../lib/seo";
 import { SiteFooter } from "../components/layout/SiteFooter";
 import { SiteHeader } from "../components/layout/SiteHeader";
 import { SITE_CONFIG } from "../lib/config/site";
@@ -9,10 +9,16 @@ import { patreonMemberConnectionsEnabled } from "../lib/config/patreon-members";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const origin = await requestOrigin();
-  const socialImage = `${origin}/og-fantasy.png`;
+  const origin = canonicalUrl("/");
+  const socialImage = canonicalUrl("/og-social.jpg");
   return {
     metadataBase: new URL(origin),
+    robots: indexingEnabled()
+      ? { index: true, follow: true }
+      : { index: false, follow: false },
+    verification: process.env.GOOGLE_SITE_VERIFICATION
+      ? { google: process.env.GOOGLE_SITE_VERIFICATION }
+      : undefined,
     title: {
       default: SITE_CONFIG.name,
       template: `%s · ${SITE_CONFIG.name}`,
@@ -39,9 +45,9 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [
         {
           url: socialImage,
-          width: 1734,
-          height: 907,
-          alt: "Savage Library — The adventurer's digital archive",
+          width: 1200,
+          height: 630,
+          alt: "Savage Library — D&D Content & Foundry Modules",
         },
       ],
     },
@@ -82,27 +88,30 @@ export default async function RootLayout({
         />
         <main id="main-content">{children}</main>
         <SiteFooter />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: jsonLd({
+              "@context": "https://schema.org",
+              "@graph": [
+                {
+                  "@type": "Organization",
+                  "@id": canonicalUrl("/#organization"),
+                  name: SITE_CONFIG.name,
+                  url: canonicalUrl("/"),
+                  logo: canonicalUrl("/savage-library-logo.svg"),
+                },
+                {
+                  "@type": "WebSite",
+                  name: SITE_CONFIG.name,
+                  url: canonicalUrl("/"),
+                  publisher: { "@id": canonicalUrl("/#organization") },
+                },
+              ],
+            }),
+          }}
+        />
       </body>
     </html>
   );
-}
-
-async function requestOrigin(): Promise<string> {
-  const requestHeaders = await headers();
-  const forwardedHost =
-    requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const host =
-    forwardedHost && /^[a-z0-9.-]+(?::\d+)?$/i.test(forwardedHost)
-      ? forwardedHost
-      : null;
-  const forwardedProtocol = requestHeaders.get("x-forwarded-proto");
-  const protocol =
-    forwardedProtocol === "https" || forwardedProtocol === "http"
-      ? forwardedProtocol
-      : host?.startsWith("localhost")
-        ? "http"
-        : "https";
-  return host
-    ? `${protocol}://${host}`
-    : (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
 }

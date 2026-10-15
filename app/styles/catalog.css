@@ -514,7 +514,7 @@ h3 {
   letter-spacing: 0.075em;
 }
 
-.resource-card-heading h3 {
+.resource-card-heading :is(h2, h3) {
   font-size: 1.15rem;
   margin-top: 0.35rem;
 }
