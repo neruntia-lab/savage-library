@@ -33,7 +33,7 @@ export function DiscordLink({
       rel="noopener noreferrer"
       aria-label="Join Savage Library on Discord"
       aria-describedby={newTabDescriptionId}
-      title="Join Savage Library on Discord (opens in a new tab)"
+      title="Join Savage Library on Discord"
       onClick={onClick}
     >
       <DiscordIcon />

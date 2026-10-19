@@ -131,6 +131,7 @@ test("Discord links share an accessible icon and safe external destination", asy
     assert.match(link, /target="_blank"/);
     assert.match(link, /rel="noopener noreferrer"/);
     assert.match(link, /aria-label="Join Savage Library on Discord"/);
+    assert.match(link, /title="Join Savage Library on Discord"/);
     assert.match(link, /aria-describedby="[^"]+"/);
     assert.match(link, /class="sr-only">Opens in a new tab\.<\/span>/);
     assert.match(link, /<svg[^>]*aria-hidden="true"/);
