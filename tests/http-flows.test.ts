@@ -125,8 +125,23 @@ test("paused Patreon member connections hide controls and reject linking before 
 
 test("Discord links share an accessible icon and safe external destination", async () => {
   const html = await get("/");
-  const links = [...html.matchAll(/<a\b[^>]*href="https:\/\/discord\.gg\/ytMTCqp9Cf"[^>]*>[\s\S]*?<\/a>/g)].map(match => match[0]);
+  const links = [
+    ...html.matchAll(
+      /<a\b[^>]*href="https:\/\/discord\.gg\/ytMTCqp9Cf"[^>]*>[\s\S]*?<\/a>/g,
+    ),
+  ].map((match) => match[0]);
   assert.equal(links.length, 3, "desktop header, mobile menu, and footer");
+  const footer =
+    html.match(/<footer class="site-footer">[\s\S]*?<\/footer>/)?.[0] ?? "";
+  assert.equal(
+    (footer.match(/href="https:\/\/discord\.gg\/ytMTCqp9Cf"/g) ?? []).length,
+    1,
+  );
+  assert.match(footer, /class="footer-meta"><a class="discord-link"/);
+  assert.doesNotMatch(
+    footer,
+    /Only authorized resources enter the archive\.|footer-brand-row/,
+  );
   for (const link of links) {
     assert.match(link, /target="_blank"/);
     assert.match(link, /rel="noopener noreferrer"/);
@@ -190,10 +205,19 @@ test("explicit server opt-in restores Patreon member controls and provider", asy
     assert.match(account, /Connect Patreon/);
     const home = await fetch(enabledOrigin).then((response) => response.text());
     assert.match(home, /Connect Patreon/);
-    const connect = await fetch(`${enabledOrigin}/api/account/connect-patreon?returnTo=%2Fresources%2Fsavage-craft`, { redirect: "manual" });
+    const connect = await fetch(
+      `${enabledOrigin}/api/account/connect-patreon?returnTo=%2Fresources%2Fsavage-craft`,
+      { redirect: "manual" },
+    );
     assert.equal(connect.status, 307);
-    assert.equal(new URL(connect.headers.get("location")!).pathname, "/account");
-    assert.equal(new URL(connect.headers.get("location")!).searchParams.get("returnTo"), "/resources/savage-craft");
+    assert.equal(
+      new URL(connect.headers.get("location")!).pathname,
+      "/account",
+    );
+    assert.equal(
+      new URL(connect.headers.get("location")!).searchParams.get("returnTo"),
+      "/resources/savage-craft",
+    );
     assert.doesNotMatch(
       account,
       /New Patreon connections are temporarily unavailable/,
@@ -384,9 +408,14 @@ test("canonical metadata and AI discovery exclude private destinations", async (
     assert.match(html, /rel="canonical"/);
     assert.match(html, /property="og:url"/);
     assert.equal((html.match(/<h1(?:\s[^>]*)?>/g) ?? []).length, 1);
-    const scripts = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+    const scripts = [
+      ...html.matchAll(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/g,
+      ),
+    ];
     assert.ok(scripts.length > 0);
-    for (const script of scripts) assert.doesNotThrow(() => JSON.parse(script[1]));
+    for (const script of scripts)
+      assert.doesNotThrow(() => JSON.parse(script[1]));
   }
   const llms = await get("/llms.txt");
   assert.match(llms, /# Savage Library/);
@@ -406,7 +435,10 @@ test("category and discovery metadata routes are available", async () => {
 
   const robots = await get("/robots.txt");
   assert.match(robots, /Disallow: \//);
-  assert.match(robots, /Sitemap: https:\/\/savage-library.vercel.app\/sitemap.xml/);
+  assert.match(
+    robots,
+    /Sitemap: https:\/\/savage-library.vercel.app\/sitemap.xml/,
+  );
 
   const removedNews = await fetch(`${origin}/news`, {});
   assert.equal(removedNews.status, 404);

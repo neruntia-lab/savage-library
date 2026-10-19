@@ -30,15 +30,3 @@
 .discord-link--label {
   justify-content: flex-start;
 }
-
-.footer-brand-row {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.footer-brand-row > .brand {
-  min-width: 0;
-  max-width: 100%;
-}
