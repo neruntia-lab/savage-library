@@ -1,6 +1,7 @@
 import { pageMetadata } from "../../lib/seo";
 import type { Metadata } from "next";
 import { PrivacyContent } from "../../components/legal/PrivacyContent";
+import { PRIVACY_EFFECTIVE_DATE } from "../../lib/config/legal";
 
 export const metadata: Metadata = pageMetadata(
   "Privacy policy",
@@ -15,7 +16,7 @@ export default function PrivacyPage() {
         <header className="page-heading">
           <p className="eyebrow">Account and membership data</p>
           <h1>Privacy policy</h1>
-          <p>Effective August 11, 2026</p>
+          <p>Effective {PRIVACY_EFFECTIVE_DATE}</p>
         </header>
         <PrivacyContent />
       </div>

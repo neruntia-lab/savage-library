@@ -7,6 +7,8 @@ import { getAuthorizedUser } from "../lib/services/auth";
 import { hasLinkedPatreonAccount } from "../lib/services/linked-patreon";
 import { patreonMemberConnectionsEnabled } from "../lib/config/patreon-members";
 import "./globals.css";
+import { PublicAnalytics } from "../components/analytics/PublicAnalytics";
+import { analyticsEnabled } from "../lib/analytics";
 
 export async function generateMetadata(): Promise<Metadata> {
   const origin = canonicalUrl("/");
@@ -88,6 +90,7 @@ export default async function RootLayout({
         />
         <main id="main-content">{children}</main>
         <SiteFooter />
+        {analyticsEnabled(process.env.VERCEL_ENV) ? <PublicAnalytics /> : null}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

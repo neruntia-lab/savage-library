@@ -49,11 +49,11 @@ export function PrivacyContent({ nested = false }: { nested?: boolean } = {}) {
 
       <Heading>Service providers</Heading>
       <p>
-        Savage Library relies on Vercel for application and file hosting, Neon
-        for database hosting, Patreon for membership verification, Auth.js for
-        authentication workflows, and the configured email provider for magic
-        links. These providers process information only as needed to supply
-        their services and under their own applicable terms.
+        Savage Library relies on Vercel for application and file hosting and web
+        analytics, Neon for database hosting, Patreon for membership
+        verification, Auth.js for authentication workflows, and the configured
+        email provider for magic links. These providers process information only
+        as needed to supply their services and under their own applicable terms.
       </p>
 
       <Heading>Cookies and sign-in links</Heading>
@@ -70,6 +70,35 @@ export function PrivacyContent({ nested = false }: { nested?: boolean } = {}) {
       <p>
         Email sign-in links use one-time verification tokens that expire after
         15 minutes.
+      </p>
+
+      <Heading>Web analytics</Heading>
+      <p>
+        We use Vercel Web Analytics on production public pages to understand
+        visitor totals and page views and improve the website. Vercel processes
+        page paths, visit timestamps, referring websites, approximate location,
+        and device, browser, and operating-system information for aggregate
+        traffic reports. This measurement does not use analytics cookies.
+      </p>
+      <p>
+        Vercel distinguishes visitors using a hash derived from incoming
+        requests and states that visitor sessions are discarded after 24 hours.
+        This is not a promise that aggregate reports are deleted after 24 hours;
+        analytics-record retention depends on Vercel&apos;s project plan and
+        policies.
+      </p>
+      <p>
+        We exclude private account, authentication, administration, API, and
+        draft-preview pages and remove query strings and fragments before
+        sending page URLs. We do not attach names, emails, account identifiers,
+        membership tiers, or protected download destinations to analytics
+        events. These traffic measurements are separate from essential sign-in
+        cookies and operational download records; page views do not confirm
+        completed file downloads. See{" "}
+        <a href="https://vercel.com/docs/analytics/privacy-policy">
+          Vercel&apos;s Web Analytics privacy information
+        </a>{" "}
+        for details.
       </p>
 
       <Heading>Retention and security</Heading>

@@ -2,6 +2,10 @@ import { pageMetadata } from "../../lib/seo";
 import type { Metadata } from "next";
 import { TermsContent } from "../../components/legal/TermsContent";
 import { PrivacyContent } from "../../components/legal/PrivacyContent";
+import {
+  PRIVACY_EFFECTIVE_DATE,
+  TERMS_EFFECTIVE_DATE,
+} from "../../lib/config/legal";
 
 export const metadata: Metadata = pageMetadata(
   "Terms & Privacy",
@@ -15,7 +19,6 @@ export default function LegalPage() {
         <header className="page-heading">
           <p className="eyebrow">Library policies</p>
           <h1>Terms & Privacy</h1>
-          <p>Effective August 11, 2026</p>
         </header>
         <nav className="wiki-language-tabs" aria-label="Legal sections">
           <a href="#terms">Terms & Conditions</a>
@@ -27,6 +30,7 @@ export default function LegalPage() {
           aria-labelledby="terms-title"
         >
           <h2 id="terms-title">Terms & Conditions</h2>
+          <p>Effective {TERMS_EFFECTIVE_DATE}</p>
           <TermsContent nested />
         </section>
         <section
@@ -35,6 +39,7 @@ export default function LegalPage() {
           aria-labelledby="privacy-title"
         >
           <h2 id="privacy-title">Privacy policy</h2>
+          <p>Effective {PRIVACY_EFFECTIVE_DATE}</p>
           <PrivacyContent nested />
         </section>
       </div>

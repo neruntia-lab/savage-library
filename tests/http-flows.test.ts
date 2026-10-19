@@ -503,6 +503,20 @@ test("content wizard APIs require administrator authentication", async () => {
   assert.equal(resume.status, 401);
 });
 
+test("privacy analytics disclosures and dates stay consistent without changing Terms", async () => {
+  for (const path of ["/legal", "/privacy"]) {
+    const html = await get(path);
+    assert.match(html, /October 19, 2026/);
+    assert.match(html, /Web analytics/);
+    assert.match(html, /Vercel Web Analytics/);
+    assert.match(html, /do not use advertising or analytics cookies/);
+    assert.match(html, /https:\/\/vercel.com\/docs\/analytics\/privacy-policy/);
+  }
+  const terms = await get("/terms");
+  assert.match(terms, /August 11, 2026/);
+  assert.doesNotMatch(terms, /October 19, 2026/);
+});
+
 test("legal disclosures are publicly available", async () => {
   const legal = await get("/legal");
   assert.match(legal, /id="terms"/);
