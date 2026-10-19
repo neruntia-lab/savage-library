@@ -7,6 +7,7 @@ import { ROUTES, PUBLIC_NAVIGATION } from "../../lib/config/site";
 import { usePathname } from "next/navigation";
 import { patreonConnectUrl } from "../../lib/config/member-navigation";
 import { DiscordLink } from "../ui/DiscordLink";
+import { PatreonLink } from "../ui/PatreonLink";
 
 export function SiteHeader({
   patreonEnabled = false,
@@ -108,6 +109,7 @@ export function SiteHeader({
               </a>
             ) : null}
             <DiscordLink />
+            <PatreonLink />
           </nav>
           <button
             ref={menuButtonRef}
@@ -158,6 +160,7 @@ export function SiteHeader({
           </a>
         ) : null}
         <DiscordLink showLabel onClick={() => closeMenu()} />
+        <PatreonLink showLabel onClick={() => closeMenu()} />
       </nav>
     </>
   );

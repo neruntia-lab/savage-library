@@ -137,7 +137,10 @@ test("Discord links share an accessible icon and safe external destination", asy
     (footer.match(/href="https:\/\/discord\.gg\/ytMTCqp9Cf"/g) ?? []).length,
     1,
   );
-  assert.match(footer, /class="footer-meta"><a class="discord-link"/);
+  assert.match(
+    footer,
+    /class="footer-meta footer-social-links"><a class="social-link discord-link"/,
+  );
   assert.doesNotMatch(
     footer,
     /Only authorized resources enter the archive\.|footer-brand-row/,
@@ -153,6 +156,31 @@ test("Discord links share an accessible icon and safe external destination", asy
   }
   assert.match(links[1], /<span>Discord<\/span>/);
   assert.doesNotMatch(links[0] + links[2], /<span>Discord<\/span>/);
+});
+
+test("Patreon social links point to the creator page beside Discord without replacing account connections", async () => {
+  const html = await get("/");
+  const links = [
+    ...html.matchAll(
+      /<a\b[^>]*href="https:\/\/www\.patreon\.com\/cw\/SavageLibrary"[^>]*>[\s\S]*?<\/a>/g,
+    ),
+  ].map((match) => match[0]);
+  assert.equal(links.length, 3);
+  for (const link of links) {
+    assert.match(link, /aria-label="Support Savage Library on Patreon"/);
+    assert.match(link, /target="_blank"/);
+    assert.match(link, /rel="noopener noreferrer"/);
+    assert.match(link, /title="Support Savage Library on Patreon"/);
+    assert.match(link, /<svg[^>]*aria-hidden="true"/);
+  }
+  assert.match(links[1], /<span>Patreon<\/span>/);
+  const footer =
+    html.match(/<footer class="site-footer">[\s\S]*?<\/footer>/)?.[0] ?? "";
+  assert.equal(
+    (footer.match(/class="social-link patreon-link"/g) ?? []).length,
+    1,
+  );
+  assert.match(footer, /discord-link[\s\S]*patreon-link/);
 });
 
 test("explicit server opt-in restores Patreon member controls and provider", async () => {

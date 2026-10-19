@@ -1,4 +1,4 @@
-.discord-link {
+.social-link {
   align-items: center;
   border: 1px solid transparent;
   border-radius: 3px;
@@ -12,21 +12,34 @@
   padding: 0.6rem;
 }
 
-.discord-link svg {
+.social-link svg {
   display: block;
   flex: 0 0 24px;
 }
 
-.discord-link:hover {
+.social-link:hover {
   background: var(--color-surface-raised);
   color: var(--color-gold-bright);
 }
 
-.discord-link:focus-visible {
+.social-link:focus-visible {
   outline: 2px solid var(--color-gold-bright);
   outline-offset: 4px;
 }
 
-.discord-link--label {
+.social-link--label {
   justify-content: flex-start;
+}
+
+.footer-social-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+@media (max-width: 960px) {
+  .footer-social-links {
+    justify-content: flex-start;
+  }
 }

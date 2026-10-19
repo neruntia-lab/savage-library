@@ -1,4 +1,5 @@
-import { useId, type MouseEventHandler } from "react";
+import type { MouseEventHandler } from "react";
+import { SocialLink } from "./SocialLink";
 
 export const DISCORD_INVITE_URL = "https://discord.gg/ytMTCqp9Cf";
 
@@ -24,21 +25,14 @@ export function DiscordLink({
   showLabel?: boolean;
   onClick?: MouseEventHandler<HTMLAnchorElement>;
 }) {
-  const newTabDescriptionId = useId();
   return (
-    <a
-      className={`discord-link${showLabel ? " discord-link--label" : ""}`}
+    <SocialLink
       href={DISCORD_INVITE_URL}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="Join Savage Library on Discord"
-      aria-describedby={newTabDescriptionId}
-      title="Join Savage Library on Discord"
+      label="Join Savage Library on Discord"
+      name="Discord"
+      icon={<DiscordIcon />}
+      showLabel={showLabel}
       onClick={onClick}
-    >
-      <DiscordIcon />
-      {showLabel ? <span>Discord</span> : null}
-      <span id={newTabDescriptionId} className="sr-only">Opens in a new tab.</span>
-    </a>
+    />
   );
 }

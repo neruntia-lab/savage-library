@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PUBLIC_NAVIGATION, ROUTES, SITE_CONFIG } from "../../lib/config/site";
 import { DiscordLink } from "../ui/DiscordLink";
+import { PatreonLink } from "../ui/PatreonLink";
 
 export function SiteFooter() {
   return (
@@ -31,8 +32,9 @@ export function SiteFooter() {
             </Link>
           ))}
         </nav>
-        <div className="footer-meta">
+        <div className="footer-meta footer-social-links">
           <DiscordLink />
+          <PatreonLink />
         </div>
       </div>
     </footer>
