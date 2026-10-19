@@ -123,6 +123,22 @@ test("paused Patreon member connections hide controls and reject linking before 
   }
 });
 
+test("Discord links share an accessible icon and safe external destination", async () => {
+  const html = await get("/");
+  const links = [...html.matchAll(/<a\b[^>]*href="https:\/\/discord\.gg\/ytMTCqp9Cf"[^>]*>[\s\S]*?<\/a>/g)].map(match => match[0]);
+  assert.equal(links.length, 3, "desktop header, mobile menu, and footer");
+  for (const link of links) {
+    assert.match(link, /target="_blank"/);
+    assert.match(link, /rel="noopener noreferrer"/);
+    assert.match(link, /aria-label="Join Savage Library on Discord"/);
+    assert.match(link, /aria-describedby="[^"]+"/);
+    assert.match(link, /class="sr-only">Opens in a new tab\.<\/span>/);
+    assert.match(link, /<svg[^>]*aria-hidden="true"/);
+  }
+  assert.match(links[1], /<span>Discord<\/span>/);
+  assert.doesNotMatch(links[0] + links[2], /<span>Discord<\/span>/);
+});
+
 test("explicit server opt-in restores Patreon member controls and provider", async () => {
   const enabledOrigin = `http://localhost:${port + 2000}`;
   const enabledEnvironment = { ...process.env };

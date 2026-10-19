@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ROUTES, PUBLIC_NAVIGATION } from "../../lib/config/site";
 import { usePathname } from "next/navigation";
 import { patreonConnectUrl } from "../../lib/config/member-navigation";
+import { DiscordLink } from "../ui/DiscordLink";
 
 export function SiteHeader({
   patreonEnabled = false,
@@ -106,6 +107,7 @@ export function SiteHeader({
                 {memberLabel}
               </a>
             ) : null}
+            <DiscordLink />
           </nav>
           <button
             ref={menuButtonRef}
@@ -155,6 +157,7 @@ export function SiteHeader({
             {memberLabel}
           </a>
         ) : null}
+        <DiscordLink showLabel onClick={() => closeMenu()} />
       </nav>
     </>
   );

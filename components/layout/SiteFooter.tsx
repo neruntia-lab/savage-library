@@ -1,26 +1,30 @@
 import Link from "next/link";
 import Image from "next/image";
 import { PUBLIC_NAVIGATION, ROUTES, SITE_CONFIG } from "../../lib/config/site";
+import { DiscordLink } from "../ui/DiscordLink";
 
 export function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="container footer-grid">
         <div>
-          <Link className="brand" href={ROUTES.home}>
-            <span className="brand-mark">
-              <Image
-                src="/savage-library-logo.svg"
-                alt=""
-                width={30}
-                height={41}
-              />
-            </span>
-            <span className="brand-copy">
-              <strong>{SITE_CONFIG.name}</strong>
-              <small>D&amp;D Content &amp; Foundry Modules</small>
-            </span>
-          </Link>
+          <div className="footer-brand-row">
+            <Link className="brand" href={ROUTES.home}>
+              <span className="brand-mark">
+                <Image
+                  src="/savage-library-logo.svg"
+                  alt=""
+                  width={30}
+                  height={41}
+                />
+              </span>
+              <span className="brand-copy">
+                <strong>{SITE_CONFIG.name}</strong>
+                <small>D&amp;D Content &amp; Foundry Modules</small>
+              </span>
+            </Link>
+            <DiscordLink />
+          </div>
           <p>{SITE_CONFIG.tagline}</p>
         </div>
         <nav aria-label="Footer navigation">
