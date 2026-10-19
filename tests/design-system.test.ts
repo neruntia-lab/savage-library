@@ -3,6 +3,14 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import postcss from "postcss";
 
+test("legal subheadings receive scoped breathing room", () => {
+  const css = readFileSync(new URL("../app/styles/responsive.css", import.meta.url), "utf8");
+  const root = postcss.parse(css);
+  const rule = root.nodes.find((node) => node.type === "rule" && node.selector === ".legal-content :is(h2, h3)");
+  assert.ok(rule && rule.type === "rule");
+  assert.ok(rule.nodes.some((node) => node.type === "decl" && node.prop === "margin" && node.value === "2rem 0 0.65rem"));
+});
+
 test("corner artwork stays proportionate and mirrored at every panel corner", () => {
   const svg = readFileSync(
     new URL("../public/ornament-corners.svg", import.meta.url),

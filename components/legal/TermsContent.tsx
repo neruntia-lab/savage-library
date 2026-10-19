@@ -5,67 +5,55 @@ export function TermsContent({ nested = false }: { nested?: boolean } = {}) {
   return (
     <div className="legal-content">
       <p>
-        These terms govern access to Savage Library, including its catalog,
-        Foundry VTT packages, documents, macros, and member-only downloads. By
-        using the service, you agree to these terms.
+        By using Savage Library and its resources, you agree to these terms.
       </p>
 
       <Heading>Accounts and access</Heading>
       <p>
-        You are responsible for activity under your session and for protecting
-        sign-in links and connected accounts. Patreon access depends on the
-        tiers currently reported by Patreon. Complimentary access may expire or
-        be revoked according to the grant issued by an administrator.
+        Protect your sign-in links and connected accounts. You are responsible
+        for your account activity. Patreon tiers determine member access;
+        complimentary grants may expire or be revoked.
       </p>
 
       <Heading>Licenses and permitted use</Heading>
       <p>
-        Each resource remains subject to the license and attribution displayed
-        on its catalog page or included in its files. Access to a download is
-        not a transfer of copyright. Unless the resource license expressly
-        permits it, you may not redistribute, resell, publicly mirror, remove
-        attribution from, or share restricted download destinations or access
-        credentials.
+        Follow each resource&apos;s license and attribution requirements.
+        Downloads do not transfer copyright. Unless permitted by that license,
+        do not redistribute, resell, mirror, remove attribution, or share
+        restricted links or credentials.
       </p>
 
       <Heading>Membership and availability</Heading>
       <p>
-        Member-only access is available only while a qualifying Patreon
-        entitlement or active complimentary grant can be verified. Cancellation,
-        tier changes, expiration, account-linking failures, or provider outages
-        may change availability. Patreon manages subscriptions, charges,
-        refunds, and billing disputes under Patreon&apos;s own terms.
+        Protected access requires a verified qualifying membership or grant.
+        Cancellation, tier changes, expiry, or verification outages may affect
+        access. Patreon handles subscriptions, charges, refunds, and billing disputes.
       </p>
 
       <Heading>Acceptable use</Heading>
       <p>
-        Do not attempt to bypass access checks, probe private file destinations,
-        interfere with the service, automate abusive traffic, upload malicious
-        material, impersonate another person, or use the service in violation of
-        law or third-party rights.
+        Do not bypass security, probe private files, disrupt the service, send
+        abusive traffic, upload malware, impersonate others, or violate laws or
+        third-party rights.
       </p>
 
       <Heading>Service changes and termination</Heading>
       <p>
-        Resources, compatibility information, and service features may change.
-        Access may be suspended or terminated for abuse, unauthorized
-        redistribution, security risks, or violations of these terms. Reasonable
-        efforts are made to preserve published releases, but uninterrupted or
-        permanent availability is not guaranteed.
+        Content and features may change. Abuse, unauthorized redistribution,
+        security risks, or violations may result in suspension or termination.
+        We aim to preserve releases but cannot guarantee permanent availability.
       </p>
 
       <Heading>Disclaimers</Heading>
       <p>
-        The service and resources are provided on an “as available” basis to the
-        extent permitted by law. Compatibility labels are informational and may
-        not cover every Foundry VTT, game-system, or module combination. Foundry
-        Virtual Tabletop and Patreon are third-party services; Savage Library is
-        not responsible for their availability or policies.
+        Resources are provided “as available,” as permitted by law. Compatibility
+        is not guaranteed for every setup. Foundry VTT and Patreon control their
+        own services and policies.
       </p>
 
       <Heading>Contact</Heading>
       <p>
-        Questions about these terms may be sent to{" "}
+        Questions? Contact{" "}
         <a href={`mailto:${SITE_CONFIG.supportEmail}`}>
           {SITE_CONFIG.supportEmail}
         </a>
